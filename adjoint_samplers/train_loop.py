@@ -39,7 +39,10 @@ def train_one_epoch(
         timesteps = train_utils.get_timesteps(**cfg.timesteps).to(device)
         matcher.populate_buffer(x0, timesteps, is_asbs_init_stage)
 
-    dataloader = matcher.build_dataloader(cfg.train_batch_size)
+    dataloader = matcher.build_dataloader(
+        cfg.train_batch_size,
+        device=device if cfg.get("buffer_on_device", False) else None,
+    )
     epoch_loss = MeanMetric().to(device, non_blocking=True)
 
     loader = iter(cycle(dataloader))

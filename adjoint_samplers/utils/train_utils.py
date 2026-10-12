@@ -182,10 +182,16 @@ def load(
 class Writer:
     def __init__(self, name: str, cfg: DictConfig, is_main_process: bool):
         if cfg.use_wandb and is_main_process:
+            tags = None
+            if "K" in cfg:  # GMM experiments: make K and seed visible in the name
+                method = "asbs" if "corrector" in cfg else "as"
+                name = f"{name}_K{cfg.K}_s{cfg.seed}"  # e.g. gmm165d_as_K2_s0
+                tags = [f"K{cfg.K}", f"dim{cfg.dim}", method]
             self.writer = wandb.init(
                 mode=os.environ.get('WANDB_MODE', 'online'),
                 project=cfg.project,
                 name=name,
+                tags=tags,
                 config=dict(cfg),
             )
         else:

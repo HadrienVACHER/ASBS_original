@@ -336,6 +336,83 @@ class ControlledSDE(BaseSDE):
         return self.ref_sde.drift(t, x) + (self.diff(t)**2) * self.u(t, x)
 
 
+def _euler_maruyama(
+    sde: BaseSDE,
+    state0: torch.Tensor,
+    timesteps: torch.Tensor,
+) -> torch.Tensor:
+    """ Euler-Maruyama simulation that only returns the final state
+    """
+    state = state0.clone()
+    for i in range(len(timesteps) - 1):
+        t = timesteps[i]
+        dt = timesteps[i + 1] - t
+
+        drift = sde.drift(t, state) * dt
+        diffusion = sde.diff(t) * dt.sqrt() * sde.randn_like(state)
+
+        state = sde.propagate(state, drift + diffusion)
+    return state
+
+
+class _BoundaryGraph:
+    """ The whole `len(timesteps) - 1` step simulation recorded as one CUDA graph.
+        The model parameters are read in place at every replay, so weight updates
+        by the optimizer (and checkpoint loading) are picked up automatically.
+    """
+    def __init__(self, sde: BaseSDE, state0: torch.Tensor, timesteps: torch.Tensor):
+        self.sde = sde # keep alive, the cache key uses its id
+        self.static_x0 = state0.clone()
+        self.timesteps = timesteps.clone()
+
+        # warm up on a side stream before capture
+        stream = torch.cuda.Stream()
+        stream.wait_stream(torch.cuda.current_stream())
+        with torch.cuda.stream(stream):
+            for _ in range(3):
+                _euler_maruyama(sde, self.static_x0, self.timesteps)
+        torch.cuda.current_stream().wait_stream(stream)
+
+        self.graph = torch.cuda.CUDAGraph()
+        with torch.cuda.graph(self.graph):
+            self.static_x1 = _euler_maruyama(sde, self.static_x0, self.timesteps)
+
+    def __call__(self, x0: torch.Tensor) -> torch.Tensor:
+        self.static_x0.copy_(x0)
+        self.graph.replay()
+        return self.static_x1.clone()
+
+
+_CUDA_GRAPH_SAMPLING = False
+_BOUNDARY_GRAPHS: dict = {}
+
+
+def enable_cuda_graph_sampling(enabled: bool = True) -> None:
+    """ Make `sdeint(..., only_boundary=True)` replay a CUDA graph on CUDA tensors.
+        One graph is captured per (sde, batch shape, timesteps).
+    """
+    global _CUDA_GRAPH_SAMPLING
+    _CUDA_GRAPH_SAMPLING = enabled
+    if not enabled:
+        _BOUNDARY_GRAPHS.clear()
+
+
+def _graph_capturable(sde: BaseSDE) -> bool:
+    """ A step must run entirely on the GPU without host sync to be captured.
+        True for VE/VP reference SDEs. Not for the particle SDEs (Graph*, noise
+        drawn on CPU) nor BrownianMotionSDE (`full_like` with a tensor syncs).
+    """
+    ref = sde.ref_sde if isinstance(sde, ControlledSDE) else sde
+    return type(ref) in (VESDE, VPSDE)
+
+
+def _graphed_boundary(sde, state0, timesteps) -> torch.Tensor:
+    key = (id(sde), tuple(state0.shape), state0.dtype, tuple(timesteps.tolist()))
+    if key not in _BOUNDARY_GRAPHS:
+        _BOUNDARY_GRAPHS[key] = _BoundaryGraph(sde, state0, timesteps)
+    return _BOUNDARY_GRAPHS[key](state0)
+
+
 @torch.no_grad()
 def sdeint(
     sde: BaseSDE,
@@ -348,6 +425,9 @@ def sdeint(
     assert len(timesteps) > 1
 
     sde.train(False)
+
+    if only_boundary and _CUDA_GRAPH_SAMPLING and state0.is_cuda and _graph_capturable(sde):
+        return state0, _graphed_boundary(sde, state0, timesteps)
 
     state = state0.clone()
 

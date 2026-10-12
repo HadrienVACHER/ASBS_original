@@ -64,3 +64,26 @@ class BufferDataset(torch.utils.data.Dataset):
 
     def __len__(self):
         return self.len * self.duplicates
+
+
+class DeviceBatchLoader:
+    """ Same batches as `DataLoader(BufferDataset, shuffle=True)` (one pass over
+        `len * duplicates` shuffled indices, last batch may be smaller),
+        but the data lives on `device` and a batch is a single indexing op
+        instead of `batch_size` python-level `__getitem__` calls + collate.
+    """
+    def __init__(self, dataset: BufferDataset, batch_size: int, device):
+        self.data = {k: v.to(device) for k, v in dataset.total_data.items()}
+        self.len = dataset.len
+        self.n = len(dataset)
+        self.batch_size = batch_size
+        self.device = device
+
+    def __len__(self):
+        return -(-self.n // self.batch_size)
+
+    def __iter__(self):
+        perm = torch.randperm(self.n, device=self.device)
+        for i in range(0, self.n, self.batch_size):
+            idx = perm[i:i + self.batch_size] % self.len
+            yield {k: v[idx] for k, v in self.data.items()}

@@ -11,7 +11,7 @@ from pathlib import Path
 import torch
 import torch.backends.cudnn as cudnn
 
-from adjoint_samplers.components.sde import ControlledSDE, sdeint
+from adjoint_samplers.components.sde import ControlledSDE, sdeint, enable_cuda_graph_sampling
 from adjoint_samplers.train_loop import train_one_epoch
 import adjoint_samplers.utils.train_utils as train_utils
 import adjoint_samplers.utils.distributed_mode as distributed_mode
@@ -36,6 +36,14 @@ def main(cfg):
         print(str(cfg))
 
         device = cfg.get("device") or ("cuda" if torch.cuda.is_available() else "cpu")
+
+        # always set (and so reset any state left by a previous job in this process)
+        fast_sampling = cfg.get("fast_sampling", False) and device.startswith("cuda")
+        enable_cuda_graph_sampling(fast_sampling)
+        if fast_sampling:
+            print("Sampling with CUDA graphs.")
+        elif cfg.get("fast_sampling", False):
+            print("fast_sampling needs CUDA; ignored.")
 
         # fix the seed for reproducibility
         seed = cfg.seed + distributed_mode.get_rank()

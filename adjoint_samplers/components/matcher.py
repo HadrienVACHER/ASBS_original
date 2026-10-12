@@ -4,7 +4,7 @@ import torch
 from torch.func import grad
 from torch.utils.data import DataLoader
 
-from adjoint_samplers.components.buffer import BatchBuffer
+from adjoint_samplers.components.buffer import BatchBuffer, DeviceBatchLoader
 from adjoint_samplers.components.sde import BaseSDE, sdeint
 from adjoint_samplers.components.state_cost import GradStateCost, ZeroGradStateCost
 from adjoint_samplers.components.term_cost import GradEnergy
@@ -26,8 +26,10 @@ class Matcher:
         self.duplicates = duplicates
         self.loss_scale = loss_scale
 
-    def build_dataloader(self, batch_size, collate_fn=None) -> DataLoader:
+    def build_dataloader(self, batch_size, collate_fn=None, device=None):
         dataset = self.buffer.build_dataset(self.duplicates)
+        if device is not None:
+            return DeviceBatchLoader(dataset, batch_size, device)
         return DataLoader(
             dataset,
             batch_size=batch_size,

@@ -24,3 +24,6 @@ resample_batch_size: 512
 train_batch_size: 512
 eval_batch_size: 2000
 num_eval_samples: ${eval_batch_size}
+# speed (CUDA only, off by default)
+fast_sampling: false # replay the SDE simulation as one CUDA graph
+buffer_on_device: false # index training batches on the GPU instead of through a DataLoader
