@@ -1,0 +1,45 @@
+# @package _global_
+
+# Adjoint Sampling (memoryless): ASBS without corrector, from a delta source.
+
+defaults:
+  - /problem: gmm
+  - /source: delta
+  - /sde@ref_sde: ve
+  - /model@controller: fouriermlp
+  - /state_cost: zero
+  - /term_cost: score_term_cost
+  - /matcher@adjoint_matcher: adjoint_ve
+
+exp_name: gmm${dim}d_as
+
+
+# === sde ===
+nfe: 200
+sigma_max: ${K}
+sigma_min: 0.001
+rescale_t: null # quad, cosine
+
+
+# === model ===
+controller:
+  channels: 128
+
+
+# === training ===
+num_epochs: 5000
+max_grad_E_norm: null
+
+adjoint_matcher:
+  buffer_size: 10000
+  duplicates: 10
+  resample_size: 1000
+  num_epochs_per_stage: ${num_epochs} # Ensure always adjoint matching
+  optim:
+    lr: 1e-4
+    weight_decay: 0
+
+
+# === eval & logging ===
+use_wandb: true
+eval_freq: 50

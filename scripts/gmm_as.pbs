@@ -1,5 +1,5 @@
 #!/bin/bash
-#PBS -N gmm_asbs_grp
+#PBS -N gmm_as_grp
 #PBS -P gs_ccds_haidang.dau
 #PBS -q gpu_as
 #PBS -l walltime=18:00:00
@@ -8,8 +8,9 @@
 
 DIMS=(3) # (2 3)
 SEEDS=(0) # (0 1)
-NPROC=$(( ${#DIMS[@]} * ${#SEEDS[@]} ))
-K=(2) # (10 20)
+KS=(2) # (10 20)
+NPROC=$(( ${#DIMS[@]} * ${#SEEDS[@]} * ${#KS[@]} ))
+THREADS=$(( 12 / NPROC > 0 ? 12 / NPROC : 1 ))
 
 cd "${PBS_O_WORKDIR}" || exit 1
 mkdir -p logs
@@ -23,8 +24,8 @@ if echo "${CUDA_VISIBLE_DEVICES:-}" | grep -q "GPU-"; then
 fi
 
 # 12 CPU répartis entre les processus
-export OMP_NUM_THREADS=$((12 / NPROC))
-export MKL_NUM_THREADS=$((12 / NPROC))
+export OMP_NUM_THREADS=${THREADS}
+export MKL_NUM_THREADS=${THREADS}
 
 module purge
 module load anaconda/2025
@@ -35,17 +36,19 @@ echo "Nœud : $(hostname) à $(date)"
 nvidia-smi -L
 
 # Suivi de l'utilisation du GPU toutes les 30 s
-nvidia-smi --query-gpu=timestamp,utilization.gpu,memory.used --format=csv -l 30 > logs/gpu_usage.csv &
+nvidia-smi --query-gpu=timestamp,utilization.gpu,memory.used --format=csv -l 30 > logs/gpu_usage_as.csv &
 MON=$!
 
 pids=()
-for DIM in "${DIMS[@]}"; do
-  for SEED in "${SEEDS[@]}"; do
-    echo "Lancement GMM dim=${DIM} seed=${SEED}"
-    python train.py experiment=gmm_asbs dim=${DIM} seed=${SEED} K=${K}\
-        hydra.run.dir=results/gmm/dim${DIM}_seed${SEED} \
-        > logs/dim${DIM}_seed${SEED}.log 2>&1 &
-    pids+=($!)
+for K in "${KS[@]}"; do
+  for DIM in "${DIMS[@]}"; do
+    for SEED in "${SEEDS[@]}"; do
+      echo "Lancement GMM K=${K} dim=${DIM} seed=${SEED}"
+      python train.py experiment=gmm_as dim=${DIM} seed=${SEED} K=${K} \
+          hydra.run.dir=results/gmm_as/K${K}_dim${DIM}_seed${SEED} \
+          > logs/as_K${K}_dim${DIM}_seed${SEED}.log 2>&1 &
+      pids+=($!)
+    done
   done
 done
 
