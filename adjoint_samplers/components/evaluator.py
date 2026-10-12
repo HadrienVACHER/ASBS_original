@@ -121,3 +121,45 @@ class SyntheticEenergyEvaluator:
             "eq_w2": eq_w2,
             "dist_w2": dist_w2,
         }
+
+
+class GMMEvaluator:
+    """ Compare generated samples against exact samples of a GMM target
+    """
+    def __init__(self, energy) -> None:
+        from adjoint_samplers.energies.dist_energy import DistEnergy
+        from adjoint_samplers.utils.dist_utils import GMM
+        assert isinstance(energy, DistEnergy) and isinstance(energy.dist, GMM)
+        self.energy = energy
+        self.dist = energy.dist
+
+    def __call__(self, samples: torch.Tensor) -> Dict:
+        B, D = samples.shape
+        assert D == self.dist.dim
+
+        ref_samples = self.dist.sample([B,]).to(samples.device)
+
+        print("Computing energy W2...")
+        gen_energy = self.energy.eval(samples)
+        ref_energy = self.energy.eval(ref_samples)
+        energy_w2 = pot.emd2_1d(
+            ref_energy.cpu().numpy(), gen_energy.cpu().numpy()
+        )**0.5
+
+        print("Computing mode weights...")
+        K = self.dist.K
+        gen_weights = torch.bincount(self.dist.assign(samples), minlength=K) / B
+        mode_tv = 0.5 * (gen_weights - self.dist.weights).abs().sum().item()
+        modes_found = (gen_weights > 0).float().mean().item()
+
+        print("Computing sample W2...")
+        M = torch.cdist(samples.cpu().double(), ref_samples.cpu().double())
+        a = b = np.ones(B) / B
+        sample_w2 = pot.emd2(a, b, M.numpy()**2)**0.5
+
+        return {
+            "energy_w2": energy_w2,
+            "sample_w2": sample_w2,
+            "mode_tv": mode_tv,
+            "modes_found": modes_found,
+        }

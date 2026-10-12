@@ -1,0 +1,17 @@
+# @package _global_
+
+# Override `dim` to run other dimensions, e.g., `dim=3,8,16,39,80,165 -m`
+dim: 3
+K: 5 # number of modes; means are drawn from Uniform([-K, K]^dim)
+target_seed: 0 # seed of the target (means & weights), independent of `seed`
+
+energy:
+  _target_: adjoint_samplers.energies.dist_energy.DistEnergy
+  dist:
+    _target_: adjoint_samplers.utils.dist_utils.GMM
+    dim: ${dim}
+    K: ${K}
+    seed: ${target_seed}
+
+evaluator:
+  _target_: adjoint_samplers.components.evaluator.GMMEvaluator

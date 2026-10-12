@@ -40,6 +40,16 @@ Checkpoints and figures are saved under the folder `results`.
 python train.py experiment={dw4,lj13,lj55}_{asbs,as} seed=0,1,2 -m
 ```
 
+## Gaussian mixture in increasing dimension
+`gmm_asbs` samples a `K`-mode isotropic Gaussian mixture `p(x) = Σ_k π_k N(x | μ_k, I_d)`, with
+`μ_k ~ Uniform([-K, K]^d)` and `π_k ∝ U_k`, `U_k ~ Uniform(0.1, 0.9)`.
+The target is fixed by `target_seed` (not by `seed`) and the dimension `d` is set by `dim`:
+```
+python train.py experiment=gmm_asbs dim=3,8,16,39,80,165 seed=0,1,2 -m   # or: bash scripts/gmm.sh (SLURM)
+qsub scripts/gmm.pbs                                                   # PBS job array: dims x seeds
+```
+Metrics (energy W2, sample W2, mode-weight TV, fraction of modes found) are computed against exact target samples.
+If no GPU is available, training falls back to CPU (override with `device=...`).
 
 ## Citation
 If you find this repository helpful, please consider citing our paper:

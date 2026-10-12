@@ -1,0 +1,61 @@
+# @package _global_
+
+defaults:
+  - /problem: gmm
+  - /source: gauss
+  - /sde@ref_sde: ve
+  - /model@controller: fouriermlp
+  - /state_cost: zero
+  - /term_cost: corrector_term_cost
+  - /matcher@adjoint_matcher: adjoint_ve
+  - /model@corrector: fouriermlp
+  - /matcher@corrector_matcher: corrector
+
+exp_name: gmm${dim}d_asbs
+
+# === source ===
+scale: ${K}
+
+
+# === sde ===
+nfe: 200
+sigma_max: ${K}
+sigma_min: 0.001
+rescale_t: null # quad, cosine
+
+
+# === model ===
+controller:
+  channels: 128
+corrector:
+  channels: 128
+
+
+# === training ===
+num_epochs: 5000
+max_grad_E_norm: null
+adj_num_epochs_per_stage: 200
+ctr_num_epochs_per_stage: 20
+
+adjoint_matcher:
+  buffer_size: 10000
+  duplicates: 10
+  resample_size: 1000
+  num_epochs_per_stage: ${adj_num_epochs_per_stage}
+  optim:
+    lr: 1e-4
+    weight_decay: 0
+
+corrector_matcher:
+  buffer_size: 10000
+  duplicates: 10
+  resample_size: 1000
+  num_epochs_per_stage: ${ctr_num_epochs_per_stage}
+  optim:
+    lr: 1e-4
+    weight_decay: 0
+
+
+# === eval & logging ===
+use_wandb: true
+eval_freq: 50

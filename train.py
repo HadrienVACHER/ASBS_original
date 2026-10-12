@@ -35,7 +35,7 @@ def main(cfg):
         train_utils.setup(cfg)
         print(str(cfg))
 
-        device = "cuda"
+        device = cfg.get("device") or ("cuda" if torch.cuda.is_available() else "cpu")
 
         # fix the seed for reproducibility
         seed = cfg.seed + distributed_mode.get_rank()
@@ -208,6 +208,7 @@ def main(cfg):
                         eval_dict["hist_img"].save(eval_dir / "gen.png")
 
                     writer.log(eval_dict, step=epoch)
+                    print({k: v for k, v in eval_dict.items() if isinstance(v, float)})
 
                 print("Saving checkpoint ... ")
                 train_utils.save(

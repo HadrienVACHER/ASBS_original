@@ -42,6 +42,73 @@ class GMM1D(distributions.Distribution):
         self._initialize_distr(device)
         return self
 
+class GMM(distributions.Distribution):
+    """ Isotropic Gaussian mixture in `dim` dimensions with K modes
+
+        p(x) = Σ_k π_k N(x | μ_k, I_d)
+
+        μ_k ~ Uniform([-K, K]^d),  π_k = U_k / Σ_j U_j,  U_k ~ Uniform(0.1, 0.9)
+
+        The target is fully determined by `seed`, independently of the training seed.
+    """
+    def __init__(
+        self,
+        dim: int,
+        K: int = 5,
+        seed: int = 0,
+        device: str = "cpu",
+    ) -> None:
+        super().__init__()
+
+        self.dim = dim
+        self.K = K
+        self.seed = seed
+        self.name = f"gmm{dim}d"
+
+        g = torch.Generator().manual_seed(seed)
+        self.means = (2 * torch.rand(K, dim, generator=g) - 1) * K # (K, d)
+        U = 0.1 + 0.8 * torch.rand(K, generator=g) # (K,)
+        self.weights = U / U.sum()
+        self.to(device)
+
+    def to(self, device) -> distributions.Distribution:
+        self.means = self.means.to(device)
+        self.weights = self.weights.to(device)
+        return self
+
+    def _component_logits(self, x: torch.Tensor) -> torch.Tensor:
+        """ log π_k + log N(x | μ_k, I), shape (..., K)
+        """
+        sq_dist = (x.unsqueeze(-2) - self.means).pow(2).sum(-1)
+        return (
+            self.weights.log()
+            - 0.5 * sq_dist
+            - 0.5 * self.dim * math.log(2 * math.pi)
+        )
+
+    def log_prob(self, x: torch.Tensor) -> torch.Tensor:
+        return torch.logsumexp(self._component_logits(x), dim=-1)
+
+    def score(self, x: torch.Tensor) -> torch.Tensor:
+        """ ∇log p(x) = Σ_k r_k(x) μ_k - x, where r = softmax over components
+        """
+        resp = torch.softmax(self._component_logits(x), dim=-1)
+        return resp @ self.means - x
+
+    def assign(self, x: torch.Tensor) -> torch.Tensor:
+        """ most likely mode of each sample
+        """
+        return self._component_logits(x).argmax(dim=-1)
+
+    def sample(self, shape: tuple) -> torch.Tensor:
+        shape = torch.Size(shape)
+        modes = torch.multinomial(
+            self.weights, shape.numel(), replacement=True
+        ).reshape(shape)
+        noise = torch.randn(*shape, self.dim, device=self.means.device)
+        return self.means[modes] + noise
+
+
 ########################################
 ######### Source Distributions #########
 ########################################
