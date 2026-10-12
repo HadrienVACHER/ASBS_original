@@ -60,6 +60,7 @@ for K in "${KS[@]}"; do
       echo "GMM K=${K} dim=${DIM} seed=${SEED} sur GPU ${GPUS[$i]}"
       CUDA_VISIBLE_DEVICES=${GPUS[$i]} python train.py experiment=gmm_asbs \
           dim=${DIM} seed=${SEED} K=${K} \
+          fast_sampling=true buffer_on_device=true \
           hydra.run.dir=results/gmm/K${K}_dim${DIM}_seed${SEED} \
           > logs/K${K}_dim${DIM}_seed${SEED}.log 2>&1 &
       pids+=($!)
