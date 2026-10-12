@@ -42,5 +42,5 @@ nvidia-smi -L
 # --- Lancement de l'expérience ---
 # Relancer un sous-job reprend depuis le dernier checkpoint.
 echo "GMM dim=${DIM} seed=${SEED} (index ${PBS_ARRAY_INDEX})"
-python train.py experiment=gmm_asbs dim=${DIM} seed=${SEED} use_wandb=false \
+python train.py experiment=gmm_asbs dim=${DIM} seed=${SEED} \
     hydra.run.dir=results/gmm/dim${DIM}_seed${SEED}
