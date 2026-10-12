@@ -1,0 +1,57 @@
+#!/bin/bash
+#PBS -N gmm_asbs_grp
+#PBS -P gs_ccds_haidang.dau
+#PBS -q gpu_as
+#PBS -l walltime=18:00:00
+#PBS -l select=1:ncpus=12:ngpus=1:mem=32gb
+#PBS -j oe
+
+DIMS=(3 8)
+SEEDS=(0 1)
+NPROC=$(( ${#DIMS[@]} * ${#SEEDS[@]} ))
+
+cd "${PBS_O_WORKDIR}" || exit 1
+mkdir -p logs
+export PYTHONUNBUFFERED=1
+export WANDB_MODE=offline   # évite tout blocage réseau ; à retirer si tu veux W&B en ligne
+
+# --- Correctif officiel PBS/GaaS pour les identifiants GPU (inchangé) ---
+if echo "${CUDA_VISIBLE_DEVICES:-}" | grep -q "GPU-"; then
+    GPU_COUNT=$(echo "${CUDA_VISIBLE_DEVICES}" | tr ',' '\n' | wc -l)
+    CUDA_VISIBLE_DEVICES=$(seq -s, 0 $((GPU_COUNT - 1)))
+    export CUDA_VISIBLE_DEVICES
+fi
+
+# 12 CPU répartis entre les processus
+export OMP_NUM_THREADS=$((12 / NPROC))
+export MKL_NUM_THREADS=$((12 / NPROC))
+
+module purge
+module load anaconda/2025
+eval "$(/usr/local/anaconda2025/bin/conda shell.bash hook)"
+conda activate BMS
+
+echo "Nœud : $(hostname) à $(date)"
+nvidia-smi -L
+
+# Suivi de l'utilisation du GPU toutes les 30 s
+nvidia-smi --query-gpu=timestamp,utilization.gpu,memory.used --format=csv -l 30 > logs/gpu_usage.csv &
+MON=$!
+
+pids=()
+for DIM in "${DIMS[@]}"; do
+  for SEED in "${SEEDS[@]}"; do
+    echo "Lancement GMM dim=${DIM} seed=${SEED}"
+    python train.py experiment=gmm_asbs dim=${DIM} seed=${SEED} \
+        hydra.run.dir=results/gmm/dim${DIM}_seed${SEED} \
+        > logs/dim${DIM}_seed${SEED}.log 2>&1 &
+    pids+=($!)
+  done
+done
+
+# Attend chaque processus et garde la trace des échecs
+fail=0
+for p in "${pids[@]}"; do wait "$p" || fail=1; done
+kill $MON 2>/dev/null
+echo "Fin à $(date), statut : ${fail}"
+exit $fail
