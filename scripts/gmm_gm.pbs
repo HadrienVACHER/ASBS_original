@@ -1,0 +1,75 @@
+#!/bin/bash
+#PBS -N gmm_asbs_grp
+#PBS -P gs_ccds_haidang.dau
+#PBS -q gpu_as
+#PBS -l walltime=18:00:00
+#PBS -l select=1:ncpus=48:ngpus=4:mem=32gb
+#PBS -j oe
+
+# Un job, 4 GPU, un run par GPU (dim x seed). Garder ngpus = nombre de combinaisons.
+# Soumettre depuis la racine du dépôt : qsub scripts/gmm_grouped.pbs
+# Test court : qsub -l walltime=00:10:00 scripts/gmm_grouped.pbs
+DIMS=(3 8)      # (3 8 16 39 80 165)
+SEEDS=(0 1)     # (0 1 2)
+NPROC=$(( ${#DIMS[@]} * ${#SEEDS[@]} ))
+
+cd "${PBS_O_WORKDIR}" || exit 1
+mkdir -p logs
+export PYTHONUNBUFFERED=1
+export WANDB_MODE=offline   # évite tout blocage réseau ; à retirer pour W&B en ligne
+
+# --- Correctif officiel PBS/GaaS pour les identifiants GPU ---
+if echo "${CUDA_VISIBLE_DEVICES:-}" | grep -q "GPU-"; then
+    GPU_COUNT=$(echo "${CUDA_VISIBLE_DEVICES}" | tr ',' '\n' | wc -l)
+    CUDA_VISIBLE_DEVICES=$(seq -s, 0 $((GPU_COUNT - 1)))
+    export CUDA_VISIBLE_DEVICES
+    echo "CUDA_VISIBLE_DEVICES converti en index : ${CUDA_VISIBLE_DEVICES}"
+fi
+
+# 12 threads CPU par processus (48 CPU / 4 processus)
+export OMP_NUM_THREADS=12
+export MKL_NUM_THREADS=12
+
+# --- Environnement Conda BMS ---
+module purge
+module load anaconda/2025
+eval "$(/usr/local/anaconda2025/bin/conda shell.bash hook)"
+conda activate BMS
+
+echo "Nœud : $(hostname) à $(date)"
+nvidia-smi -L
+
+# --- Vérification : assez de GPU visibles pour les runs ---
+IFS=',' read -ra GPUS <<< "${CUDA_VISIBLE_DEVICES}"
+if [ "${#GPUS[@]}" -lt "${NPROC}" ]; then
+    echo "ERREUR : ${#GPUS[@]} GPU visibles, ${NPROC} requis"
+    exit 1
+fi
+
+# Suivi de l'utilisation des GPU toutes les 30 s
+nvidia-smi --query-gpu=timestamp,index,utilization.gpu,memory.used --format=csv -l 30 > logs/gpu_usage.csv &
+MON=$!
+
+# --- Lancement : un processus par GPU ---
+pids=()
+i=0
+for DIM in "${DIMS[@]}"; do
+  for SEED in "${SEEDS[@]}"; do
+    echo "GMM dim=${DIM} seed=${SEED} sur GPU ${GPUS[$i]}"
+    CUDA_VISIBLE_DEVICES=${GPUS[$i]} python train.py experiment=gmm_asbs \
+        dim=${DIM} seed=${SEED} \
+        hydra.run.dir=results/gmm/dim${DIM}_seed${SEED} \
+        > logs/dim${DIM}_seed${SEED}.log 2>&1 &
+    pids+=($!)
+    i=$((i + 1))
+  done
+done
+
+# --- Attente de chaque run, avec trace des échecs ---
+fail=0
+for p in "${pids[@]}"; do
+    wait "$p" || fail=1
+done
+kill $MON 2>/dev/null
+echo "Fin à $(date), statut : ${fail}"
+exit $fail
