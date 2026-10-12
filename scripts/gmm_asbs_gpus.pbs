@@ -6,17 +6,18 @@
 #PBS -l select=1:ncpus=48:ngpus=4:mem=32gb
 #PBS -j oe
 
-# Un job, 4 GPU, un run par GPU (dim x seed). Garder ngpus = nombre de combinaisons.
+# Un job, 4 GPU, un run par GPU (K x dim x seed). Garder ngpus = nombre de combinaisons.
 # Soumettre depuis la racine du dépôt : qsub scripts/gmm_grouped.pbs
 # Test court : qsub -l walltime=00:10:00 scripts/gmm_grouped.pbs
 DIMS=(3 8)      # (3 8 16 39 80 165)
 SEEDS=(0 1)     # (0 1 2)
-NPROC=$(( ${#DIMS[@]} * ${#SEEDS[@]} ))
+KS=(2)          # (10 20)
+NPROC=$(( ${#DIMS[@]} * ${#SEEDS[@]} * ${#KS[@]} ))
 
 cd "${PBS_O_WORKDIR}" || exit 1
 mkdir -p logs
 export PYTHONUNBUFFERED=1
-export WANDB_MODE=offline   # évite tout blocage réseau ; à retirer pour W&B en ligne
+# export WANDB_MODE=offline   # W&B hors ligne (sync ensuite avec `wandb sync`) ; désactivé pour W&B en ligne
 
 # --- Correctif officiel PBS/GaaS pour les identifiants GPU ---
 if echo "${CUDA_VISIBLE_DEVICES:-}" | grep -q "GPU-"; then
@@ -53,15 +54,17 @@ MON=$!
 # --- Lancement : un processus par GPU ---
 pids=()
 i=0
-for DIM in "${DIMS[@]}"; do
-  for SEED in "${SEEDS[@]}"; do
-    echo "GMM dim=${DIM} seed=${SEED} sur GPU ${GPUS[$i]}"
-    CUDA_VISIBLE_DEVICES=${GPUS[$i]} python train.py experiment=gmm_asbs \
-        dim=${DIM} seed=${SEED} \
-        hydra.run.dir=results/gmm/dim${DIM}_seed${SEED} \
-        > logs/dim${DIM}_seed${SEED}.log 2>&1 &
-    pids+=($!)
-    i=$((i + 1))
+for K in "${KS[@]}"; do
+  for DIM in "${DIMS[@]}"; do
+    for SEED in "${SEEDS[@]}"; do
+      echo "GMM K=${K} dim=${DIM} seed=${SEED} sur GPU ${GPUS[$i]}"
+      CUDA_VISIBLE_DEVICES=${GPUS[$i]} python train.py experiment=gmm_asbs \
+          dim=${DIM} seed=${SEED} K=${K} \
+          hydra.run.dir=results/gmm/K${K}_dim${DIM}_seed${SEED} \
+          > logs/K${K}_dim${DIM}_seed${SEED}.log 2>&1 &
+      pids+=($!)
+      i=$((i + 1))
+    done
   done
 done
 

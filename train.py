@@ -99,7 +99,7 @@ def main(cfg):
         checkpoint_path.parent.mkdir(exist_ok=True)
         if checkpoint_path.exists():
             print(f"Loading checkpoint from {checkpoint_path}...")
-            checkpoint = torch.load(checkpoint_path)
+            checkpoint = torch.load(checkpoint_path, weights_only=False)  # our own file; contains the cfg
             start_epoch = train_utils.load(
                 checkpoint,
                 optimizer,

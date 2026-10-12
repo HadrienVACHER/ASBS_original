@@ -183,7 +183,7 @@ class Writer:
     def __init__(self, name: str, cfg: DictConfig, is_main_process: bool):
         if cfg.use_wandb and is_main_process:
             self.writer = wandb.init(
-                mode='online',
+                mode=os.environ.get('WANDB_MODE', 'online'),
                 project=cfg.project,
                 name=name,
                 config=dict(cfg),
