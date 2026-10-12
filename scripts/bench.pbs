@@ -1,0 +1,43 @@
+#!/bin/bash
+#PBS -N bench_sampler
+#PBS -P gs_ccds_haidang.dau
+#PBS -q gpu_as
+#PBS -l walltime=00:15:00
+#PBS -l select=1:ncpus=12:ngpus=1:mem=32gb
+#PBS -j oe
+
+# Benchmark + correctness check of fast_sampling (CUDA graph) and buffer_on_device.
+# Submit from the repo root: qsub scripts/bench.pbs
+# Both "check" lines must say OK before using fast_sampling=true in a real run.
+
+cd "${PBS_O_WORKDIR}" || exit 1
+export PYTHONUNBUFFERED=1
+
+# --- Correctif officiel PBS/GaaS pour les identifiants GPU ---
+if echo "${CUDA_VISIBLE_DEVICES:-}" | grep -q "GPU-"; then
+    GPU_COUNT=$(echo "${CUDA_VISIBLE_DEVICES}" | tr ',' '\n' | wc -l)
+    CUDA_VISIBLE_DEVICES=$(seq -s, 0 $((GPU_COUNT - 1)))
+    export CUDA_VISIBLE_DEVICES
+    echo "CUDA_VISIBLE_DEVICES converti en index : ${CUDA_VISIBLE_DEVICES}"
+fi
+
+export OMP_NUM_THREADS=12
+export MKL_NUM_THREADS=12
+
+# --- Chargement de l'environnement Conda BMS ---
+module purge
+module load anaconda/2025
+eval "$(/usr/local/anaconda2025/bin/conda shell.bash hook)"
+conda activate BMS
+
+echo "Exécution sur le nœud : $(hostname) à $(date)"
+nvidia-smi -L
+python -c "import torch; print('torch', torch.__version__, '| cuda available:', torch.cuda.is_available())"
+
+for DIM in 3 165; do
+    echo
+    echo "=============== dim=${DIM} ==============="
+    python scripts/bench_sampler.py --dim ${DIM} --K 2
+done
+
+echo "Fin à $(date)"
