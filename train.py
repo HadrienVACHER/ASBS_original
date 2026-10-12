@@ -218,16 +218,17 @@ def main(cfg):
                     writer.log(eval_dict, step=epoch)
                     print({k: v for k, v in eval_dict.items() if isinstance(v, float)})
 
-                print("Saving checkpoint ... ")
-                train_utils.save(
-                    epoch,
-                    cfg,
-                    optimizer,
-                    controller,
-                    adjoint_matcher,
-                    corrector=corrector,
-                    corrector_matcher=corrector_matcher,
-                )
+                # Checkpoint saving disabled: runs never resume from a previous stop.
+                # print("Saving checkpoint ... ")
+                # train_utils.save(
+                #     epoch,
+                #     cfg,
+                #     optimizer,
+                #     controller,
+                #     adjoint_matcher,
+                #     corrector=corrector,
+                #     corrector_matcher=corrector_matcher,
+                # )
 
     except Exception as e:
         # This way we have the full traceback in the log.  otherwise Hydra
