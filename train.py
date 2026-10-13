@@ -103,22 +103,25 @@ def main(cfg):
             )
 
 
-        checkpoint_path = Path(cfg.checkpoint or "checkpoints/checkpoint_latest.pt")
-        checkpoint_path.parent.mkdir(exist_ok=True)
-        if checkpoint_path.exists():
-            print(f"Loading checkpoint from {checkpoint_path}...")
-            checkpoint = torch.load(checkpoint_path, weights_only=False)  # our own file; contains the cfg
-            start_epoch = train_utils.load(
-                checkpoint,
-                optimizer,
-                controller,
-                adjoint_matcher,
-                corrector=corrector,
-                corrector_matcher=corrector_matcher,
-            )
-            # Note: Not wrapping this in a DDP since we don't differentiate through SDE simulation.
-        else:
-            start_epoch = 0
+        # Checkpoint loading disabled: every run starts from epoch 0,
+        # whatever checkpoint exists in the run folder.
+        # checkpoint_path = Path(cfg.checkpoint or "checkpoints/checkpoint_latest.pt")
+        # checkpoint_path.parent.mkdir(exist_ok=True)
+        # if checkpoint_path.exists():
+        #     print(f"Loading checkpoint from {checkpoint_path}...")
+        #     checkpoint = torch.load(checkpoint_path, weights_only=False)  # our own file; contains the cfg
+        #     start_epoch = train_utils.load(
+        #         checkpoint,
+        #         optimizer,
+        #         controller,
+        #         adjoint_matcher,
+        #         corrector=corrector,
+        #         corrector_matcher=corrector_matcher,
+        #     )
+        #     # Note: Not wrapping this in a DDP since we don't differentiate through SDE simulation.
+        # else:
+        #     start_epoch = 0
+        start_epoch = 0
 
 
         if cfg.distributed:
