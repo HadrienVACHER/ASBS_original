@@ -6,9 +6,9 @@
 #PBS -l select=1:ncpus=12:ngpus=1:mem=32gb
 #PBS -j oe
 
-DIMS=(8 39 165) # (2 3)
+DIMS=(8) # (8 39 165)
 SEEDS=(0) # (0 1)
-KS=(8 39 165) # (10 20)
+KS=(8) # (8 39 165)
 NPROC=$(( ${#DIMS[@]} * ${#SEEDS[@]} * ${#KS[@]} ))
 THREADS=$(( 12 / NPROC > 0 ? 12 / NPROC : 1 ))
 
@@ -45,7 +45,7 @@ for K in "${KS[@]}"; do
     for SEED in "${SEEDS[@]}"; do
       echo "Lancement GMM K=${K} dim=${DIM} seed=${SEED}"
       python train.py experiment=gmm_as dim=${DIM} seed=${SEED} K=${K} \
-          fast_sampling=true buffer_on_device=true \
+          # fast_sampling=true buffer_on_device=true \
           hydra.run.dir=results/gmm_as/K${K}_dim${DIM}_seed${SEED} \
           > logs/as_K${K}_dim${DIM}_seed${SEED}.log 2>&1 &
       pids+=($!)
