@@ -14,7 +14,7 @@ defaults:
 exp_name: gmm${dim}d_asbs
 
 # === source ===
-# per-coordinate, relative to the target std √(1 + 18/dim); same ratios as dw4_asbs (scale 2, sigma_max 1)
+# per-coordinate, relative to the target std √(1 + 32/dim); same ratios as dw4_asbs (scale 2, sigma_max 1)
 scale: ${gmm_std:${dim},2}
 
 

@@ -16,7 +16,7 @@ exp_name: gmm${dim}d_as
 
 # === sde ===
 nfe: 200
-# per-coordinate, relative to the target std √(1 + 18/dim) (dw4_as uses 2): 5.3 at d=3, 2.6 at d=27, 2.1 at d=165
+# per-coordinate, relative to the target std √(1 + 32/dim) (dw4_as uses 2): 6.8 at d=3, 3.0 at d=27, 2.2 at d=165
 sigma_max: ${gmm_std:${dim},2}
 sigma_min: 0.001
 rescale_t: null # quad, cosine
