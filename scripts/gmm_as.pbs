@@ -7,8 +7,8 @@
 #PBS -j oe
 
 # (DIM, K) pairs: DIMS[i] goes with KS[i] (not a grid)
-DIMS=(8)
-KS=(8)
+DIMS=(39)
+KS=(39)
 SEEDS=(0) # (0 1)
 NPROC=$(( ${#DIMS[@]} * ${#SEEDS[@]} ))
 THREADS=$(( 12 / NPROC > 0 ? 12 / NPROC : 1 ))

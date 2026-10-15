@@ -137,6 +137,8 @@ class GMMEvaluator:
           mode_spread     mean ||x - μ_k||² / d               (1: right width, <1 too narrow)
         Each also comes as `<name>_floor`: its value for exact samples of the same size,
         i.e. the best value reachable with this many samples.
+        If K <= max_per_mode, also `mode_ratio/<k>` = ŵ_k / π_k for each mode
+        (1: right proportion, 0: missed).
 
         energy_w2 and the mode metrics use all samples; sample_w2 (exact OT,
         roughly cubic in the number of samples) uses only the first `w2_samples`.
@@ -148,6 +150,7 @@ class GMMEvaluator:
         in_mode_quantile: float = 0.999,
         cover_ratio: float = 0.5,
         n_floor_draws: int = 5,
+        max_per_mode: int = 64,
     ) -> None:
         from scipy.stats import chi2
         from adjoint_samplers.energies.dist_energy import DistEnergy
@@ -159,9 +162,10 @@ class GMMEvaluator:
         self.in_mode_r2 = float(chi2.ppf(in_mode_quantile, self.dist.dim))
         self.cover_ratio = cover_ratio
         self.n_floor_draws = n_floor_draws
+        self.max_per_mode = max_per_mode
         self._floors = {} # number of samples -> floors
 
-    def mode_metrics(self, x: torch.Tensor) -> Dict:
+    def mode_metrics(self, x: torch.Tensor, per_mode: bool = False) -> Dict:
         B, D = x.shape
         pi = self.dist.weights.to(x.device)
         k = self.dist.assign(x)
@@ -175,6 +179,9 @@ class GMMEvaluator:
 
         q = counts / counts.sum().clamp(min=1)
         entropy = lambda p: -(p * p.clamp(min=1e-30).log()).sum()
+        ratios = {}
+        if per_mode and self.dist.K <= self.max_per_mode:
+            ratios = {f"mode_ratio/{j}": r for j, r in enumerate((w / pi).tolist())}
         return {
             "frac_in_modes": frac_in.item(),
             "mass_covered": (pi * covered).sum().item(),
@@ -182,6 +189,7 @@ class GMMEvaluator:
             "mode_tv": (0.5 * ((w - pi).abs().sum() + 1 - frac_in)).item(),
             "eff_modes_ratio": (entropy(q) - entropy(pi)).exp().item(),
             "mode_spread": (dist2.mean() / D).item(),
+            **ratios,
         }
 
     def mode_floors(self, B: int, device) -> Dict:
@@ -210,7 +218,7 @@ class GMMEvaluator:
         )**0.5
 
         print("Computing mode metrics...")
-        mode_metrics = self.mode_metrics(samples)
+        mode_metrics = self.mode_metrics(samples, per_mode=True)
         mode_floors = self.mode_floors(B, samples.device)
 
         print("Computing sample W2...")
