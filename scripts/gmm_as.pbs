@@ -6,10 +6,11 @@
 #PBS -l select=1:ncpus=12:ngpus=1:mem=32gb
 #PBS -j oe
 
-DIMS=(27) # (8 39 165)
+# (DIM, K) pairs: DIMS[i] goes with KS[i] (not a grid)
+DIMS=(3 9 27)
+KS=(3 9 27)
 SEEDS=(0) # (0 1)
-KS=(27) # (8 39 165)
-NPROC=$(( ${#DIMS[@]} * ${#SEEDS[@]} * ${#KS[@]} ))
+NPROC=$(( ${#DIMS[@]} * ${#SEEDS[@]} ))
 THREADS=$(( 12 / NPROC > 0 ? 12 / NPROC : 1 ))
 
 cd "${PBS_O_WORKDIR}" || exit 1
@@ -39,17 +40,17 @@ nvidia-smi -L
 nvidia-smi --query-gpu=timestamp,utilization.gpu,memory.used --format=csv -l 30 > logs/gpu_usage_as.csv &
 MON=$!
 
-# fast_sampling=true buffer_on_device=true \
 pids=()
-for K in "${KS[@]}"; do
-  for DIM in "${DIMS[@]}"; do
-    for SEED in "${SEEDS[@]}"; do
-      echo "Lancement GMM K=${K} dim=${DIM} seed=${SEED}"
-      python train.py experiment=gmm_as dim=${DIM} seed=${SEED} K=${K} \
-          hydra.run.dir=results/gmm_as/K${K}_dim${DIM}_seed${SEED} \
-          > logs/as_K${K}_dim${DIM}_seed${SEED}.log 2>&1 &
-      pids+=($!)
-    done
+for i in "${!DIMS[@]}"; do
+  DIM=${DIMS[$i]}
+  K=${KS[$i]}
+  for SEED in "${SEEDS[@]}"; do
+    echo "Lancement GMM K=${K} dim=${DIM} seed=${SEED}"
+    python train.py experiment=gmm_as dim=${DIM} seed=${SEED} K=${K} \
+        fast_sampling=true buffer_on_device=true \
+        hydra.run.dir=results/gmm_as/K${K}_dim${DIM}_seed${SEED} \
+        > logs/as_K${K}_dim${DIM}_seed${SEED}.log 2>&1 &
+    pids+=($!)
   done
 done
 

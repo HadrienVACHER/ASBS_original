@@ -98,6 +98,18 @@ def main():
         print(f"check (weights moved): max |x1_eager - x1_graph| = {err:.2e}", "OK" if err < 1e-3 else "MISMATCH")
         sde.randn_like = randn
 
+        # with noise: every replay draws new noise, with the same statistics as eager
+        enable_cuda_graph_sampling(True)
+        _, x1_a = sdeint(sde, x0, timesteps, only_boundary=True)
+        _, x1_b = sdeint(sde, x0, timesteps, only_boundary=True)
+        enable_cuda_graph_sampling(False)
+        _, x1_eager = sdeint(sde, x0, timesteps, only_boundary=True)
+        fresh = not torch.allclose(x1_a, x1_b)
+        std_graph, std_eager = (x1_a - x0).std().item(), (x1_eager - x0).std().item()
+        rel = abs(std_graph - std_eager) / std_eager
+        print(f"check (noise)        : replays differ = {fresh}, std(x1 - x0) graph {std_graph:.3f} vs eager {std_eager:.3f}",
+              "OK" if fresh and rel < 0.05 else "MISMATCH")
+
         enable_cuda_graph_sampling(True)
         t_graph = timeit(lambda: sdeint(sde, x0, timesteps, only_boundary=True), dev, a.reps)
         enable_cuda_graph_sampling(False)
