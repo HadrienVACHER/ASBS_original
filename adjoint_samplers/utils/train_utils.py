@@ -186,8 +186,12 @@ class Writer:
             if "K" in cfg:  # GMM experiments: make K and seed visible in the name
                 method = "asbs" if "corrector" in cfg else "as"
                 name = f"{name}_K{cfg.K}_s{cfg.seed}"  # e.g. gmm165d_as_K2_s0
+                if cfg.get("layout", "cube") != "cube":
+                    name += f"_{cfg.layout}" + (f"_r{cfg.radius:g}" if cfg.get("radius") is not None else "")
                 tags = [f"K{cfg.K}", f"dim{cfg.dim}", method]
                 tags += [str(cfg[k]) for k in ("layout", "weight_law") if k in cfg]
+                if cfg.get("radius") is not None:
+                    tags.append(f"r{cfg.radius:g}")
             self.writer = wandb.init(
                 mode=os.environ.get('WANDB_MODE', 'online'),
                 project=cfg.project,

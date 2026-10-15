@@ -47,10 +47,13 @@ class GMM(distributions.Distribution):
 
         p(x) = Σ_k π_k N(x | μ_k, I_d)
 
-        Means (`layout`), both with E‖μ_k‖² = 32 (typical distance between two means ≈ 8):
-          cube    μ_k ~ Uniform([-a, a]^d),  a = 8√(3/(2d)) = 4√(6/d)
-          sphere  μ_k = r v_k / ‖v_k‖,  v_k ~ N(0, I_d),  r = √32: every mode at the same
-                  distance from the origin
+        Means (`layout`):
+          cube    μ_k ~ Uniform([-a, a]^d),  a = 8√(3/(2d)) = 4√(6/d)  (E‖μ_k‖² = 32)
+          sphere  μ_k = r u_k,  u_k = v_k / ‖v_k‖,  v_k ~ N(0, I_d): every mode at distance r
+                  from the origin, in random directions
+          spread  same, with the directions pushed apart: for K <= d + 1 a regular simplex,
+                  every pair of modes at distance r √(2K/(K-1)) (≈ r√2 for large K)
+          r = `radius`, default √32 (E‖μ_k‖² as in the cube layout)
         Weights (`weight_law`), π_k = U_k / Σ_j U_j:
           uniform      U_k ~ Uniform(0.1, 0.9)                          (ratio max/min <= 9)
           loguniform   U_k = exp(-E_k),  E_k ~ Uniform(0, log weight_ratio) (ratio <= weight_ratio)
@@ -68,6 +71,7 @@ class GMM(distributions.Distribution):
         weight_law: str = "uniform",
         weight_ratio: float = 20.0,
         energy_scale: float = 1.0,
+        radius: float | None = None,
         device: str = "cpu",
     ) -> None:
         super().__init__()
@@ -81,9 +85,13 @@ class GMM(distributions.Distribution):
         if layout == "cube":
             a = GMM.half_width(dim)
             self.means = (2 * torch.rand(K, dim, generator=g) - 1) * a # (K, d)
-        elif layout == "sphere":
+        elif layout in ("sphere", "spread"):
+            r = radius if radius is not None else GMM.default_radius()
             v = torch.randn(K, dim, generator=g)
-            self.means = v / v.norm(dim=1, keepdim=True) * GMM.radius(dim) # (K, d)
+            u = v / v.norm(dim=1, keepdim=True)
+            if layout == "spread":
+                u = GMM.spread_directions(u)
+            self.means = u * r # (K, d)
         else:
             raise ValueError(f"unknown layout {layout}")
 
@@ -100,10 +108,32 @@ class GMM(distributions.Distribution):
         self.to(device)
 
     @staticmethod
-    def radius(dim: int) -> float:
-        """ r = √(E‖μ_k‖²) of the cube layout = √32, used by the sphere layout
+    def default_radius() -> float:
+        """ √(E‖μ_k‖²) of the cube layout = √32, for any dim
         """
-        return GMM.half_width(dim) * math.sqrt(dim / 3)
+        return math.sqrt(32)
+
+    @staticmethod
+    def spread_directions(u: torch.Tensor, steps: int = 1000) -> torch.Tensor:
+        """ Unit vectors pushed apart from the start `u` by minimising Σ_{i≠j} 1/‖u_i - u_j‖⁴
+            on the sphere. Deterministic given `u`.
+        """
+        K = u.shape[0]
+        if K < 2:
+            return u
+        eye = torch.eye(K, dtype=torch.float64)
+        with torch.enable_grad():
+            v = u.double().clone().requires_grad_(True)
+            opt = torch.optim.Adam([v], lr=0.01)
+            for _ in range(steps):
+                w = v / v.norm(dim=1, keepdim=True)
+                D = torch.cdist(w, w) + eye
+                loss = ((D ** -4) * (1 - eye)).sum()
+                opt.zero_grad()
+                loss.backward()
+                opt.step()
+        v = v.detach()
+        return (v / v.norm(dim=1, keepdim=True)).to(u.dtype)
 
     @staticmethod
     def half_width(dim: int) -> float:
@@ -112,11 +142,12 @@ class GMM(distributions.Distribution):
         return 8 * math.sqrt(3 / (2 * dim))
 
     @staticmethod
-    def coord_std(dim: int) -> float:
-        """ std of one coordinate of x ~ p (expected over the means): √(1 + a²/3) = √(1 + 32/d),
-            the same for both layouts (E‖μ_k‖² = 32)
+    def coord_std(dim: int, radius: float | None = None) -> float:
+        """ std of one coordinate of x ~ p (expected over the means): √(1 + E‖μ_k‖²/d)
+            = √(1 + r²/d); r = √32 for the cube layout and the default radius
         """
-        return math.sqrt(1 + GMM.half_width(dim)**2 / 3)
+        r = radius if radius is not None else GMM.default_radius()
+        return math.sqrt(1 + r**2 / dim)
 
     def to(self, device) -> distributions.Distribution:
         self.means = self.means.to(device)

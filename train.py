@@ -18,9 +18,9 @@ import adjoint_samplers.utils.distributed_mode as distributed_mode
 from adjoint_samplers.utils.dist_utils import GMM
 from omegaconf import OmegaConf
 
-# `${gmm_std:${dim},c}` = c x per-coordinate std of the GMM target, to size sigma_max / scale
+# `${gmm_std:${dim},c,${radius}}` = c x per-coordinate std of the GMM target, to size sigma_max / scale
 OmegaConf.register_new_resolver(
-    "gmm_std", lambda dim, factor=1: factor * GMM.coord_std(dim), replace=True,
+    "gmm_std", lambda dim, factor=1, radius=None: factor * GMM.coord_std(dim, radius), replace=True,
 )
 
 

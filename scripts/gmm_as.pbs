@@ -7,10 +7,11 @@
 #PBS -j oe
 
 # (DIM, K) pairs: DIMS[i] goes with KS[i] (not a grid)
-DIMS=(8)
-KS=(8)
+DIMS=(4 8 16 32 48)
+KS=(4 8 16 32 48)
+RADII=(null 8) # radius of the modes (null = √32 ≈ 5.66): pairs of modes ≈ 8 vs ≈ 11.5 apart
 SEEDS=(0) # (0 1)
-NPROC=$(( ${#DIMS[@]} * ${#SEEDS[@]} ))
+NPROC=$(( ${#DIMS[@]} * ${#SEEDS[@]} * ${#RADII[@]} ))
 THREADS=$(( 12 / NPROC > 0 ? 12 / NPROC : 1 ))
 
 cd "${PBS_O_WORKDIR}" || exit 1
@@ -44,13 +45,15 @@ pids=()
 for i in "${!DIMS[@]}"; do
   DIM=${DIMS[$i]}
   K=${KS[$i]}
-  for SEED in "${SEEDS[@]}"; do
-    echo "Lancement GMM K=${K} dim=${DIM} seed=${SEED}"
-    python train.py experiment=gmm_as dim=${DIM} seed=${SEED} K=${K} \
-        fast_sampling=true buffer_on_device=true fast_train=true \
-        hydra.run.dir=results/gmm_as/K${K}_dim${DIM}_seed${SEED} \
-        > logs/as_K${K}_dim${DIM}_seed${SEED}.log 2>&1 &
-    pids+=($!)
+  for R in "${RADII[@]}"; do
+    for SEED in "${SEEDS[@]}"; do
+      echo "Lancement GMM K=${K} dim=${DIM} radius=${R} seed=${SEED}"
+      python train.py experiment=gmm_as dim=${DIM} seed=${SEED} K=${K} layout=spread radius=${R} \
+          fast_sampling=true buffer_on_device=true fast_train=true \
+          hydra.run.dir=results/gmm_as/spread_r${R}/K${K}_dim${DIM}_seed${SEED} \
+          > logs/as_spread_r${R}_K${K}_dim${DIM}_seed${SEED}.log 2>&1 &
+      pids+=($!)
+    done
   done
 done
 

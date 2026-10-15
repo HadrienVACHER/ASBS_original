@@ -4,9 +4,11 @@
 dim: 3
 K: 5 # number of modes
 target_seed: 0 # seed of the target (means & weights), independent of `seed`
-# means: sphere = all at distance √32 from the origin (no mode easier to reach from the start);
-#        cube = Uniform([-a, a]^dim), a = 8*sqrt(3/(2*dim)) (previous runs)
-layout: sphere
+# means: spread = all at distance `radius` from the origin, pushed apart (regular simplex for K <= dim+1:
+#          every pair of modes at the same distance, ≈ radius*√2);
+#        sphere = same radius, random directions; cube = Uniform([-a, a]^dim), a = 8*sqrt(3/(2*dim))
+layout: spread
+radius: null # null = √32 ≈ 5.66 (sphere / spread only); larger = modes farther apart
 # weights ∝ exp(-E_k): loguniform = E_k ~ Uniform(0, log weight_ratio), max/min <= weight_ratio for any K;
 #   exponential = E_k ~ Exponential(mean energy_scale), max/min grows with K;
 #   uniform = Uniform(0.1, 0.9) (previous runs)
@@ -25,6 +27,7 @@ energy:
     weight_law: ${weight_law}
     weight_ratio: ${weight_ratio}
     energy_scale: ${energy_scale}
+    radius: ${radius}
 
 evaluator:
   _target_: adjoint_samplers.components.evaluator.GMMEvaluator
