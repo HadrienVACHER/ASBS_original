@@ -47,7 +47,7 @@ class GMM(distributions.Distribution):
 
         p(x) = Σ_k π_k N(x | μ_k, I_d)
 
-        μ_k ~ Uniform([-K, K]^d),  π_k = U_k / Σ_j U_j,  U_k ~ Uniform(0.1, 0.9)
+        μ_k ~ Uniform([-a, a]^d),  a = 4√(3/(2d)) = 2√(6/d),  π_k = U_k / Σ_j U_j,  U_k ~ Uniform(0.1, 0.9)
 
         The target is fully determined by `seed`, independently of the training seed.
     """
@@ -66,7 +66,8 @@ class GMM(distributions.Distribution):
         self.name = f"gmm{dim}d"
 
         g = torch.Generator().manual_seed(seed)
-        self.means = (2 * torch.rand(K, dim, generator=g) - 1) * K # (K, d)
+        a = 4 * math.sqrt(3 / (2 * dim)) # so that E‖μ_k‖² = 8 for every dim
+        self.means = (2 * torch.rand(K, dim, generator=g) - 1) * a # (K, d)
         U = 0.1 + 0.8 * torch.rand(K, generator=g) # (K,)
         self.weights = U / U.sum()
         self.to(device)

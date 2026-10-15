@@ -16,7 +16,7 @@ exp_name: gmm${dim}d_as
 
 # === sde ===
 nfe: 200
-sigma_max: ${K}
+sigma_max: 5 # ‖μ_k‖ ≤ a√d = 2√6 ≈ 4.9 for any K and dim
 sigma_min: 0.001
 rescale_t: null # quad, cosine
 
