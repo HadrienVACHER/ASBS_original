@@ -15,6 +15,13 @@ from adjoint_samplers.components.sde import ControlledSDE, sdeint, enable_cuda_g
 from adjoint_samplers.train_loop import train_one_epoch
 import adjoint_samplers.utils.train_utils as train_utils
 import adjoint_samplers.utils.distributed_mode as distributed_mode
+from adjoint_samplers.utils.dist_utils import GMM
+from omegaconf import OmegaConf
+
+# `${gmm_std:${dim},c}` = c x per-coordinate std of the GMM target, to size sigma_max / scale
+OmegaConf.register_new_resolver(
+    "gmm_std", lambda dim, factor=1: factor * GMM.coord_std(dim), replace=True,
+)
 
 
 cudnn.benchmark = True

@@ -14,12 +14,13 @@ defaults:
 exp_name: gmm${dim}d_asbs
 
 # === source ===
-scale: 5 # ‖μ_k‖ ≤ a√d = 2√6 ≈ 4.9 for any K and dim
+# per-coordinate, relative to the target std √(1 + 8/dim); same ratios as dw4_asbs (scale 2, sigma_max 1)
+scale: ${gmm_std:${dim},2}
 
 
 # === sde ===
 nfe: 200
-sigma_max: 5 # ‖μ_k‖ ≤ a√d = 2√6 ≈ 4.9 for any K and dim
+sigma_max: ${gmm_std:${dim},1}
 sigma_min: 0.001
 rescale_t: null # quad, cosine
 

@@ -66,11 +66,23 @@ class GMM(distributions.Distribution):
         self.name = f"gmm{dim}d"
 
         g = torch.Generator().manual_seed(seed)
-        a = 4 * math.sqrt(3 / (2 * dim)) # so that E‖μ_k‖² = 8 for every dim
+        a = GMM.half_width(dim)
         self.means = (2 * torch.rand(K, dim, generator=g) - 1) * a # (K, d)
         U = 0.1 + 0.8 * torch.rand(K, generator=g) # (K,)
         self.weights = U / U.sum()
         self.to(device)
+
+    @staticmethod
+    def half_width(dim: int) -> float:
+        """ a, chosen so that E‖μ_k‖² = 8 for every dim
+        """
+        return 4 * math.sqrt(3 / (2 * dim))
+
+    @staticmethod
+    def coord_std(dim: int) -> float:
+        """ std of one coordinate of x ~ p (expected over the means): √(1 + a²/3) = √(1 + 8/d)
+        """
+        return math.sqrt(1 + GMM.half_width(dim)**2 / 3)
 
     def to(self, device) -> distributions.Distribution:
         self.means = self.means.to(device)
