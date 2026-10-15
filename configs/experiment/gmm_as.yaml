@@ -28,7 +28,7 @@ controller:
 
 
 # === training ===
-num_epochs: 5000
+num_epochs: 2000
 max_grad_E_norm: null
 
 adjoint_matcher:
