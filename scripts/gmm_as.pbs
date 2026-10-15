@@ -9,7 +9,7 @@
 # (DIM, K) pairs: DIMS[i] goes with KS[i] (not a grid)
 DIMS=(8 16 32 48)
 KS=(8 16 32 48)
-RADII=(3 3.5 4) # radius of the modes (null = √32 ≈ 5.66); pairs of modes ≈ radius·√2 apart: ≈ 5.0, 5.7, 6.4
+RADII=(4.5 5) # radius of the modes (null = √32 ≈ 5.66); pairs of modes ≈ radius·√2 apart: ≈ 5.0, 5.7, 6.4
 SEEDS=(0) # (0 1)
 NPROC=$(( ${#DIMS[@]} * ${#SEEDS[@]} * ${#RADII[@]} ))
 THREADS=$(( 12 / NPROC > 0 ? 12 / NPROC : 1 ))
