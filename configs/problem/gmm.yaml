@@ -2,8 +2,17 @@
 
 # Override `dim` to run other dimensions, e.g., `dim=3,8,16,39,80,165 -m`
 dim: 3
-K: 5 # number of modes; means are drawn from Uniform([-a, a]^dim), a = 8*sqrt(3/(2*dim))
+K: 5 # number of modes
 target_seed: 0 # seed of the target (means & weights), independent of `seed`
+# means: sphere = all at distance √32 from the origin (no mode easier to reach from the start);
+#        cube = Uniform([-a, a]^dim), a = 8*sqrt(3/(2*dim)) (previous runs)
+layout: sphere
+# weights ∝ exp(-E_k): loguniform = E_k ~ Uniform(0, log weight_ratio), max/min <= weight_ratio for any K;
+#   exponential = E_k ~ Exponential(mean energy_scale), max/min grows with K;
+#   uniform = Uniform(0.1, 0.9) (previous runs)
+weight_law: loguniform
+weight_ratio: 20
+energy_scale: 1.0
 
 energy:
   _target_: adjoint_samplers.energies.dist_energy.DistEnergy
@@ -12,10 +21,15 @@ energy:
     dim: ${dim}
     K: ${K}
     seed: ${target_seed}
+    layout: ${layout}
+    weight_law: ${weight_law}
+    weight_ratio: ${weight_ratio}
+    energy_scale: ${energy_scale}
 
 evaluator:
   _target_: adjoint_samplers.components.evaluator.GMMEvaluator
   w2_samples: 2000 # sample_w2 (exact OT, ~cubic cost) on the first 2000 samples only
+  cover_ratio: 0.1 # a mode is covered if it gets >= 10% of its weight: "found", whatever the weight error
 
 # more samples for energy_w2 / mode_tv: the smallest of K=165 modes gets ~2 samples out of 2000.
 # Generated in chunks of eval_batch_size (2000), so the sampling CUDA graph is unchanged.

@@ -187,6 +187,7 @@ class Writer:
                 method = "asbs" if "corrector" in cfg else "as"
                 name = f"{name}_K{cfg.K}_s{cfg.seed}"  # e.g. gmm165d_as_K2_s0
                 tags = [f"K{cfg.K}", f"dim{cfg.dim}", method]
+                tags += [str(cfg[k]) for k in ("layout", "weight_law") if k in cfg]
             self.writer = wandb.init(
                 mode=os.environ.get('WANDB_MODE', 'online'),
                 project=cfg.project,

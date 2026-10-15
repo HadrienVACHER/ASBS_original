@@ -47,7 +47,15 @@ class GMM(distributions.Distribution):
 
         p(x) = Σ_k π_k N(x | μ_k, I_d)
 
-        μ_k ~ Uniform([-a, a]^d),  a = 8√(3/(2d)) = 4√(6/d),  π_k = U_k / Σ_j U_j,  U_k ~ Uniform(0.1, 0.9)
+        Means (`layout`), both with E‖μ_k‖² = 32 (typical distance between two means ≈ 8):
+          cube    μ_k ~ Uniform([-a, a]^d),  a = 8√(3/(2d)) = 4√(6/d)
+          sphere  μ_k = r v_k / ‖v_k‖,  v_k ~ N(0, I_d),  r = √32: every mode at the same
+                  distance from the origin
+        Weights (`weight_law`), π_k = U_k / Σ_j U_j:
+          uniform      U_k ~ Uniform(0.1, 0.9)                          (ratio max/min <= 9)
+          loguniform   U_k = exp(-E_k),  E_k ~ Uniform(0, log weight_ratio) (ratio <= weight_ratio)
+          exponential  U_k = exp(-E_k),  E_k ~ Exponential(mean energy_scale): Boltzmann
+                       weights of random mode energies; the ratio grows with K (~ K^energy_scale)
 
         The target is fully determined by `seed`, independently of the training seed.
     """
@@ -56,6 +64,10 @@ class GMM(distributions.Distribution):
         dim: int,
         K: int = 5,
         seed: int = 0,
+        layout: str = "cube",
+        weight_law: str = "uniform",
+        weight_ratio: float = 20.0,
+        energy_scale: float = 1.0,
         device: str = "cpu",
     ) -> None:
         super().__init__()
@@ -66,11 +78,32 @@ class GMM(distributions.Distribution):
         self.name = f"gmm{dim}d"
 
         g = torch.Generator().manual_seed(seed)
-        a = GMM.half_width(dim)
-        self.means = (2 * torch.rand(K, dim, generator=g) - 1) * a # (K, d)
-        U = 0.1 + 0.8 * torch.rand(K, generator=g) # (K,)
+        if layout == "cube":
+            a = GMM.half_width(dim)
+            self.means = (2 * torch.rand(K, dim, generator=g) - 1) * a # (K, d)
+        elif layout == "sphere":
+            v = torch.randn(K, dim, generator=g)
+            self.means = v / v.norm(dim=1, keepdim=True) * GMM.radius(dim) # (K, d)
+        else:
+            raise ValueError(f"unknown layout {layout}")
+
+        if weight_law == "uniform":
+            U = 0.1 + 0.8 * torch.rand(K, generator=g) # (K,)
+        elif weight_law == "loguniform":
+            U = torch.exp(-math.log(weight_ratio) * torch.rand(K, generator=g))
+        elif weight_law == "exponential":
+            E = -energy_scale * torch.log1p(-torch.rand(K, generator=g)) # Exponential, mean energy_scale
+            U = torch.exp(-E)
+        else:
+            raise ValueError(f"unknown weight_law {weight_law}")
         self.weights = U / U.sum()
         self.to(device)
+
+    @staticmethod
+    def radius(dim: int) -> float:
+        """ r = √(E‖μ_k‖²) of the cube layout = √32, used by the sphere layout
+        """
+        return GMM.half_width(dim) * math.sqrt(dim / 3)
 
     @staticmethod
     def half_width(dim: int) -> float:
@@ -80,7 +113,8 @@ class GMM(distributions.Distribution):
 
     @staticmethod
     def coord_std(dim: int) -> float:
-        """ std of one coordinate of x ~ p (expected over the means): √(1 + a²/3) = √(1 + 32/d)
+        """ std of one coordinate of x ~ p (expected over the means): √(1 + a²/3) = √(1 + 32/d),
+            the same for both layouts (E‖μ_k‖² = 32)
         """
         return math.sqrt(1 + GMM.half_width(dim)**2 / 3)
 

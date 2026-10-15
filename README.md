@@ -42,13 +42,17 @@ python train.py experiment={dw4,lj13,lj55}_{asbs,as} seed=0,1,2 -m
 
 ## Gaussian mixture in increasing dimension
 `gmm_asbs` samples a `K`-mode isotropic Gaussian mixture `p(x) = Σ_k π_k N(x | μ_k, I_d)`, with
-`μ_k ~ Uniform([-a, a]^d)` with `a = 8√(3/(2d))` and `π_k ∝ U_k`, `U_k ~ Uniform(0.1, 0.9)`.
+by default every `μ_k` at distance `√32` from the origin in a random direction (`layout=sphere`; `layout=cube` gives
+`μ_k ~ Uniform([-a, a]^d)`, `a = 8√(3/(2d))`) and `π_k ∝ exp(-E_k)`, `E_k ~ Uniform(0, log 20)` (`weight_law=loguniform`,
+max/min weight ≤ `weight_ratio`; also `exponential` energies or `uniform` = `U_k ~ Uniform(0.1, 0.9)`).
 The target is fixed by `target_seed` (not by `seed`) and the dimension `d` is set by `dim`:
 ```
 python train.py experiment=gmm_asbs dim=3,8,16,39,80,165 seed=0,1,2 -m   # or: bash scripts/gmm.sh (SLURM)
 qsub scripts/gmm.pbs                                                   # PBS job array: dims x seeds
 ```
-Metrics (energy W2, sample W2, mode-weight TV, fraction of modes found) are computed against exact target samples.
+Metrics are computed against exact target samples: energy W2, sample W2, and mode metrics (share of samples inside a mode,
+mass / number of modes covered, mode-weight TV, effective number of modes, mode width, per-mode weight ratio for K ≤ 64),
+each with its value for exact samples (`*_floor`).
 If no GPU is available, training falls back to CPU (override with `device=...`).
 
 ## Citation

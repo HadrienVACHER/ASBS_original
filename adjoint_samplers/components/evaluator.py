@@ -148,7 +148,7 @@ class GMMEvaluator:
         energy,
         w2_samples: int = 2000,
         in_mode_quantile: float = 0.999,
-        cover_ratio: float = 0.5,
+        cover_ratio: float = 0.1,
         n_floor_draws: int = 5,
         max_per_mode: int = 64,
     ) -> None:
