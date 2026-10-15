@@ -2,7 +2,7 @@
 
 # Override `dim` to run other dimensions, e.g., `dim=3,8,16,39,80,165 -m`
 dim: 3
-K: 5 # number of modes; means are drawn from Uniform([-a, a]^dim), a = 4*sqrt(3/(2*dim))
+K: 5 # number of modes; means are drawn from Uniform([-a, a]^dim), a = 6*sqrt(3/(2*dim))
 target_seed: 0 # seed of the target (means & weights), independent of `seed`
 
 energy:
@@ -15,3 +15,8 @@ energy:
 
 evaluator:
   _target_: adjoint_samplers.components.evaluator.GMMEvaluator
+  w2_samples: 2000 # sample_w2 (exact OT, ~cubic cost) on the first 2000 samples only
+
+# more samples for energy_w2 / mode_tv: the smallest of K=165 modes gets ~2 samples out of 2000.
+# Generated in chunks of eval_batch_size (2000), so the sampling CUDA graph is unchanged.
+num_eval_samples: 10000

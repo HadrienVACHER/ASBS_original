@@ -47,7 +47,7 @@ class GMM(distributions.Distribution):
 
         p(x) = Σ_k π_k N(x | μ_k, I_d)
 
-        μ_k ~ Uniform([-a, a]^d),  a = 4√(3/(2d)) = 2√(6/d),  π_k = U_k / Σ_j U_j,  U_k ~ Uniform(0.1, 0.9)
+        μ_k ~ Uniform([-a, a]^d),  a = 6√(3/(2d)) = 3√(6/d),  π_k = U_k / Σ_j U_j,  U_k ~ Uniform(0.1, 0.9)
 
         The target is fully determined by `seed`, independently of the training seed.
     """
@@ -74,13 +74,13 @@ class GMM(distributions.Distribution):
 
     @staticmethod
     def half_width(dim: int) -> float:
-        """ a, chosen so that E‖μ_k‖² = 8 for every dim
+        """ a, chosen so that E‖μ_k‖² = 18 for every dim (typical distance between two means ≈ 6)
         """
-        return 4 * math.sqrt(3 / (2 * dim))
+        return 6 * math.sqrt(3 / (2 * dim))
 
     @staticmethod
     def coord_std(dim: int) -> float:
-        """ std of one coordinate of x ~ p (expected over the means): √(1 + a²/3) = √(1 + 8/d)
+        """ std of one coordinate of x ~ p (expected over the means): √(1 + a²/3) = √(1 + 18/d)
         """
         return math.sqrt(1 + GMM.half_width(dim)**2 / 3)
 

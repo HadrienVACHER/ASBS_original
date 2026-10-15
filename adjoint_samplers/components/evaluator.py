@@ -125,13 +125,17 @@ class SyntheticEenergyEvaluator:
 
 class GMMEvaluator:
     """ Compare generated samples against exact samples of a GMM target
+
+        energy_w2 and the mode metrics use all samples; sample_w2 (exact OT,
+        roughly cubic in the number of samples) uses only the first `w2_samples`.
     """
-    def __init__(self, energy) -> None:
+    def __init__(self, energy, w2_samples: int = 2000) -> None:
         from adjoint_samplers.energies.dist_energy import DistEnergy
         from adjoint_samplers.utils.dist_utils import GMM
         assert isinstance(energy, DistEnergy) and isinstance(energy.dist, GMM)
         self.energy = energy
         self.dist = energy.dist
+        self.w2_samples = w2_samples
 
     def __call__(self, samples: torch.Tensor) -> Dict:
         B, D = samples.shape
@@ -153,8 +157,9 @@ class GMMEvaluator:
         modes_found = (gen_weights > 0).float().mean().item()
 
         print("Computing sample W2...")
-        M = torch.cdist(samples.cpu().double(), ref_samples.cpu().double())
-        a = b = np.ones(B) / B
+        n = min(B, self.w2_samples)
+        M = torch.cdist(samples[:n].cpu().double(), ref_samples[:n].cpu().double())
+        a = b = np.ones(n) / n
         sample_w2 = pot.emd2(a, b, M.numpy()**2)**0.5
 
         return {

@@ -42,7 +42,7 @@ python train.py experiment={dw4,lj13,lj55}_{asbs,as} seed=0,1,2 -m
 
 ## Gaussian mixture in increasing dimension
 `gmm_asbs` samples a `K`-mode isotropic Gaussian mixture `p(x) = Σ_k π_k N(x | μ_k, I_d)`, with
-`μ_k ~ Uniform([-a, a]^d)` with `a = 4√(3/(2d))` and `π_k ∝ U_k`, `U_k ~ Uniform(0.1, 0.9)`.
+`μ_k ~ Uniform([-a, a]^d)` with `a = 6√(3/(2d))` and `π_k ∝ U_k`, `U_k ~ Uniform(0.1, 0.9)`.
 The target is fixed by `target_seed` (not by `seed`) and the dimension `d` is set by `dim`:
 ```
 python train.py experiment=gmm_asbs dim=3,8,16,39,80,165 seed=0,1,2 -m   # or: bash scripts/gmm.sh (SLURM)
