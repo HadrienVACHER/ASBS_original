@@ -6,9 +6,9 @@
 #PBS -l select=1:ncpus=12:ngpus=1:mem=32gb
 #PBS -j oe
 
-DIMS=(8 39 165) # (8 39 165)
+DIMS=(3) # (8 39 165)
 SEEDS=(0) # (0 1)
-KS=(8 39 165) # (8 39 165)
+KS=(3) # (8 39 165)
 NPROC=$(( ${#DIMS[@]} * ${#SEEDS[@]} * ${#KS[@]} ))
 THREADS=$(( 12 / NPROC > 0 ? 12 / NPROC : 1 ))
 
