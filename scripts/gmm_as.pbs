@@ -7,7 +7,7 @@
 #PBS -j oe
 
 # K = d modes; radius 4.25, spread layout and log-uniform weights come from configs/problem/gmm.yaml
-DIMS=(32 48 64 80 96)
+DIMS=(18 26 34 42)
 SEEDS=(0) # training seeds; the target is fixed by target_seed
 NPROC=$(( ${#DIMS[@]} * ${#SEEDS[@]} ))
 THREADS=$(( 12 / NPROC > 0 ? 12 / NPROC : 1 ))
