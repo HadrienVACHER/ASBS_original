@@ -6,17 +6,10 @@
 #PBS -l select=1:ncpus=12:ngpus=1:mem=32gb
 #PBS -j oe
 
-# Runs as "DIM K RADIUS" (not a grid): the radius is chosen per dim, just below the collapse threshold
-# (radius = distance of the modes from the origin; null = √32 ≈ 5.66; pairs of modes ≈ radius·√2 apart)
-CONFIGS=(
-  "8 8 null"
-  "16 16 4.25"
-  "32 32 4.25"
-  "48 48 4"
-  "48 48 4.5"
-)
+# K = d modes; radius 4.25, spread layout and log-uniform weights come from configs/problem/gmm.yaml
+DIMS=(16 24 32 40 48)
 SEEDS=(0 1) # training seeds; the target is fixed by target_seed
-NPROC=$(( ${#CONFIGS[@]} * ${#SEEDS[@]} ))
+NPROC=$(( ${#DIMS[@]} * ${#SEEDS[@]} ))
 THREADS=$(( 12 / NPROC > 0 ? 12 / NPROC : 1 ))
 
 cd "${PBS_O_WORKDIR}" || exit 1
@@ -47,14 +40,14 @@ nvidia-smi --query-gpu=timestamp,utilization.gpu,memory.used --format=csv -l 30 
 MON=$!
 
 pids=()
-for CFG in "${CONFIGS[@]}"; do
-  read -r DIM K R <<< "${CFG}"
+for DIM in "${DIMS[@]}"; do
+  K=${DIM}
   for SEED in "${SEEDS[@]}"; do
-    echo "Lancement GMM K=${K} dim=${DIM} radius=${R} seed=${SEED}"
-    python train.py experiment=gmm_as dim=${DIM} seed=${SEED} K=${K} layout=spread radius=${R} \
+    echo "Lancement GMM K=${K} dim=${DIM} seed=${SEED}"
+    python train.py experiment=gmm_as dim=${DIM} seed=${SEED} K=${K} \
         fast_sampling=true buffer_on_device=true fast_train=true \
-        hydra.run.dir=results/gmm_as/spread_r${R}/K${K}_dim${DIM}_seed${SEED} \
-        > logs/as_spread_r${R}_K${K}_dim${DIM}_seed${SEED}.log 2>&1 &
+        hydra.run.dir=results/gmm_as/K${K}_dim${DIM}_seed${SEED} \
+        > logs/as_K${K}_dim${DIM}_seed${SEED}.log 2>&1 &
     pids+=($!)
   done
 done

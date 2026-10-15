@@ -8,7 +8,9 @@ target_seed: 0 # seed of the target (means & weights), independent of `seed`
 #          every pair of modes at the same distance, ≈ radius*√2);
 #        sphere = same radius, random directions; cube = Uniform([-a, a]^dim), a = 8*sqrt(3/(2*dim))
 layout: spread
-radius: null # null = √32 ≈ 5.66 (sphere / spread only); larger = modes farther apart
+# radius: distance of the modes from the origin (sphere / spread only; null = √32 ≈ 5.66).
+# 4.25 = just below where AS collapses for d = K in 16..48: every mode found, weights wrong (d <= 8 needs √32)
+radius: 4.25
 # weights ∝ exp(-E_k): loguniform = E_k ~ Uniform(0, log weight_ratio), max/min <= weight_ratio for any K;
 #   exponential = E_k ~ Exponential(mean energy_scale), max/min grows with K;
 #   uniform = Uniform(0.1, 0.9) (previous runs)
