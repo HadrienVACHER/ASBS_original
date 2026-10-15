@@ -196,7 +196,7 @@ class AdjointVEMatcher(AdjointMatcher):
 
     def sample_t(self, x):
         (B, D) = x.shape
-        return torch.rand(B, 1)
+        return torch.rand(B, 1, device=x.device)
 
     def _check_target_shape(self, t, xt, adjoint):
         (B, D) = xt.shape

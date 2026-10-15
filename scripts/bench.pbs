@@ -8,7 +8,7 @@
 
 # Benchmark + correctness check of fast_sampling (CUDA graph) and buffer_on_device.
 # Submit from the repo root: qsub scripts/bench.pbs
-# All "check" lines (4 per dim) must say OK before using fast_sampling=true in a real run.
+# All "check" lines (5 per dim) must say OK before using fast_sampling / fast_train in a real run.
 
 cd "${PBS_O_WORKDIR}" || exit 1
 export PYTHONUNBUFFERED=1

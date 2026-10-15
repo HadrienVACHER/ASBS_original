@@ -1,6 +1,6 @@
 # Copyright (c) Meta Platforms, Inc. and affiliates.
 
-"""Benchmark and check the two speed options (`fast_sampling`, `buffer_on_device`).
+"""Benchmark and check the speed options (`fast_sampling`, `buffer_on_device`, `fast_train`).
 
     python scripts/bench_sampler.py --dim 165 --K 2
 
@@ -157,6 +157,47 @@ def main():
     t1 = timeit(lambda: run(dev_loader), dev, 2)
     print(f"100 batches, DataLoader        : {t0 * 1e3:8.1f} ms")
     print(f"100 batches, DeviceBatchLoader : {t1 * 1e3:8.1f} ms   (x{t0 / t1:.1f})")
+
+    # ---- 4: training step, plain vs fast_train (fused Adam + torch.compile)
+    def make(fast):
+        torch.manual_seed(1)  # same initial weights for both
+        model = FourierMLP(dim=a.dim, activation=torch.nn.GELU(), channels=a.channels).to(dev)
+        with torch.no_grad():
+            for p in model.out_layer.parameters():
+                p.normal_(0, 0.1)
+        opt = torch.optim.Adam(model.parameters(), lr=1e-4, fused=fast)
+        return model, (torch.compile(model) if fast else model), opt
+
+    g = torch.Generator().manual_seed(2)
+    batches = [tuple(v.to(dev) for v in (torch.rand(a.batch, 1, generator=g),
+                                         torch.randn(a.batch, a.dim, generator=g),
+                                         torch.randn(a.batch, a.dim, generator=g)))
+               for _ in range(20)]
+
+    def train(fwd, opt, n):
+        total = torch.zeros((), device=dev)
+        for i in range(n):
+            t, x, target = batches[i % len(batches)]
+            opt.zero_grad()
+            loss = ((fwd(t, x) - target)**2).mean()
+            loss.backward()
+            opt.step()
+            total += loss.detach()
+        return (total / n).item()
+
+    try:
+        m_ref, f_ref, o_ref = make(False)
+        m_fast, f_fast, o_fast = make(True)
+        l_ref, l_fast = train(f_ref, o_ref, 20), train(f_fast, o_fast, 20)
+        err = max((p - q).abs().max().item() for p, q in zip(m_ref.parameters(), m_fast.parameters()))
+        print(f"check (fast_train)   : 20 steps, loss {l_ref:.5f} vs {l_fast:.5f}, max |w_plain - w_fast| = {err:.1e}",
+              "OK" if err < 1e-4 and abs(l_ref - l_fast) < 1e-3 * abs(l_ref) else "MISMATCH")
+        t0 = timeit(lambda: train(f_ref, o_ref, 100), dev, 3)
+        t1 = timeit(lambda: train(f_fast, o_fast, 100), dev, 3)
+        print(f"100 train steps, plain         : {t0 * 1e3:8.1f} ms")
+        print(f"100 train steps, fast_train    : {t1 * 1e3:8.1f} ms   (x{t0 / t1:.1f})")
+    except Exception as e:  # e.g. torch.compile unavailable on this machine
+        print(f"check (fast_train)   : failed with {type(e).__name__}: {e} MISMATCH")
 
 
 def _cycle(it):

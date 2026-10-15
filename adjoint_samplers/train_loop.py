@@ -5,7 +5,6 @@ from omegaconf import DictConfig
 import torch
 from torch.optim import Optimizer
 from torch.optim.lr_scheduler import LRScheduler
-from torchmetrics.aggregation import MeanMetric
 
 import adjoint_samplers.utils.train_utils as train_utils
 from adjoint_samplers.components.matcher import Matcher
@@ -43,7 +42,7 @@ def train_one_epoch(
         cfg.train_batch_size,
         device=device if cfg.get("buffer_on_device", False) else None,
     )
-    epoch_loss = MeanMetric().to(device, non_blocking=True)
+    epoch_loss = torch.zeros((), device=device) # summed on device: no host sync per step
 
     loader = iter(cycle(dataloader))
 
@@ -64,8 +63,8 @@ def train_one_epoch(
 
         optimizer.step()
 
-        epoch_loss.update(loss.item())
+        epoch_loss += loss.detach()
         if lr_schedule:
             lr_schedule.step()
 
-    return float(epoch_loss.compute().detach().cpu())
+    return float(epoch_loss / cfg.train_itr_per_epoch)

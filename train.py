@@ -45,6 +45,12 @@ def main(cfg):
         elif cfg.get("fast_sampling", False):
             print("fast_sampling needs CUDA; ignored.")
 
+        fast_train = cfg.get("fast_train", False) and device.startswith("cuda")
+        if fast_train:
+            print("Training with fused Adam and torch.compile.")
+        elif cfg.get("fast_train", False):
+            print("fast_train needs CUDA; ignored.")
+
         # fix the seed for reproducibility
         seed = cfg.seed + distributed_mode.get_rank()
         torch.manual_seed(seed)
@@ -96,11 +102,16 @@ def main(cfg):
             optimizer = torch.optim.Adam([
                 {'params': controller.parameters(), **cfg.adjoint_matcher.optim},
                 {'params': corrector.parameters(), **cfg.corrector_matcher.optim},
-            ])
+            ], fused=fast_train)
         else:
             optimizer = torch.optim.Adam(
-                controller.parameters(), **cfg.adjoint_matcher.optim,
+                controller.parameters(), **cfg.adjoint_matcher.optim, fused=fast_train,
             )
+
+        # compiled wrappers share the parameters; sampling keeps using the eager modules
+        train_models = {"adjoint": controller, "corrector": corrector}
+        if fast_train:
+            train_models = {k: m if m is None else torch.compile(m) for k, m in train_models.items()}
 
 
         # Checkpoint loading disabled: every run starts from epoch 0,
@@ -153,8 +164,8 @@ def main(cfg):
             stage = train_utils.determine_stage(epoch, cfg)
 
             matcher, model = {
-                "adjoint": (adjoint_matcher, controller),
-                "corrector": (corrector_matcher, corrector),
+                "adjoint": (adjoint_matcher, train_models["adjoint"]),
+                "corrector": (corrector_matcher, train_models["corrector"]),
             }.get(stage)
 
             loss = train_one_epoch(
