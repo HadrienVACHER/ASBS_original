@@ -98,17 +98,26 @@ def main():
         print(f"check (weights moved): max |x1_eager - x1_graph| = {err:.2e}", "OK" if err < 1e-3 else "MISMATCH")
         sde.randn_like = randn
 
-        # with noise: every replay draws new noise, with the same statistics as eager
+        # with noise: zero the controller in place, so x1 - x0 is pure noise with a known
+        # std, sqrt(sum_i g(t_i)^2 dt_i). Wrong scale or noise reused across steps/replays shows up here.
+        saved = [p.detach().clone() for p in controller.out_layer.parameters()]
+        with torch.no_grad():
+            for p in controller.out_layer.parameters():
+                p.zero_()
+        dts = timesteps[1:] - timesteps[:-1]
+        std_true = (sde.diff(timesteps[:-1])**2 * dts).sum().sqrt().item()
         enable_cuda_graph_sampling(True)
-        _, x1_a = sdeint(sde, x0, timesteps, only_boundary=True)
-        _, x1_b = sdeint(sde, x0, timesteps, only_boundary=True)
+        noise = torch.stack([sdeint(sde, x0, timesteps, only_boundary=True)[1] - x0 for _ in range(5)])
         enable_cuda_graph_sampling(False)
-        _, x1_eager = sdeint(sde, x0, timesteps, only_boundary=True)
-        fresh = not torch.allclose(x1_a, x1_b)
-        std_graph, std_eager = (x1_a - x0).std().item(), (x1_eager - x0).std().item()
-        rel = abs(std_graph - std_eager) / std_eager
-        print(f"check (noise)        : replays differ = {fresh}, std(x1 - x0) graph {std_graph:.3f} vs eager {std_eager:.3f}",
-              "OK" if fresh and rel < 0.05 else "MISMATCH")
+        with torch.no_grad():
+            for p, s in zip(controller.out_layer.parameters(), saved):
+                p.copy_(s)
+        fresh = not torch.allclose(noise[0], noise[1])
+        std_graph, mean_graph = noise.std().item(), noise.mean().item()
+        rel = abs(std_graph - std_true) / std_true
+        print(f"check (noise)        : replays differ = {fresh}, std(x1 - x0) graph {std_graph:.3f} vs exact {std_true:.3f}"
+              f" ({rel:.1%}), mean {mean_graph:+.3f}",
+              "OK" if fresh and rel < 0.03 and abs(mean_graph) < 0.05 * std_true else "MISMATCH")
 
         enable_cuda_graph_sampling(True)
         t_graph = timeit(lambda: sdeint(sde, x0, timesteps, only_boundary=True), dev, a.reps)
