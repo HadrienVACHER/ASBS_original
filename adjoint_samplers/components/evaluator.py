@@ -126,16 +126,75 @@ class SyntheticEenergyEvaluator:
 class GMMEvaluator:
     """ Compare generated samples against exact samples of a GMM target
 
+        Each sample is assigned to its most likely mode k, and counts for k only if it
+        lies inside it: ||x - μ_k||² <= χ²_d(in_mode_quantile). ŵ_k = share of samples
+        inside mode k, ŵ_out = share inside no mode. Mode metrics:
+          frac_in_modes   1 - ŵ_out
+          mass_covered    Σ_k π_k 1[ŵ_k >= cover_ratio π_k]   (mode collapse, weighted by π)
+          modes_covered   mean_k 1[ŵ_k >= cover_ratio π_k]    (mode collapse, unweighted)
+          mode_tv         ½ (Σ_k |ŵ_k - π_k| + ŵ_out)         (mode weight mismatch)
+          eff_modes_ratio exp(H(ŵ | inside)) / exp(H(π))      (1: right spread over modes)
+          mode_spread     mean ||x - μ_k||² / d               (1: right width, <1 too narrow)
+        Each also comes as `<name>_floor`: its value for exact samples of the same size,
+        i.e. the best value reachable with this many samples.
+
         energy_w2 and the mode metrics use all samples; sample_w2 (exact OT,
         roughly cubic in the number of samples) uses only the first `w2_samples`.
     """
-    def __init__(self, energy, w2_samples: int = 2000) -> None:
+    def __init__(
+        self,
+        energy,
+        w2_samples: int = 2000,
+        in_mode_quantile: float = 0.999,
+        cover_ratio: float = 0.5,
+        n_floor_draws: int = 5,
+    ) -> None:
+        from scipy.stats import chi2
         from adjoint_samplers.energies.dist_energy import DistEnergy
         from adjoint_samplers.utils.dist_utils import GMM
         assert isinstance(energy, DistEnergy) and isinstance(energy.dist, GMM)
         self.energy = energy
         self.dist = energy.dist
         self.w2_samples = w2_samples
+        self.in_mode_r2 = float(chi2.ppf(in_mode_quantile, self.dist.dim))
+        self.cover_ratio = cover_ratio
+        self.n_floor_draws = n_floor_draws
+        self._floors = {} # number of samples -> floors
+
+    def mode_metrics(self, x: torch.Tensor) -> Dict:
+        B, D = x.shape
+        pi = self.dist.weights.to(x.device)
+        k = self.dist.assign(x)
+        dist2 = (x - self.dist.means[k]).pow(2).sum(-1)
+        inside = dist2 <= self.in_mode_r2
+
+        counts = torch.bincount(k[inside], minlength=self.dist.K).float()
+        w = counts / B
+        frac_in = inside.float().mean()
+        covered = w >= self.cover_ratio * pi
+
+        q = counts / counts.sum().clamp(min=1)
+        entropy = lambda p: -(p * p.clamp(min=1e-30).log()).sum()
+        return {
+            "frac_in_modes": frac_in.item(),
+            "mass_covered": (pi * covered).sum().item(),
+            "modes_covered": covered.float().mean().item(),
+            "mode_tv": (0.5 * ((w - pi).abs().sum() + 1 - frac_in)).item(),
+            "eff_modes_ratio": (entropy(q) - entropy(pi)).exp().item(),
+            "mode_spread": (dist2.mean() / D).item(),
+        }
+
+    def mode_floors(self, B: int, device) -> Dict:
+        """ mode metrics of exact samples, averaged over a few draws; cached per B.
+            Uses its own RNG state, so training randomness is unaffected.
+        """
+        if B not in self._floors:
+            devices = [device] if torch.device(device).type == "cuda" else []
+            with torch.random.fork_rng(devices=devices):
+                draws = [self.mode_metrics(self.dist.sample([B,]).to(device))
+                         for _ in range(self.n_floor_draws)]
+            self._floors[B] = {f"{k}_floor": float(np.mean([d[k] for d in draws])) for k in draws[0]}
+        return self._floors[B]
 
     def __call__(self, samples: torch.Tensor) -> Dict:
         B, D = samples.shape
@@ -150,11 +209,9 @@ class GMMEvaluator:
             ref_energy.cpu().numpy(), gen_energy.cpu().numpy()
         )**0.5
 
-        print("Computing mode weights...")
-        K = self.dist.K
-        gen_weights = torch.bincount(self.dist.assign(samples), minlength=K) / B
-        mode_tv = 0.5 * (gen_weights - self.dist.weights).abs().sum().item()
-        modes_found = (gen_weights > 0).float().mean().item()
+        print("Computing mode metrics...")
+        mode_metrics = self.mode_metrics(samples)
+        mode_floors = self.mode_floors(B, samples.device)
 
         print("Computing sample W2...")
         n = min(B, self.w2_samples)
@@ -165,6 +222,6 @@ class GMMEvaluator:
         return {
             "energy_w2": energy_w2,
             "sample_w2": sample_w2,
-            "mode_tv": mode_tv,
-            "modes_found": modes_found,
+            **mode_metrics,
+            **mode_floors,
         }
