@@ -47,7 +47,6 @@ for i in "${!DIMS[@]}"; do
   for SEED in "${SEEDS[@]}"; do
     echo "Lancement GMM K=${K} dim=${DIM} seed=${SEED}"
     python train.py experiment=gmm_as dim=${DIM} seed=${SEED} K=${K} \
-        fast_sampling=true buffer_on_device=true fast_train=true \
         hydra.run.dir=results/gmm_as/K${K}_dim${DIM}_seed${SEED} \
         > logs/as_K${K}_dim${DIM}_seed${SEED}.log 2>&1 &
     pids+=($!)
