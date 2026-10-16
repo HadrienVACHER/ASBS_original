@@ -9,7 +9,7 @@
 # Metropolis-Hastings control variate (AdjointVEMHMatcher), defaults of gmm_as_mh: gamma = 2, M = 2K, one jump.
 # K = d modes, all DIMS in one job:  qsub scripts/gmm_as_mh.pbs
 # k-means on x1 + ∇log p1(x1) (denoise_step = 1): finds the light modes that raw k-means misses at d >= 24.
-DIMS=(24)
+DIMS=(12 24 36)
 SEEDS=(0) # training seeds; the target is fixed by target_seed
 TF=0.3
 EPOCHS=5000 # existing AS baselines stop at 2000: compare up to there
