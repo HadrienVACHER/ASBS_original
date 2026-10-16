@@ -3,7 +3,7 @@
 from collections import defaultdict
 
 import torch
-from torch.func import grad, jvp, vmap
+from torch.func import grad
 from torch.utils.data import DataLoader
 
 from adjoint_samplers.components.buffer import BatchBuffer, DeviceBatchLoader
@@ -239,11 +239,6 @@ class AdjointVPMatcher(AdjointVEMatcher):
         return (t, xt), - adjoint
 
 
-def _bmv(M, v):
-    # batched matrix-vector product: (B, d, d) x (B, d) -> (B, d)
-    return (M @ v.unsqueeze(-1)).squeeze(-1)
-
-
 class AdjointVEDiracMatcher(AdjointVEMatcher):
     """ AdjointVEMatcher for AS from a Dirac X0, where with ν_t = ∫_0^t σ², κ_t = ν_t / ν_1:
 
@@ -259,113 +254,6 @@ class AdjointVEDiracMatcher(AdjointVEMatcher):
     def _nu(self, t):
         # ν_t = ∫_0^t σ(s)² ds
         return self.sde.ref_sde._pt_gauss_param(t, torch.zeros_like(t))[1]
-
-
-class AdjointVESteinMatcher(AdjointVEDiracMatcher):
-    """ AdjointVEMatcher with the Stein term of ram_stein.tex added to the target:
-
-            target = - (∇g(X1) + T F),   (T F)_i = Σ_j F_ij ∂_j log π(X1 | Xt) + ∂_j F_ij
-
-        π(x1 | xt) ∝ p1(x1) p^base(xt | x1) is the posterior of the target p1, not of the model,
-        F = c ν_{1|t} A(t, Xt, X1, E(X1)), c < 0, A = B B^T ⪰ 0. For dX = σ(t) dW from the Dirac X0,
-        with ν_t = ∫_0^t σ², κ_t = ν_t / ν_1 and ν_{1|t} = ν_1 - ν_t,
-
-            T F = c [ A (Xt - (1 - κ_t) X0 - κ_t X1) + ν_{1|t} (A ∇log p1(X1) + ∇_{X1}·A) ]
-
-        (constant σ, X0 = 0: κ_t = t, ν_{1|t} = σ²(1 - t)). The controller here is u / σ(t), so the
-        target has no σ(t). T F has zero mean under π, not under the model posterior: the regressed
-        drift moves by - c ν_{1|t} E[A ∇log(p1 / p1^u)(X1) | Xt], so the step of AS along
-        ∇log(p1 / p1^u) is preconditioned by I + |c| ν_{1|t} A ⪰ I (up to 1 + |c| ν_1 at t = 0 for A = I),
-        toward target mass the model under-samples; u* stays the fixed point. ∇log p1 = ∇log p^base_1 - ∇g
-        is read off the buffer, so p1 is the target encoded by g (with max_grad_E_norm, its clipped score).
-
-        Without `stein_net`, A = I and ∇·A = 0. Otherwise B = stein_net(t, Xt, X1, E(X1)) is trained
-        with the controller on the same loss (for it, the conditional variance of the target) and
-        ∇_{X1}·A is the total derivative, through E(X1) with the stored ∇E(X1): exact (d JVPs) or
-        Hutchinson (1 JVP, unbiased).
-    """
-    def __init__(
-        self,
-        c: float = -0.05,
-        stein_net: torch.nn.Module | None = None,
-        div_estimator: str = "exact",
-        **kwargs,
-    ):
-        super().__init__(**kwargs)
-        assert c <= 0, "c < 0 pushes toward under-sampled target mass, c > 0 away from it"
-        assert div_estimator in ("exact", "hutchinson")
-        self.c = c
-        self.stein_net = stein_net
-        self.div_estimator = div_estimator
-
-    def populate_buffer(
-            self,
-            x0: torch.Tensor,
-            timesteps: torch.Tensor,
-            is_asbs_init_stage: bool,
-    ):
-        (x0, x1) = sdeint(
-            self.sde,
-            x0,
-            timesteps,
-            only_boundary=True,
-        )
-        adjoint1 = self._compute_adjoint1(x1, is_asbs_init_stage).clone()
-
-        self._check_buffer_sample_shape(x0, x1, adjoint1)
-        data = {
-            "x0": x0.to("cpu"),
-            "x1": x1.to("cpu"),
-            "adjoint1": adjoint1.to("cpu"),
-        }
-        if self.stein_net is not None:
-            # A is a function of E(X1)
-            with torch.no_grad():
-                E1 = self.grad_term_cost.energy.eval(x1)
-            data["E1"] = E1.reshape(-1, 1).to("cpu")
-        self.buffer.add(data)
-
-    def _div_A(self, B, Bx, x1, E1, grad_E1):
-        """ ∇_{x1}·A for A = B B^T: Σ_j (D_j A) e_j, D_v A = (D_v B) B^T + B (D_v B)^T the derivative
-            along v, through E1 by D_v E = <∇E, v>. Hutchinson: (D_v A) v, Rademacher v.
-        """
-        def DA_v(v):
-            dB = jvp(B, (x1, E1), (v, (grad_E1 * v).sum(-1, keepdim=True)))[1]
-            return _bmv(dB, _bmv(Bx.mT, v)) + _bmv(Bx, _bmv(dB.mT, v))
-
-        (N, D) = x1.shape
-        if self.div_estimator == "exact":
-            eye = torch.eye(D, device=x1.device, dtype=x1.dtype)
-            return vmap(DA_v)(eye[:, None, :].expand(D, N, D)).sum(0)
-        return DA_v(2 * torch.randint_like(x1, 2) - 1)
-
-    def stein_term(self, t, x0, xt, x1, adjoint1, E1=None):
-        nut, nu1 = self._nu(t), self._nu(torch.ones_like(t))
-        kappa, nu1t = nut / nu1, nu1 - nut
-
-        score1 = self.grad_term_cost.base_score(x1) - adjoint1 # ∇log p1 = ∇log p^base_1 - ∇g
-        resid = xt - (1 - kappa) * x0 - kappa * x1 # = ν_{1|t} ∇_{x1} log p^base(xt | x1)
-
-        if self.stein_net is None: # A = I
-            return self.c * (resid + nu1t * score1)
-
-        B = lambda x1, E1: self.stein_net(t, xt, x1, E1)
-        Bx = B(x1, E1)
-        div = self._div_A(B, Bx, x1, E1, - score1) # ∇E = - ∇log p1
-        A = lambda v: _bmv(Bx, _bmv(Bx.mT, v))
-        return self.c * (A(resid) + nu1t * (A(score1) + div))
-
-    def prepare_target(self, data, device):
-        (t, xt), target = super().prepare_target(data, device)
-        adjoint1 = - target
-
-        x0 = data["x0"].to(device)
-        x1 = data["x1"].to(device)
-        E1 = data["E1"].to(device) if self.stein_net is not None else None
-
-        stein = self.stein_term(t, x0, xt, x1, adjoint1, E1)
-        self._check_target_shape(t, xt, stein)
-        return (t, xt), - (adjoint1 + stein)
 
 
 def _nearest(x, centres):

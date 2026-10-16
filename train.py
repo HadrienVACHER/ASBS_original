@@ -85,13 +85,6 @@ def main(cfg):
             corrector = corrector_matcher = None
 
 
-        if "stein_net" in cfg:
-            print('Instantiating Stein matrix network...')
-            stein_net = hydra.utils.instantiate(cfg.stein_net).to(device)
-        else:
-            stein_net = None
-
-
         print("Instantiating grad of costs...")
         grad_term_cost = hydra.utils.instantiate(
             cfg.term_cost,
@@ -107,7 +100,6 @@ def main(cfg):
             cfg.adjoint_matcher,
             grad_term_cost=grad_term_cost,
             sde=sde,
-            **({} if stein_net is None else {"stein_net": stein_net}),
         )
 
 
@@ -119,11 +111,9 @@ def main(cfg):
                 {'params': corrector.parameters(), **cfg.corrector_matcher.optim},
             ], fused=fast_train)
         else:
-            params = [{'params': controller.parameters(), **cfg.adjoint_matcher.optim}]
-            if stein_net is not None:
-                # trained on the adjoint matching loss, with the controller
-                params.append({'params': stein_net.parameters(), **cfg.adjoint_matcher.optim})
-            optimizer = torch.optim.Adam(params, fused=fast_train)
+            optimizer = torch.optim.Adam(
+                controller.parameters(), **cfg.adjoint_matcher.optim, fused=fast_train,
+            )
 
         # compiled wrappers share the parameters; sampling keeps using the eager modules
         train_models = {"adjoint": controller, "corrector": corrector}

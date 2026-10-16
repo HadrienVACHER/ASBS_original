@@ -1,9 +1,0 @@
-# @package _global_
-
-# gmm_as_stein with A = B B^T, B = I + N(t, Xt, X1, E(X1)) trained with the controller.
-
-defaults:
-  - gmm_as_stein
-  - /model@stein_net: stein_matrix
-
-exp_name: gmm${dim}d_as_stein_learned_c${adjoint_matcher.c}
