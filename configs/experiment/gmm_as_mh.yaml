@@ -1,13 +1,13 @@
 # @package _global_
 
 # gmm_as with the Metropolis-Hastings control variate in the regression target (AdjointVEMHMatcher).
-# M = K clusters by default (an oracle on the GMM): try adjoint_matcher.n_clusters=<2K> too.
+# M = 2K clusters (no oracle K: over-clustering only wastes jumps inside a mode), one jump per sample.
 
 defaults:
   - gmm_as
   - override /matcher@adjoint_matcher: adjoint_ve_mh
 
-exp_name: gmm${dim}d_as_mh_g${adjoint_matcher.gamma}_M${adjoint_matcher.n_clusters}_rb${adjoint_matcher.rao_blackwell}
+exp_name: gmm${dim}d_as_mh_g${adjoint_matcher.gamma}_M${adjoint_matcher.n_clusters}_rb${adjoint_matcher.rao_blackwell}_tf${adjoint_matcher.t_focus}
 
 adjoint_matcher:
-  n_clusters: ${K}
+  n_clusters: ${mul:2,${K}}

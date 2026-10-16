@@ -1,10 +1,13 @@
 _target_: adjoint_samplers.components.matcher.AdjointVEMHMatcher
 
 # target = - ∇g + γ h / ν_{1|t}, h the Metropolis-Hastings flux between k-means clusters
-gamma: 0.5 # γ <= 1/2 never overshoots the mode weights (eigenvalues of -G^T in [0, 2])
+gamma: 2.0 # one exact outer iteration corrects ~γ/5 of the mode-weight error at d = K = 12 (AS alone: 0.08)
 n_clusters: 2 # M
-rao_blackwell: true # all M - 1 jumps per sample (M - 1 energy values), else one at random
+rao_blackwell: false # one random jump per sample (1 energy value); true: all M - 1 jumps
 kmeans_iters: 20
+stats_every: 10 # mh/* diagnostics every n steps
+t_focus: 0.0 # fraction of regression times drawn in [0, t_focus_max], where jumps are accepted
+t_focus_max: 0.15
 
 grad_state_cost:
   _target_: adjoint_samplers.components.state_cost.ZeroGradStateCost

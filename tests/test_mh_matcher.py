@@ -150,7 +150,7 @@ def test_flux_direction_two_modes(n=200000):
     torch.manual_seed(1)
     target = with_weights(make_gmm(dim=6, K=2, radius=4.25), torch.tensor([0.5, 0.5]))
     model = with_weights(target, torch.tensor([0.8, 0.2])) # mode 1 under-weighted
-    matcher = make_matcher(target, gamma=1.0, n_clusters=2)
+    matcher = make_matcher(target, gamma=1.0, n_clusters=2, rao_blackwell=True)
     matcher.centres = target.means.clone()
     toward = target.means[1] - target.means[0]
     for kappa in (0.0, 0.1, 0.3):
@@ -177,7 +177,7 @@ def test_flux_is_generator_at_t0(n=400000):
     torch.manual_seed(2)
     target = make_gmm(dim=6, K=4, radius=6.0)
     model = with_weights(target, target.weights * torch.exp(0.5 * torch.randn(4)))
-    matcher = make_matcher(target, gamma=1.0, n_clusters=4)
+    matcher = make_matcher(target, gamma=1.0, n_clusters=4, rao_blackwell=True)
     matcher.centres = target.means.clone()
     h, _ = h_of(matcher, 0.0, torch.zeros(6), model.sample([n]))
 
@@ -205,11 +205,20 @@ def test_gamma_zero_recovers_adjoint_ve_matcher():
     print("ok  γ = 0 gives the AdjointVEMatcher target")
 
 
+def test_t_focus():
+    target = make_gmm(dim=6, K=4, radius=4.25)
+    t = make_matcher(target, AdjointVEMatcher, t_focus=0.3).sample_t(torch.zeros(200000, 6)).squeeze(-1)
+    # P(t < 0.15) = 0.3 + 0.7 * 0.15
+    frac = (t < 0.15).float().mean().item()
+    assert abs(frac - (0.3 + 0.7 * 0.15)) < 0.005 and t.min() >= 0 and t.max() < 1, frac
+    print(f"ok  t_focus = 0.3 puts {frac:.3f} of the regression times in [0, 0.15] (expected 0.405)")
+
+
 def test_buffer_to_loss():
     """ populate (no centres, then k-means on the previous buffer) -> dataloader -> target -> stats """
     torch.manual_seed(4)
     target = make_gmm(dim=6, K=4, radius=4.25)
-    matcher = make_matcher(target, n_clusters=4)
+    matcher = make_matcher(target, n_clusters=4, stats_every=1)
     timesteps = torch.linspace(0, 1, 50)
 
     matcher.populate_buffer(torch.zeros(256, 6), timesteps, False)
@@ -245,7 +254,7 @@ def test_drift_to_weights(N=40000, n_mc=16, gamma=0.5, t_stop=0.3):
         target = make_gmm(dim, K, radius=4.25)
         target.means, target.weights = target.means.double(), target.weights.double()
         model = with_weights(target, target.weights * torch.exp(0.4 * torch.randn(K)))
-        matcher = make_matcher(target, gamma=gamma, n_clusters=K, sigma_max=2 * GMM.coord_std(dim, 4.25))
+        matcher = make_matcher(target, gamma=gamma, n_clusters=K, rao_blackwell=True, sigma_max=2 * GMM.coord_std(dim, 4.25))
         matcher.centres = target.means.clone()
         ref = matcher.sde.ref_sde
         timesteps = torch.linspace(0, 1, 201)
@@ -314,6 +323,7 @@ def test_drift_to_weights(N=40000, n_mc=16, gamma=0.5, t_stop=0.3):
 
 if __name__ == "__main__":
     test_gamma_zero_recovers_adjoint_ve_matcher()
+    test_t_focus()
     test_buffer_to_loss()
     test_flux_is_generator_at_t0()
     test_flux_direction_two_modes()

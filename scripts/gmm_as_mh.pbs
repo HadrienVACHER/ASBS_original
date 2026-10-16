@@ -6,12 +6,13 @@
 #PBS -l select=1:ncpus=12:ngpus=1:mem=32gb
 #PBS -j oe
 
-# Metropolis-Hastings control variate (AdjointVEMHMatcher), gamma = 1/2; K = d modes.
-# Variants: AS baseline, M = K or 2K clusters, all M - 1 jumps (rb) or one jump per sample.
-GAMMA=0.5
-DIMS=(12)
-SEEDS=(0) # training seeds; the target is fixed by target_seed
-VARIANTS=(as mh_K_rb mh_K_one mh_2K_rb mh_2K_one)
+# Metropolis-Hastings control variate (AdjointVEMHMatcher), defaults of gmm_as_mh: gamma = 2, M = 2K, one jump.
+# One dimension per job, K = d modes:  qsub -v DIM=24 scripts/gmm_as_mh.pbs  (default 24)
+# Variants: AS, AS + t_focus, MH, MH + t_focus (TF of the regression times in [0, 0.15]).
+DIMS=(${DIM:-24})
+SEEDS=(0 1 2) # training seeds; the target is fixed by target_seed
+TF=0.3
+VARIANTS=(as as_tf mh mh_tf)
 NPROC=$(( ${#DIMS[@]} * ${#SEEDS[@]} * ${#VARIANTS[@]} ))
 THREADS=$(( 12 / NPROC > 0 ? 12 / NPROC : 1 ))
 
@@ -48,13 +49,11 @@ for DIM in "${DIMS[@]}"; do
   for SEED in "${SEEDS[@]}"; do
     for V in "${VARIANTS[@]}"; do
       case ${V} in
-        as)        ARGS="experiment=gmm_as" ;;
-        mh_K_rb)   ARGS="experiment=gmm_as_mh adjoint_matcher.n_clusters=${K} adjoint_matcher.rao_blackwell=true" ;;
-        mh_K_one)  ARGS="experiment=gmm_as_mh adjoint_matcher.n_clusters=${K} adjoint_matcher.rao_blackwell=false" ;;
-        mh_2K_rb)  ARGS="experiment=gmm_as_mh adjoint_matcher.n_clusters=$((2 * K)) adjoint_matcher.rao_blackwell=true" ;;
-        mh_2K_one) ARGS="experiment=gmm_as_mh adjoint_matcher.n_clusters=$((2 * K)) adjoint_matcher.rao_blackwell=false" ;;
+        as)    ARGS="experiment=gmm_as" ;;
+        as_tf) ARGS="experiment=gmm_as +adjoint_matcher.t_focus=${TF} exp_name=gmm${DIM}d_as_tf${TF}" ;;
+        mh)    ARGS="experiment=gmm_as_mh" ;;
+        mh_tf) ARGS="experiment=gmm_as_mh adjoint_matcher.t_focus=${TF}" ;;
       esac
-      [[ ${V} == mh_* ]] && ARGS="${ARGS} adjoint_matcher.gamma=${GAMMA}"
       echo "Lancement GMM ${V} K=${K} dim=${DIM} seed=${SEED}"
       python train.py ${ARGS} dim=${DIM} seed=${SEED} K=${K} \
           fast_sampling=true buffer_on_device=true fast_train=true \

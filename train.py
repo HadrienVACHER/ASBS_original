@@ -22,6 +22,7 @@ from omegaconf import OmegaConf
 OmegaConf.register_new_resolver(
     "gmm_std", lambda dim, factor=1, radius=None: factor * GMM.coord_std(dim, radius), replace=True,
 )
+OmegaConf.register_new_resolver("mul", lambda a, b: a * b, replace=True)
 
 
 cudnn.benchmark = True

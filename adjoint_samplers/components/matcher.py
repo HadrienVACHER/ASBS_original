@@ -163,8 +163,10 @@ class AdjointVEMatcher(AdjointMatcher):
     """ Efficient computation of AM when the base SDE has no drift (e.g., VE)
         and the SOC problem has no state cost.
     """
-    def __init__(self, **kwargs):
+    def __init__(self, t_focus: float = 0.0, t_focus_max: float = 0.15, **kwargs):
         super().__init__(**kwargs)
+        self.t_focus = t_focus
+        self.t_focus_max = t_focus_max
         self._check_soc_problem()
 
     def _check_soc_problem(self):
@@ -198,7 +200,13 @@ class AdjointVEMatcher(AdjointMatcher):
 
     def sample_t(self, x):
         (B, D) = x.shape
-        return torch.rand(B, 1, device=x.device)
+        t = torch.rand(B, 1, device=x.device)
+        if self.t_focus > 0:
+            # a fraction t_focus of the times in [0, t_focus_max], where modes are chosen. The pointwise
+            # minimizer of the regression, hence the fixed point, does not depend on the law of t.
+            focus = torch.rand(B, 1, device=x.device) < self.t_focus
+            t = torch.where(focus, t * self.t_focus_max, t)
+        return t
 
     def _check_target_shape(self, t, xt, adjoint):
         (B, D) = xt.shape
@@ -304,15 +312,21 @@ class AdjointVEMHMatcher(AdjointVEDiracMatcher):
         Centres come from k-means on the buffer before each new batch, and each sample's proposals and
         energies are drawn and frozen when it enters the buffer, so its proposal kernel does not depend
         on it. `rao_blackwell` keeps all M - 1 jumps (M - 1 energy values per sample), else one at random.
+
+        γ: the mode-level flux is - G^T e, e = w - ŵ, with -G^T in [0, 2]; but jumps are only accepted at
+        small t, and one outer iteration solved exactly moves the masses by about γ/5 e for d = K = 12
+        (γ/1.7 e for d = 6, K = 4), against 0.08 e for AS itself (tests/test_mh_matcher.py): γ = 2
+        corrects 40% of the weight error per iteration without overshoot.
     """
     T_EDGES = (0.0, 0.01, 0.02, 0.04, 0.07, 0.1, 0.15, 1.0)
 
     def __init__(
         self,
-        gamma: float = 0.5,
+        gamma: float = 2.0,
         n_clusters: int = 2,
-        rao_blackwell: bool = True,
+        rao_blackwell: bool = False,
         kmeans_iters: int = 20,
+        stats_every: int = 10,
         **kwargs,
     ):
         super().__init__(**kwargs)
@@ -321,8 +335,10 @@ class AdjointVEMHMatcher(AdjointVEDiracMatcher):
         self.n_clusters = n_clusters
         self.rao_blackwell = rao_blackwell
         self.kmeans_iters = kmeans_iters
+        self.stats_every = stats_every # diagnostics are many small kernels: not every step
         self.centres = None
         self._stats = defaultdict(float)
+        self._step = 0
 
     def propose(self, x1):
         """ jumps Y - X1 = m_k - m_c (N, J, D) from the cluster c of X1 to every other cluster k
@@ -413,8 +429,10 @@ class AdjointVEMHMatcher(AdjointVEDiracMatcher):
         jumps, valid = data["jumps"].to(device), data["valid"].to(device)
 
         term, alpha = self.mh_term(t, x0, xt, x1, E1, jumps, EY, valid)
-        same = data["same_mode"].to(device) if "same_mode" in data else None
-        self._update_stats(t, jumps, valid, alpha, term, - target, same)
+        self._step += 1
+        if self._step % self.stats_every == 0:
+            same = data["same_mode"].to(device) if "same_mode" in data else None
+            self._update_stats(t, jumps, valid, alpha, term, - target, same)
 
         self._check_target_shape(t, xt, term)
         return (t, xt), target + term
