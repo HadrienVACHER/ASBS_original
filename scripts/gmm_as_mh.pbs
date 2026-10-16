@@ -13,7 +13,7 @@ DIMS=(12 24 36)
 SEEDS=(0) # training seeds; the target is fixed by target_seed
 TF=0.3
 EPOCHS=5000
-VARIANTS=(as mh) # t_focus showed no effect at 24D
+VARIANTS=(as) # t_focus showed no effect at 24D
 NPROC=$(( ${#DIMS[@]} * ${#SEEDS[@]} * ${#VARIANTS[@]} ))
 THREADS=$(( 12 / NPROC > 0 ? 12 / NPROC : 1 ))
 
