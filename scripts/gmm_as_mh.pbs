@@ -1,0 +1,73 @@
+#!/bin/bash
+#PBS -N gmm_as_mh
+#PBS -P gs_ccds_haidang.dau
+#PBS -q gpu_as
+#PBS -l walltime=18:00:00
+#PBS -l select=1:ncpus=12:ngpus=1:mem=32gb
+#PBS -j oe
+
+# Metropolis-Hastings control variate (AdjointVEMHMatcher), gamma = 1/2; K = d modes.
+# Variants: AS baseline, M = K or 2K clusters, all M - 1 jumps (rb) or one jump per sample.
+GAMMA=0.5
+DIMS=(12)
+SEEDS=(0) # training seeds; the target is fixed by target_seed
+VARIANTS=(as mh_K_rb mh_K_one mh_2K_rb mh_2K_one)
+NPROC=$(( ${#DIMS[@]} * ${#SEEDS[@]} * ${#VARIANTS[@]} ))
+THREADS=$(( 12 / NPROC > 0 ? 12 / NPROC : 1 ))
+
+cd "${PBS_O_WORKDIR}" || exit 1
+mkdir -p logs
+export PYTHONUNBUFFERED=1
+
+# --- Correctif officiel PBS/GaaS pour les identifiants GPU (inchangé) ---
+if echo "${CUDA_VISIBLE_DEVICES:-}" | grep -q "GPU-"; then
+    GPU_COUNT=$(echo "${CUDA_VISIBLE_DEVICES}" | tr ',' '\n' | wc -l)
+    CUDA_VISIBLE_DEVICES=$(seq -s, 0 $((GPU_COUNT - 1)))
+    export CUDA_VISIBLE_DEVICES
+fi
+
+# 12 CPU répartis entre les processus
+export OMP_NUM_THREADS=${THREADS}
+export MKL_NUM_THREADS=${THREADS}
+
+module purge
+module load anaconda/2025
+eval "$(/usr/local/anaconda2025/bin/conda shell.bash hook)"
+conda activate BMS
+
+echo "Nœud : $(hostname) à $(date)"
+nvidia-smi -L
+
+# Suivi de l'utilisation du GPU toutes les 30 s
+nvidia-smi --query-gpu=timestamp,utilization.gpu,memory.used --format=csv -l 30 > logs/gpu_usage_as_mh.csv &
+MON=$!
+
+pids=()
+for DIM in "${DIMS[@]}"; do
+  K=${DIM}
+  for SEED in "${SEEDS[@]}"; do
+    for V in "${VARIANTS[@]}"; do
+      case ${V} in
+        as)        ARGS="experiment=gmm_as" ;;
+        mh_K_rb)   ARGS="experiment=gmm_as_mh adjoint_matcher.n_clusters=${K} adjoint_matcher.rao_blackwell=true" ;;
+        mh_K_one)  ARGS="experiment=gmm_as_mh adjoint_matcher.n_clusters=${K} adjoint_matcher.rao_blackwell=false" ;;
+        mh_2K_rb)  ARGS="experiment=gmm_as_mh adjoint_matcher.n_clusters=$((2 * K)) adjoint_matcher.rao_blackwell=true" ;;
+        mh_2K_one) ARGS="experiment=gmm_as_mh adjoint_matcher.n_clusters=$((2 * K)) adjoint_matcher.rao_blackwell=false" ;;
+      esac
+      [[ ${V} == mh_* ]] && ARGS="${ARGS} adjoint_matcher.gamma=${GAMMA}"
+      echo "Lancement GMM ${V} K=${K} dim=${DIM} seed=${SEED}"
+      python train.py ${ARGS} dim=${DIM} seed=${SEED} K=${K} \
+          fast_sampling=true buffer_on_device=true fast_train=true \
+          hydra.run.dir=results/gmm_as_mh/${V}_K${K}_dim${DIM}_seed${SEED} \
+          > logs/${V}_K${K}_dim${DIM}_seed${SEED}.log 2>&1 &
+      pids+=($!)
+    done
+  done
+done
+
+# Attend chaque processus et garde la trace des échecs
+fail=0
+for p in "${pids[@]}"; do wait "$p" || fail=1; done
+kill $MON 2>/dev/null
+echo "Fin à $(date), statut : ${fail}"
+exit $fail

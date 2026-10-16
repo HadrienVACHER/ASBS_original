@@ -196,10 +196,13 @@ def main(cfg):
                 cfg
             )
 
-            writer.log({
+            log_dict = {
                 f"{stage}_loss": loss,
                 f"{stage}_buffer_size": len(matcher.buffer),
-            }, step=epoch)
+            }
+            if hasattr(matcher, "pop_stats"):
+                log_dict.update(matcher.pop_stats())
+            writer.log(log_dict, step=epoch)
 
             print("[{0} | {1}] {2}".format(
                 cyan(  f"{stage:<7}"),
@@ -241,6 +244,14 @@ def main(cfg):
 
                     samples = torch.cat(x1_list, dim=0)
                     eval_dict = evaluator(samples)
+                    if hasattr(evaluator, "mode_metrics"):
+                        # mass errors of the replay buffer the regression sees, next to the model's
+                        buffer = adjoint_matcher.buffer
+                        buffer_x1 = torch.cat(buffer.batches["x1"])[-buffer.buffer_size:].to(device)
+                        eval_dict.update({
+                            f"buffer/{k}": v
+                            for k, v in evaluator.mode_metrics(buffer_x1, per_mode=True).items()
+                        })
                     print(f"Evaluated @{epoch=}!")
 
                     if "hist_img" in eval_dict:
@@ -248,6 +259,8 @@ def main(cfg):
 
                     writer.log(eval_dict, step=epoch)
                     print({k: v for k, v in eval_dict.items() if isinstance(v, float)})
+                    if len(log_dict) > 2:
+                        print({k: v for k, v in log_dict.items() if "/" in k}) # matcher stats
 
                 # Checkpoint saving disabled: runs never resume from a previous stop.
                 # print("Saving checkpoint ... ")
