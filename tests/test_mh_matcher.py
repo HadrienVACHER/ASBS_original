@@ -214,6 +214,23 @@ def test_t_focus():
     print(f"ok  t_focus = 0.3 puts {frac:.3f} of the regression times in [0, 0.15] (expected 0.405)")
 
 
+def test_denoised_kmeans_finds_light_modes():
+    """ d = K = 24: light modes under-sampled 3x, as in the runs. Raw k-means misses them,
+        k-means on x + ∇log p1(x) puts a centre on every mode
+    """
+    torch.manual_seed(7)
+    target = make_gmm(dim=24, K=24, radius=4.25)
+    w = target.weights.clone()
+    light = w <= w.quantile(0.3)
+    w[light] /= 3
+    x = with_weights(target, w).sample([10000])
+    found = lambda pts: (torch.cdist(target.means, _kmeans(pts, 48)).min(1).values < 1.0)
+    raw, den = found(x), found(x + target.score(x))
+    assert den.all() and raw[light].float().mean() < 0.5
+    print(f"ok  d = 24: k-means finds {raw[light].float().mean():.0%} of the light modes on raw points,"
+          f" {den[light].float().mean():.0%} on x + ∇log p1 (all modes: {raw.float().mean():.0%} vs {den.float().mean():.0%})")
+
+
 def test_buffer_to_loss():
     """ populate (no centres, then k-means on the previous buffer) -> dataloader -> target -> stats """
     torch.manual_seed(4)
@@ -324,6 +341,7 @@ def test_drift_to_weights(N=40000, n_mc=16, gamma=0.5, t_stop=0.3):
 if __name__ == "__main__":
     test_gamma_zero_recovers_adjoint_ve_matcher()
     test_t_focus()
+    test_denoised_kmeans_finds_light_modes()
     test_buffer_to_loss()
     test_flux_is_generator_at_t0()
     test_flux_direction_two_modes()

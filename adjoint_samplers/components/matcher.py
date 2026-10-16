@@ -311,7 +311,9 @@ class AdjointVEMHMatcher(AdjointVEDiracMatcher):
 
         Centres come from k-means on the buffer before each new batch, and each sample's proposals and
         energies are drawn and frozen when it enters the buffer, so its proposal kernel does not depend
-        on it. `rao_blackwell` keeps all M - 1 jumps (M - 1 energy values per sample), else one at random.
+        on it. k-means runs on x1 + s ∇log p1(x1), one gradient step toward the mode (the mode centre
+        for unit-variance GMM modes, s = 1), with ∇log p1 = ∇log p^base_1 - ∇g read off the buffer: on
+        raw points it misses the light modes once d is comparable to the squared mode separation. `rao_blackwell` keeps all M - 1 jumps (M - 1 energy values per sample), else one at random.
 
         γ: the mode-level flux is - G^T e, e = w - ŵ, with -G^T in [0, 2]; but jumps are only accepted at
         small t, and one outer iteration solved exactly moves the masses by about γ/5 e for d = K = 12
@@ -326,6 +328,7 @@ class AdjointVEMHMatcher(AdjointVEDiracMatcher):
         n_clusters: int = 2,
         rao_blackwell: bool = False,
         kmeans_iters: int = 20,
+        denoise_step: float = 1.0,
         stats_every: int = 10,
         **kwargs,
     ):
@@ -335,6 +338,7 @@ class AdjointVEMHMatcher(AdjointVEDiracMatcher):
         self.n_clusters = n_clusters
         self.rao_blackwell = rao_blackwell
         self.kmeans_iters = kmeans_iters
+        self.denoise_step = denoise_step
         self.stats_every = stats_every # diagnostics are many small kernels: not every step
         self.centres = None
         self._stats = defaultdict(float)
@@ -379,8 +383,12 @@ class AdjointVEMHMatcher(AdjointVEDiracMatcher):
 
         # centres from the buffer before this batch, so they do not depend on its samples
         if len(self.buffer) > 0:
-            buffer_x1 = torch.cat(self.buffer.batches["x1"])[-self.buffer.buffer_size:]
-            self.centres = _kmeans(buffer_x1.to(x1), self.n_clusters, self.centres, self.kmeans_iters)
+            n = self.buffer.buffer_size
+            buffer_x1 = torch.cat(self.buffer.batches["x1"])[-n:].to(x1)
+            buffer_adjoint1 = torch.cat(self.buffer.batches["adjoint1"])[-n:].to(x1)
+            score1 = self.grad_term_cost.base_score(buffer_x1) - buffer_adjoint1 # ∇log p1
+            points = buffer_x1 + self.denoise_step * score1
+            self.centres = _kmeans(points, self.n_clusters, self.centres, self.kmeans_iters)
 
         jumps, valid = self.propose(x1)
         energy = self.grad_term_cost.energy

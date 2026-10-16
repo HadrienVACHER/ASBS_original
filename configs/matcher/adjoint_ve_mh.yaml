@@ -5,6 +5,7 @@ gamma: 2.0 # one exact outer iteration corrects ~γ/5 of the mode-weight error a
 n_clusters: 2 # M
 rao_blackwell: false # one random jump per sample (1 energy value); true: all M - 1 jumps
 kmeans_iters: 20
+denoise_step: 1.0 # k-means on x1 + s ∇log p1(x1) (the mode centre for unit-variance modes); 0: raw x1
 stats_every: 10 # mh/* diagnostics every n steps
 t_focus: 0.0 # fraction of regression times drawn in [0, t_focus_max], where jumps are accepted
 t_focus_max: 0.15
