@@ -7,13 +7,19 @@
 #PBS -j oe
 
 # Metropolis-Hastings control variate (AdjointVEMHMatcher), defaults of gmm_as_mh: gamma = 2, M = 2K, one jump.
-# K = d modes, all DIMS in one job:  qsub scripts/gmm_as_mh.pbs
+# K = d modes, all DIMS and VARIANTS in one job:  qsub scripts/gmm_as_mh.pbs
 # k-means on x1 + ∇log p1(x1) (denoise_step = 1): finds the light modes that raw k-means misses at d >= 24.
-DIMS=(12 24 36)
+DIMS=(24 36)
 SEEDS=(0) # training seeds; the target is fixed by target_seed
-TF=0.3
 EPOCHS=5000
-VARIANTS=(as) # t_focus showed no effect at 24D
+# AS and MH at 5000 epochs already exist (16 Oct 09:29 / 09:58); this job adds:
+#   mh_ema     MH, evaluation with an EMA of the controller (0.999 per step)
+#   mh_emabuf  MH, EMA controller also generates the buffer
+#   mh_g4      MH with gamma = 4
+#   mh_big     MH, controller 256 channels x 6 layers (capacity)
+#   as_big     AS, same bigger controller (is the light-mode deficit a capacity limit?)
+VARIANTS=(mh_ema mh_emabuf mh_g4 mh_big as_big)
+BIG="controller.channels=256 controller.num_layers=6"
 NPROC=$(( ${#DIMS[@]} * ${#SEEDS[@]} * ${#VARIANTS[@]} ))
 THREADS=$(( 12 / NPROC > 0 ? 12 / NPROC : 1 ))
 
@@ -50,10 +56,13 @@ for DIM in "${DIMS[@]}"; do
   for SEED in "${SEEDS[@]}"; do
     for V in "${VARIANTS[@]}"; do
       case ${V} in
-        as)    ARGS="experiment=gmm_as" ;;
-        as_tf) ARGS="experiment=gmm_as +adjoint_matcher.t_focus=${TF} exp_name=gmm${DIM}d_as_tf${TF}" ;;
-        mh)    ARGS="experiment=gmm_as_mh" ;;
-        mh_tf) ARGS="experiment=gmm_as_mh adjoint_matcher.t_focus=${TF}" ;;
+        as)        ARGS="experiment=gmm_as" ;;
+        mh)        ARGS="experiment=gmm_as_mh" ;;
+        mh_ema)    ARGS="experiment=gmm_as_mh ema_decay=0.999 exp_name=gmm${DIM}d_as_mh_ema" ;;
+        mh_emabuf) ARGS="experiment=gmm_as_mh ema_decay=0.999 ema_buffer=true exp_name=gmm${DIM}d_as_mh_emabuf" ;;
+        mh_g4)     ARGS="experiment=gmm_as_mh adjoint_matcher.gamma=4" ;;
+        mh_big)    ARGS="experiment=gmm_as_mh ${BIG} exp_name=gmm${DIM}d_as_mh_big" ;;
+        as_big)    ARGS="experiment=gmm_as ${BIG} exp_name=gmm${DIM}d_as_big" ;;
       esac
       echo "Lancement GMM ${V} K=${K} dim=${DIM} seed=${SEED}"
       python train.py ${ARGS} dim=${DIM} seed=${SEED} K=${K} num_epochs=${EPOCHS} \

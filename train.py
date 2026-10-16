@@ -121,6 +121,16 @@ def main(cfg):
         if fast_train:
             train_models = {k: m if m is None else torch.compile(m) for k, m in train_models.items()}
 
+        # EMA of the controller: it samples for evaluation, and for the buffer with ema_buffer
+        if cfg.get("ema_decay"):
+            from torch.optim.swa_utils import AveragedModel, get_ema_multi_avg_fn
+            ema = AveragedModel(controller, multi_avg_fn=get_ema_multi_avg_fn(cfg.ema_decay))
+            eval_sde = ControlledSDE(ref_sde, ema.module).to(device)
+            if cfg.get("ema_buffer", False):
+                adjoint_matcher.sde = eval_sde
+        else:
+            ema, eval_sde = None, sde
+
 
         # Checkpoint loading disabled: every run starts from epoch 0,
         # whatever checkpoint exists in the run folder.
@@ -184,7 +194,8 @@ def main(cfg):
                 lr_schedule,
                 epoch,
                 device,
-                cfg
+                cfg,
+                after_step=(lambda: ema.update_parameters(controller)) if ema and stage == "adjoint" else None,
             )
 
             log_dict = {
@@ -220,7 +231,7 @@ def main(cfg):
 
                         # model samples
                         x0, x1 = sdeint(
-                            sde,
+                            eval_sde,
                             x0,
                             timesteps,
                             only_boundary=True,

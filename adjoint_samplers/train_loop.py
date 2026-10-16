@@ -25,6 +25,7 @@ def train_one_epoch(
     epoch: int,
     device: str,
     cfg: DictConfig,
+    after_step=None,
 ):
     # build dataloader
     B = cfg.resample_batch_size
@@ -62,6 +63,8 @@ def train_one_epoch(
             torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1e20)
 
         optimizer.step()
+        if after_step is not None:
+            after_step()
 
         epoch_loss += loss.detach()
         if lr_schedule:

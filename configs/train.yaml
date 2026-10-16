@@ -6,6 +6,8 @@ defaults:
 project: adjoint_sampler_cv
 train_itr_per_epoch: 100
 init_stage: adjoint
+ema_decay: null # EMA of the controller per step (e.g. 0.999): samples for evaluation
+ema_buffer: false # also generate the buffer with the EMA controller
 
 seed: 0
 
