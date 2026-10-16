@@ -136,6 +136,20 @@ class FourierMLP(Model):
         return self.out_layer(self.activation(embed))
 
 
+class SteinMatrixNet(nn.Module):
+    """ B(t, x_t, x_1, e) = I + N(t, [x_t, x_1, e]) ∈ R^{d×d}, e = E(x_1), the factor of the
+        Stein matrix A = B B^T ⪰ 0. N is a FourierMLP: with its last layer at zero, A = I at init.
+    """
+    def __init__(self, dim: int, **kwargs):
+        super().__init__()
+        self.dim = dim
+        self.net = FourierMLP(dim=2 * dim + 1, dim_out=dim * dim, **kwargs)
+
+    def forward(self, t, xt, x1, e):
+        N = self.net(t, torch.cat([xt, x1, e], dim=-1)).view(-1, self.dim, self.dim)
+        return torch.eye(self.dim, device=N.device, dtype=N.dtype) + N
+
+
 ############################################################################################
 #### EGNN: from https://github.com/jarridrb/DEM/blob/main/dem/models/components/egnn.py ####
 ############################################################################################

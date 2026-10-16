@@ -1,0 +1,154 @@
+\documentclass[11pt]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[french]{babel}
+\usepackage{amsmath,amssymb,amsthm,bm}
+\usepackage[margin=2.5cm]{geometry}
+
+\newcommand{\E}{\mathbb{E}}
+\newcommand{\R}{\mathbb{R}}
+\newcommand{\N}{\mathcal{N}}
+\newcommand{\Id}{I_d}
+\newcommand{\dd}{\mathrm{d}}
+\newcommand{\ubar}{\bar u}
+\newcommand{\pbase}{p^{\mathrm{base}}}
+\newcommand{\divg}{\nabla\!\cdot}
+
+\begin{document}
+
+\section{Perte RAM et terme de Stein}
+
+\subsection{Perte RAM}
+
+\begin{equation}
+\mathcal{L}_{\mathrm{RAM}}(u)
+= \int_0^1 \frac{1}{\sigma^2}\,
+\E_{X_1 \sim p_1^{\ubar},\; X_t \sim \pbase_{t|1}}
+\left[ \frac{1}{2} \bigl\| u(X_t,t) + \sigma \nabla g(X_1) \bigr\|^2 \right] \dd t
+\end{equation}
+où :
+\begin{align}
+\pbase_{t|1}(x \mid X_1) &= \N\bigl(x;\, t X_1,\, \sigma^2 t(1-t)\,\Id\bigr), \\
+g(x) &= \log \pbase_1(x) + \frac{1}{\tau} E(x), \\
+\pbase_1 &= \N(0, \sigma^2 \Id).
+\end{align}
+
+Notons, pour $t \in (0,1)$,
+\begin{equation}
+\pi_{1|t}^{\ubar}(x_1 \mid x_t) \propto p_1^{\ubar}(x_1)\, \pbase_{t|1}(x_t \mid x_1),
+\end{equation}
+la loi conditionnelle de $X_1$ sachant $X_t$ sous laquelle on échantillonne dans $\mathcal{L}_{\mathrm{RAM}}$, et
+\begin{equation}
+\pi_{1|t}(x_1 \mid x_t) \propto p_1(x_1)\, \pbase_{t|1}(x_t \mid x_1),
+\end{equation}
+la même conditionnelle avec la loi cible $p_1$ à la place de $p_1^{\ubar}$.
+
+\subsection{Opérateur de Stein}
+
+Pour un champ matriciel $F : \R^d \to \R^{d\times d}$, on prend l'opérateur de Stein (à valeurs dans $\R^d$) :
+\begin{equation}
+\bigl(\mathcal{T}_{\pi_{1|t}} F\bigr)_i
+= \sum_{j=1}^d F_{ij}\, \partial_{x_1^j} \log \pi_{1|t} + \partial_{x_1^j} F_{ij},
+\qquad\text{i.e.}\qquad
+\mathcal{T}_{\pi_{1|t}} F = F\, \nabla_{x_1} \log \pi_{1|t} + \divg_{x_1} F ,
+\end{equation}
+où $\divg_{x_1} F$ est la divergence ligne par ligne. Sous des conditions de bord ($\pi_{1|t} F \to 0$ à l'infini), on a
+\begin{equation}
+\E_{\pi_{1|t}}\bigl[\, \mathcal{T}_{\pi_{1|t}} F \mid X_t \,\bigr] = 0 .
+\end{equation}
+
+On prend
+\begin{align}
+F &= c\, \sigma^2 (1-t)\, A_\theta\bigl(t, X_t, X_1, E(X_1)\bigr),
+\qquad c < 0,\quad A_\theta \succeq 0 \ \ (\text{p.ex. } A_\theta = B_\theta B_\theta^\top), \\
+\nabla_{x_1} \log \pi_{1|t}(x_1 \mid x_t)
+&= \frac{x_t - t x_1}{\sigma^2 (1-t)} + \nabla \log p_1(x_1) .
+\end{align}
+D'où
+\begin{equation}
+\mathcal{T}_{\pi_{1|t}} F
+= c\Bigl[ A_\theta\,(X_t - t X_1)
++ \sigma^2 (1-t) \bigl( A_\theta\, \nabla \log p_1(X_1) + \divg_{x_1} A_\theta \bigr) \Bigr],
+\end{equation}
+où $\divg_{x_1} A_\theta$ est la dérivée totale en $x_1$, y compris à travers $E(x_1)$ :
+\begin{equation}
+\bigl(\divg_{x_1} A_\theta\bigr)_i
+= \sum_{j=1}^d \Bigl( \partial_{x_1^j} [A_\theta]_{ij} + \partial_{E}[A_\theta]_{ij}\, \partial_{x_1^j} E(X_1) \Bigr).
+\end{equation}
+
+\subsection{Perte RAM avec terme de Stein}
+
+\begin{equation}
+\boxed{
+\mathcal{L}_{\mathrm{RAM}}^{\mathrm{Stein}}(u)
+= \int_0^1 \frac{1}{\sigma^2}\,
+\E_{X_1 \sim p_1^{\ubar},\; X_t \sim \pbase_{t|1}}
+\left[ \frac{1}{2} \Bigl\| u(X_t,t) + \sigma \nabla g(X_1) + \sigma\, \mathcal{T}_{\pi_{1|t}} F \Bigr\|^2 \right] \dd t
+}
+\end{equation}
+soit explicitement
+\begin{equation}
+\mathcal{L}_{\mathrm{RAM}}^{\mathrm{Stein}}(u)
+= \int_0^1 \frac{1}{\sigma^2}\,
+\E \left[ \frac{1}{2} \Bigl\| u(X_t,t) + \sigma \nabla g(X_1)
++ c\,\sigma \Bigl[ A_\theta (X_t - t X_1) + \sigma^2(1-t)\bigl( A_\theta \nabla \log p_1(X_1) + \divg_{x_1} A_\theta \bigr) \Bigr] \Bigr\|^2 \right] \dd t .
+\end{equation}
+
+\subsection{Biais introduit}
+
+Le terme de Stein est d'espérance nulle sous $\pi_{1|t}$, mais pas sous $\pi^{\ubar}_{1|t}$, la loi sous laquelle on échantillonne. Comme $\E_{\pi^{\ubar}_{1|t}}[\mathcal{T}_{\pi^{\ubar}_{1|t}} F \mid X_t] = 0$ et que les parties gaussiennes des scores se compensent,
+\begin{equation}
+\E_{\pi^{\ubar}_{1|t}}\bigl[\, \mathcal{T}_{\pi_{1|t}} F \mid X_t \,\bigr]
+= \E_{\pi^{\ubar}_{1|t}}\Bigl[\, F\, \nabla \log \frac{p_1}{p_1^{\ubar}}(X_1) \;\Big|\; X_t \Bigr] .
+\end{equation}
+Le minimiseur ponctuel de $\mathcal{L}_{\mathrm{RAM}}^{\mathrm{Stein}}$ est donc
+\begin{equation}
+u(x_t,t)
+= \underbrace{-\sigma\, \E_{\pi^{\ubar}_{1|t}}\bigl[ \nabla g(X_1) \mid X_t = x_t \bigr]}_{u_{\mathrm{RAM}}(x_t,t)}
++ |c|\, \sigma^3 (1-t)\,
+\E_{\pi^{\ubar}_{1|t}}\Bigl[ A_\theta\, \nabla \log \frac{p_1}{p_1^{\ubar}}(X_1) \;\Big|\; X_t = x_t \Bigr].
+\end{equation}
+Avec $c<0$ et $A_\theta \succeq 0$, le terme supplémentaire pousse la dérive vers les régions où $p_1 / p_1^{\ubar}$ croît, c'est-à-dire vers la masse de la cible sous-couverte par le modèle. Il s'annule lorsque $p_1^{\ubar} = p_1$ : le contrôle optimal $u^*$ reste un point fixe.
+
+Ceci suppose que $p_1$ est la cible codée par $g$, i.e. $\nabla \log p_1 = \nabla \log \pbase_1 - \nabla g$ : sinon $u^*$, qui vérifie $p_1^{u^*} \propto e^{-E/\tau}$, n'annule pas le biais.
+
+\subsection{Lecture : un pas d'Adjoint Sampling préconditionné}
+
+Le contrôle de la projection réciproque $\mathcal{P}(\ubar)$ (pont de Schrödinger vers $p_1^{\ubar}$) est
+\begin{equation}
+\mathcal{P}(\ubar)(x_t,t) = \sigma\, \E_{\pi^{\ubar}_{1|t}}\Bigl[ \nabla \log \frac{p_1^{\ubar}}{\pbase_1}(X_1) \;\Big|\; X_t = x_t \Bigr].
+\end{equation}
+Comme $\nabla g = \nabla \log \pbase_1 - \nabla \log p_1$, les minimiseurs ponctuels de $\mathcal{L}_{\mathrm{RAM}}$ et de $\mathcal{L}_{\mathrm{RAM}}^{\mathrm{Stein}}$ s'écrivent
+\begin{align}
+u_{\mathrm{RAM}} &= \mathcal{P}(\ubar) + \sigma\, \E_{\pi^{\ubar}_{1|t}}\Bigl[ \nabla \log \frac{p_1}{p_1^{\ubar}}(X_1) \;\Big|\; X_t \Bigr], \\
+u &= \mathcal{P}(\ubar) + \sigma\, \E_{\pi^{\ubar}_{1|t}}\Bigl[ \bigl( \Id + |c|\, \sigma^2 (1-t)\, A_\theta \bigr)\, \nabla \log \frac{p_1}{p_1^{\ubar}}(X_1) \;\Big|\; X_t \Bigr].
+\end{align}
+Le terme de Stein garde la direction $\nabla \log (p_1 / p_1^{\ubar})$ du pas d'Adjoint Sampling et la multiplie par $\Id + |c|\sigma^2(1-t) A_\theta \succeq \Id$. Si $A_\theta$ ne dépend pas de $X_1$, c'est le pas du Théorème 3.2 préconditionné :
+\begin{equation}
+u_{i+1} = \mathcal{P}(u_i) - \bigl( \Id + |c|\, \sigma^2 (1-t)\, A_\theta \bigr)\, \frac{\delta \mathcal{L}_{\mathrm{AM}}}{\delta u}\bigl(\mathcal{P}(u_i)\bigr),
+\end{equation}
+et pour $A_\theta = \Id$ un pas scalaire $1 + |c|\sigma^2(1-t) \in [1,\, 1 + |c|\sigma^2]$, maximal en $t = 0$. Conséquences :
+\begin{itemize}
+\item \emph{Point fixe unique.} Au sens du Théorème 3.2 ($u = \mathcal{P}(u)$), un point fixe vérifie $\E_{\pi^{u}_{1|t}}[(\Id + |c|\sigma^2(1-t)A_\theta)\nabla \log (p_1/p_1^{u})(X_1) \mid X_t] = 0$ pour tout $t$. Quand $t \to 1$, $\pi^{u}_{1|t}(\cdot \mid x_t) \to \delta_{x_t}$ et $\sigma^2(1-t) \to 0$, d'où $\nabla \log (p_1/p_1^{u}) = 0$, $p_1^{u} = p_1$ et $u = u^*$ (pour $A_\theta$ borné et sous des hypothèses de régularité ; pour $A_\theta = \Id$ cela découle directement du Théorème 3.2).
+\item \emph{Rôle de $A_\theta \succeq 0$, $c < 0$.} La contrainte garantit un pas $\succeq \Id$. Elle exclut $A_\theta = -\Id / (|c|\sigma^2(1-t))$, pour lequel le pas est nul : la cible ne dépend plus de $p_1$ et l'itération se réduit à $u_{i+1} = \mathcal{P}(u_i)$.
+\item \emph{Taille de $c$ (heuristique).} Adjoint Sampling fait un pas $1$ ; ici il atteint $1 + |c|\sigma^2$ en $t = 0$. Par analogie avec un pas de gradient, stable en dessous de $2$, prendre $|c|\sigma^2 \lesssim 1$.
+\item \emph{Poids des modes.} Si $p_1^{\ubar}$ n'a faux que les poids de modes séparés, $\nabla \log (p_1/p_1^{\ubar}) \approx 0$ à l'intérieur des modes : le pas d'Adjoint Sampling est exponentiellement petit en la séparation, et le terme de Stein ne le multiplie que par au plus $1 + |c|\sigma^2$ (avec $A_\theta = \Id$).
+\end{itemize}
+
+\subsection{Bruit quelconque et implémentation}
+
+Pour $\dd X_t = \sigma(t)\, \dd B_t$ depuis le Dirac $X_0$, avec $\nu_t = \int_0^t \sigma(s)^2 \dd s$, $\kappa_t = \nu_t / \nu_1$ et $\nu_{1|t} = \nu_1 - \nu_t$ :
+\begin{equation}
+\pbase_{t|1}(x \mid X_1) = \N\bigl(x;\, (1-\kappa_t) X_0 + \kappa_t X_1,\, \nu_1 \kappa_t (1-\kappa_t)\, \Id\bigr),
+\qquad
+\nabla_{x_1} \log \pbase_{t|1}(x_t \mid x_1) = \frac{x_t - (1-\kappa_t) x_0 - \kappa_t x_1}{\nu_{1|t}} .
+\end{equation}
+On prend $F = c\, \nu_{1|t}\, A_\theta$, $\lambda(t) = 1/\sigma(t)^2$ et la cible $\sigma(t)\,(\nabla g + \mathcal{T}_{\pi_{1|t}} F)$, avec
+\begin{equation}
+\mathcal{T}_{\pi_{1|t}} F
+= c\Bigl[ A_\theta\,\bigl(X_t - (1-\kappa_t) X_0 - \kappa_t X_1\bigr)
++ \nu_{1|t} \bigl( A_\theta\, \nabla \log p_1(X_1) + \divg_{x_1} A_\theta \bigr) \Bigr] ;
+\end{equation}
+$\sigma$ constant et $X_0 = 0$ redonnent $\kappa_t = t$, $\nu_{1|t} = \sigma^2(1-t)$. Partout ci-dessus, $\sigma$ devient $\sigma(t)$ et $\sigma^2(1-t)$ devient $\nu_{1|t}$ (le pas maximal est $1 + |c|\nu_1$). Le code paramètre $u/\sigma(t)$ : sa cible est $-(\nabla g + \mathcal{T}_{\pi_{1|t}} F)$ (\texttt{AdjointVESteinMatcher}), avec $\nabla \log p_1 = \nabla \log \pbase_1 - \nabla g$ lu dans le buffer.
+
+\end{document}

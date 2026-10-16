@@ -49,10 +49,12 @@ class ScoreGradTermCost(GradEnergy):
         from adjoint_samplers.utils.dist_utils import Delta, Gauss
         assert isinstance(source, (Delta, Gauss))
 
-    def __call__(self, x1):
+    def base_score(self, x1):
         # Compute ∇log p^base_1(x) = (μ1 - x) / Σ1
-        score = (self.mu1.to(x1) - x1) / self.var1.to(x1)
-        return self.grad_E(x1) + score
+        return (self.mu1.to(x1) - x1) / self.var1.to(x1)
+
+    def __call__(self, x1):
+        return self.grad_E(x1) + self.base_score(x1)
 
 
 # For ASBS.
