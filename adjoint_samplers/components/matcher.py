@@ -393,11 +393,11 @@ class AdjointVEMHMatcher(AdjointVEDiracMatcher):
         jumps, valid = self.propose(x1)
         energy = self.grad_term_cost.energy
         with torch.no_grad():
-            E1 = energy.eval(x1)
+            E1 = energy.eval(x1).reshape(-1)
             EY = torch.zeros_like(valid)
             mask = valid.bool()
             if mask.any():
-                EY[mask] = energy.eval((x1.unsqueeze(1) + jumps)[mask])
+                EY[mask] = energy.eval((x1.unsqueeze(1) + jumps)[mask]).reshape(-1) # GMM1D returns (N, 1)
         self._stats["evals"] += mask.sum()
         self._stats["samples"] += x1.shape[0]
 
