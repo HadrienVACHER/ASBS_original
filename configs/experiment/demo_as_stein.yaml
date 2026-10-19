@@ -8,3 +8,7 @@ defaults:
   - override /matcher@adjoint_matcher: adjoint_ve_stein
 
 exp_name: demo_as_stein_c${adjoint_matcher.c}
+
+
+# === training ===
+num_epochs: 2000
