@@ -28,10 +28,10 @@ conda activate BMS
 echo "Nœud : $(hostname) à $(date)"
 nvidia-smi -L
 
-python train.py experiment=demo_as seed=0 \
+python train.py experiment=${EXP:-demo_as} seed=0 \
     fast_sampling=true buffer_on_device=true fast_train=true \
-    hydra.run.dir=results/demo_as/seed0 \
-    > logs/demo_as_seed0.log 2>&1
+    hydra.run.dir=results/${EXP:-demo_as}/seed0 \
+    > logs/${EXP:-demo_as}_seed0.log 2>&1
 status=$?
 echo "Fin à $(date), statut : ${status}"
 exit $status
