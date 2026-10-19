@@ -264,6 +264,29 @@ class AdjointVEDiracMatcher(AdjointVEMatcher):
         return self.sde.ref_sde._pt_gauss_param(t, torch.zeros_like(t))[1]
 
 
+class AdjointVETargetBufferMatcher(AdjointVEDiracMatcher):
+    """ Sanity check: X1 of the buffer is drawn from the target p1 (exact sampler of `energy.dist`)
+        instead of from the model. The regression is then the one of u*, so the model should converge
+        whatever the weights it currently has; X0 is the Dirac source.
+    """
+    def populate_buffer(
+            self,
+            x0: torch.Tensor,
+            timesteps: torch.Tensor,
+            is_asbs_init_stage: bool,
+    ):
+        dist = self.grad_term_cost.energy.dist
+        x1 = dist.sample([x0.shape[0],]).reshape(x0.shape).to(x0)
+        adjoint1 = self._compute_adjoint1(x1, is_asbs_init_stage).clone()
+
+        self._check_buffer_sample_shape(x0, x1, adjoint1)
+        self.buffer.add({
+            "x0": x0.to("cpu"),
+            "x1": x1.to("cpu"),
+            "adjoint1": adjoint1.to("cpu"),
+        })
+
+
 def _nearest(x, centres):
     # index of the nearest centre: (N, D) x (M, D) -> (N,)
     return torch.cdist(x, centres).argmin(-1)
