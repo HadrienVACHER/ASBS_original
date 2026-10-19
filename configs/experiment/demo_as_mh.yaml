@@ -1,0 +1,17 @@
+# @package _global_
+
+# demo_as with the Metropolis-Hastings control variate in the regression target (AdjointVEMHMatcher).
+# M = 4 = 2K clusters (K = 2 modes, as in gmm_as_mh), one jump per sample.
+
+defaults:
+  - demo_as
+  - override /matcher@adjoint_matcher: adjoint_ve_mh
+
+exp_name: demo_as_mh_g${adjoint_matcher.gamma}_M${adjoint_matcher.n_clusters}_rb${adjoint_matcher.rao_blackwell}_tf${adjoint_matcher.t_focus}
+
+adjoint_matcher:
+  n_clusters: 4
+
+
+# === training ===
+num_epochs: 2000
