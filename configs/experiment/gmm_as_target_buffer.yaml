@@ -1,0 +1,9 @@
+# @package _global_
+
+# Sanity check: gmm_as with the buffer filled with exact samples of the target.
+
+defaults:
+  - gmm_as
+  - override /matcher@adjoint_matcher: adjoint_ve_target_buffer
+
+exp_name: gmm${dim}d_as_target_buffer

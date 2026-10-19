@@ -44,10 +44,10 @@ for DIM in "${DIMS[@]}"; do
   K=${DIM}
   for SEED in "${SEEDS[@]}"; do
     echo "Lancement GMM K=${K} dim=${DIM} seed=${SEED}"
-    python train.py experiment=gmm_as dim=${DIM} seed=${SEED} K=${K} \
+    python train.py experiment=${EXP:-gmm_as} dim=${DIM} seed=${SEED} K=${K} \
         fast_sampling=true buffer_on_device=true fast_train=true \
-        hydra.run.dir=results/gmm_as/K${K}_dim${DIM}_seed${SEED} \
-        > logs/as_K${K}_dim${DIM}_seed${SEED}.log 2>&1 &
+        hydra.run.dir=results/${EXP:-gmm_as}/K${K}_dim${DIM}_seed${SEED} \
+        > logs/${EXP:-gmm_as}_K${K}_dim${DIM}_seed${SEED}.log 2>&1 &
     pids+=($!)
   done
 done
