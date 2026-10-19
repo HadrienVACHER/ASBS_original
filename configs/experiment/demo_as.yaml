@@ -16,13 +16,13 @@ exp_name: demo_as
 
 # === sde ===
 nfe: 200
-sigma_max: 2 # ~2x the target std (≈1.03)
+sigma_max: 4 # ~2x the target std (≈1.87)
 sigma_min: 0.001
 rescale_t: null # quad, cosine
 
 
 # === training ===
-num_epochs: 6000
+num_epochs: 1000
 max_grad_E_norm: null
 
 adjoint_matcher:

@@ -20,7 +20,7 @@ class GMM1D(distributions.Distribution):
         self._initialize_distr(device)
 
     def _initialize_distr(self, device) -> None:
-        loc = torch.tensor([-1, 2], device=device, dtype=torch.float).reshape(2, 1)
+        loc = torch.tensor([-3, 3], device=device, dtype=torch.float).reshape(2, 1)
         scale = torch.tensor([.5, .5], device=device, dtype=torch.float).reshape(2, 1)
         weights = torch.tensor([.1, .9], device=device, dtype=torch.float).reshape(2)
 
