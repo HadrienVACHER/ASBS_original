@@ -23,6 +23,13 @@ class DemoEvaluator:
         assert isinstance(energy, DistEnergy)
         self.dist = energy.dist
 
+        # metrics against the target: left-mode mass and 1D W2 (quantile coupling)
+        d = self.dist.distr
+        self.locs = d.component_distribution.base_dist.loc.reshape(-1).cpu()
+        self.weights = d.mixture_distribution.probs.cpu()
+        self.n_ref = 100000
+        self.ref = self.dist.sample([self.n_ref,]).reshape(-1).cpu().sort().values
+
         # Plot target samples
         self.fig, axes = get_fig_axes(ncol=6, nrow=10, ax_length_in=3)
         self.axes = axes.reshape(-1)
@@ -60,7 +67,25 @@ class DemoEvaluator:
         # Return figure
         self.fig.canvas.draw()
         PIL_img = fig2img(self.fig)
-        return {"hist_img": PIL_img}
+        return {"hist_img": PIL_img, **self.metrics(samples)}
+
+    def metrics(self, samples: torch.Tensor) -> Dict:
+        """ left_mass / right_mass: share of samples closer to the left / right mode mean
+            (target: weights[0] / weights[1]); mode_tv = |left_mass - weights[0]| (total variation
+            between the two mode weights); w2: 1D Wasserstein-2 to the target, by quantile coupling.
+        """
+        x = samples.reshape(-1).detach().cpu()
+        left = (x - self.locs[0]).abs() < (x - self.locs[1]).abs()
+        left_mass = left.float().mean().item()
+        n = x.shape[0]
+        q = ((torch.arange(n) + 0.5) / n * self.n_ref).long()
+        w2 = (x.sort().values - self.ref[q]).pow(2).mean().sqrt().item()
+        return {
+            "left_mass": left_mass,
+            "left_mass_ratio": left_mass / self.weights[0].item(), # 1: right weight
+            "mode_tv": abs(left_mass - self.weights[0].item()),
+            "w2": w2,
+        }
 
 
 class SyntheticEenergyEvaluator:
