@@ -21,8 +21,8 @@ class GMM1D(distributions.Distribution):
 
     def _initialize_distr(self, device) -> None:
         loc = torch.tensor([-1, 2], device=device, dtype=torch.float).reshape(2, 1)
-        scale = torch.tensor([.7, .4], device=device, dtype=torch.float).reshape(2, 1)
-        weights = torch.tensor([.5, .5], device=device, dtype=torch.float).reshape(2)
+        scale = torch.tensor([.5, .5], device=device, dtype=torch.float).reshape(2, 1)
+        weights = torch.tensor([.1, .9], device=device, dtype=torch.float).reshape(2)
 
         modes = distributions.Independent(
             distributions.Normal(loc, scale), 1

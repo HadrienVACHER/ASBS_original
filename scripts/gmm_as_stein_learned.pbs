@@ -46,7 +46,7 @@ for DIM in "${DIMS[@]}"; do
   for SEED in "${SEEDS[@]}"; do
     echo "Lancement GMM K=${K} dim=${DIM} seed=${SEED}"
     python train.py experiment=gmm_as_stein_learned dim=${DIM} seed=${SEED} K=${K} \
-        adjoint_matcher.c=${C} adjoint_matcher.div_estimator=hutchinson \
+        adjoint_matcher.c=${C} adjoint_matcher.div_estimator=exact \
         fast_sampling=true buffer_on_device=true fast_train=true \
         hydra.run.dir=results/gmm_as_stein_learned/K${K}_dim${DIM}_c${C}_seed${SEED} \
         > logs/as_stein_learned_K${K}_dim${DIM}_c${C}_seed${SEED}.log 2>&1 &
