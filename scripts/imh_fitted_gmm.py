@@ -74,6 +74,9 @@ def main():
     ap.add_argument("--model-std", type=float, default=1.025, help="stand-in buffer: std of the modes")
     ap.add_argument("--components", type=int, default=None, help="M (default 2K)")
     ap.add_argument("--inflate", type=float, default=1.2)
+    ap.add_argument("--cov", default="full", choices=["full", "tied", "diag", "spherical"],
+                    help="covariance family of the fitted components")
+    ap.add_argument("--shrink", type=float, default=0.0, help="shrink each covariance towards tr(C)/d I")
     ap.add_argument("--denoise", action="store_true")
     ap.add_argument("--chains", type=int, default=2000)
     ap.add_argument("--steps", type=int, default=300)
@@ -99,7 +102,7 @@ def main():
         buf = p.means[k] + args.model_std * torch.randn(args.buffer_size, args.dim, device=args.device)
     n = min(len(buf), args.chains)
     print(f"device {args.device}; target d={args.dim} K={args.K}: weights min {p.weights.min():.4f} max {p.weights.max():.4f}; "
-          f"fit M={M}, inflate {args.inflate}, denoise {args.denoise}")
+          f"fit M={M}, cov {args.cov} shrink {args.shrink}, inflate {args.inflate}, denoise {args.denoise}")
     print("  exact-sample floor:", fmt(evaluate(evaluator, p.sample([n,]).to(args.device))))
     print("  buffer:            ", fmt(evaluate(evaluator, buf[:n])))
 
@@ -108,7 +111,7 @@ def main():
         import wandb
         run = wandb.init(
             project="adjoint_sampler_cv",
-            name=f"imh_fitted_gmm_d{args.dim}_K{args.K}_M{M}_i{args.inflate}_dn{int(args.denoise)}",
+            name=f"imh_fitted_gmm_d{args.dim}_K{args.K}_M{M}_{args.cov}{args.shrink}_i{args.inflate}_dn{int(args.denoise)}",
             config=vars(args),
         )
         wandb.define_metric("step")
@@ -129,11 +132,12 @@ def main():
     print(f"    accept (2nd half) {acc:.3f}")
 
     init = _kmeans(buf + p.score(buf), M, iters=20) if args.denoise else None
-    w, mu, cov = fit_gmm(buf, M, init_means=init)
+    w, mu, cov = fit_gmm(buf, M, init_means=init, cov_type=args.cov, shrink=args.shrink)
     r = FittedGMM(torch.full_like(w, 1 / M), mu, cov * args.inflate)
     assigned = torch.bincount(p.assign(mu), minlength=args.K)
     print(f"  fitted r: {(assigned > 0).sum().item()}/{args.K} true modes have a component, "
-          f"smallest eigenvalue of the covariances {torch.linalg.eigvalsh(cov).min().item():.3f}")
+          f"eigenvalues of the covariances "
+          f"min {torch.linalg.eigvalsh(cov).min().item():.3f} max {torch.linalg.eigvalsh(cov).max().item():.3f}")
     print("  chain, fitted r:")
     _, acc = run_chain(r, energy, evaluator, args.chains, args.steps, report,
                        make_log("fitted"), args.eval_every)
