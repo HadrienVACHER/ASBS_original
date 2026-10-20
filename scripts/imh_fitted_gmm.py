@@ -42,15 +42,23 @@ def fmt(m):
     return "  ".join(f"{k} {m[k]:6.3f}" for k in KEYS)
 
 
-def run_chain(r, energy, evaluator, chains, steps, report):
+def run_chain(r, energy, evaluator, chains, steps, report, log=None, eval_every=10):
+    """ log(step, dict): called with the acceptance every step and the evaluator metrics every
+        `eval_every` steps (and at the reported steps)
+    """
     x = r.sample([chains,]).reshape(chains, -1)
     E, logr = energy.eval(x).reshape(-1), r.log_prob(x).reshape(-1)
+    if log:
+        log(0, evaluate(evaluator, x))
     acc_hist = []
     for step in range(1, steps + 1):
         x, E, logr, acc = imh_step(x, E, logr, energy, r)
         acc_hist.append(acc)
+        metrics = evaluate(evaluator, x) if step in report or step % eval_every == 0 else None
+        if log:
+            log(step, {"accept_rate": acc, **(metrics or {})})
         if step in report:
-            print(f"    step {step:4d}  accept {acc:.3f}  {fmt(evaluate(evaluator, x))}")
+            print(f"    step {step:4d}  accept {acc:.3f}  {fmt(metrics)}")
     return x, sum(acc_hist[len(acc_hist) // 2:]) / max(1, len(acc_hist) - len(acc_hist) // 2)
 
 
@@ -70,6 +78,8 @@ def main():
     ap.add_argument("--chains", type=int, default=2000)
     ap.add_argument("--steps", type=int, default=300)
     ap.add_argument("--seed", type=int, default=0)
+    ap.add_argument("--wandb", action="store_true")
+    ap.add_argument("--eval-every", type=int, default=10, help="metrics logged to W&B every n MH steps")
     ap.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
     args = ap.parse_args()
     M = args.components or 2 * args.K
@@ -93,9 +103,29 @@ def main():
     print("  exact-sample floor:", fmt(evaluate(evaluator, p.sample([n,]).to(args.device))))
     print("  buffer:            ", fmt(evaluate(evaluator, buf[:n])))
 
+    run = None
+    if args.wandb:
+        import wandb
+        run = wandb.init(
+            project="adjoint_sampler_cv",
+            name=f"imh_fitted_gmm_d{args.dim}_K{args.K}_M{M}_i{args.inflate}_dn{int(args.denoise)}",
+            config=vars(args),
+        )
+        wandb.define_metric("step")
+        for prefix in ("oracle", "fitted", "buffer", "floor"):
+            wandb.define_metric(f"{prefix}/*", step_metric="step")
+
+    def make_log(prefix):
+        return lambda step, d: run.log({"step": step, **{f"{prefix}/{k}": v for k, v in d.items()}}) if run else None
+
+    if run:
+        run.log({"step": 0, **{f"floor/{k}": v for k, v in evaluate(evaluator, p.sample([n,]).to(args.device)).items()},
+                 **{f"buffer/{k}": v for k, v in evaluate(evaluator, buf[:n]).items()}})
+
     report = {1, 5, 20, 100, args.steps}
     print("  chain, oracle r (true modes, equal weights):")
-    _, acc = run_chain(p.uniform_weights(), energy, evaluator, args.chains, args.steps, report)
+    _, acc = run_chain(p.uniform_weights(), energy, evaluator, args.chains, args.steps, report,
+                       make_log("oracle"), args.eval_every)
     print(f"    accept (2nd half) {acc:.3f}")
 
     init = _kmeans(buf + p.score(buf), M, iters=20) if args.denoise else None
@@ -105,8 +135,13 @@ def main():
     print(f"  fitted r: {(assigned > 0).sum().item()}/{args.K} true modes have a component, "
           f"smallest eigenvalue of the covariances {torch.linalg.eigvalsh(cov).min().item():.3f}")
     print("  chain, fitted r:")
-    _, acc = run_chain(r, energy, evaluator, args.chains, args.steps, report)
+    _, acc = run_chain(r, energy, evaluator, args.chains, args.steps, report,
+                       make_log("fitted"), args.eval_every)
     print(f"    accept (2nd half) {acc:.3f}")
+    if run:
+        run.summary["fitted/accept_2nd_half"] = acc
+        run.summary["fitted/modes_with_component"] = (assigned > 0).sum().item()
+        run.finish()
 
 
 if __name__ == "__main__":

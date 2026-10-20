@@ -35,9 +35,9 @@ nvidia-smi -L
 fail=0
 for DIM in "${DIMS[@]}"; do
   echo "=== d = K = ${DIM}"
-  python scripts/imh_fitted_gmm.py --dim ${DIM} --K ${DIM} ${ARGS:-} \
-      > logs/imh_fitted_gmm_d${DIM}.log 2>&1 || fail=1
-  grep -v -i "warn\|super()" logs/imh_fitted_gmm_d${DIM}.log
+  python scripts/imh_fitted_gmm.py --dim ${DIM} --K ${DIM} --wandb ${ARGS:-} \
+      > logs/imh_fitted_gmm_${PBS_JOBID%%.*}_d${DIM}.log 2>&1 || fail=1
+  grep -v -i "warn\|super()" logs/imh_fitted_gmm_${PBS_JOBID%%.*}_d${DIM}.log
 done
 echo "Fin à $(date), statut : ${fail}"
 exit $fail
