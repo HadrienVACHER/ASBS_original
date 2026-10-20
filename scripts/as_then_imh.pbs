@@ -1,0 +1,71 @@
+#!/bin/bash
+#PBS -N as_then_imh
+#PBS -P gs_ccds_haidang.dau
+#PBS -q gpu_as
+#PBS -l walltime=10:00:00
+#PBS -l select=1:ncpus=12:ngpus=1:mem=32gb
+#PBS -j oe
+
+# 1. plain Adjoint Sampling (mode weights come out wrong), saving the final buffer X1 and fresh model samples
+#    (dump_final=true -> samples_final.pt in the run directory)
+# 2. independent MH with a proposal r fitted on that buffer (scripts/imh_fitted_demo.py / imh_fitted_gmm.py)
+# 3. comparison of the mode proportions: AS buffer, AS model samples, IMH chain (printed at the end of each IMH log)
+#
+#   qsub -v TARGET=demo scripts/as_then_imh.pbs        # 1D demo, target left mass 0.1
+#   qsub -v TARGET=gmm  scripts/as_then_imh.pbs        # GMM, K = d, d in DIMS
+#   extra IMH flags: qsub -v TARGET=gmm,ARGS="--cov tied --inflate 1.0" scripts/as_then_imh.pbs
+TARGET=${TARGET:-demo}
+DIMS=(12 24 36)
+EPOCHS=${EPOCHS:-2000}
+
+cd "${PBS_O_WORKDIR}" || exit 1
+mkdir -p logs
+export PYTHONUNBUFFERED=1
+ROOT=results/as_then_imh_${PBS_JOBID%%.*}
+
+# --- Correctif officiel PBS/GaaS pour les identifiants GPU (inchangé) ---
+if echo "${CUDA_VISIBLE_DEVICES:-}" | grep -q "GPU-"; then
+    GPU_COUNT=$(echo "${CUDA_VISIBLE_DEVICES}" | tr ',' '\n' | wc -l)
+    CUDA_VISIBLE_DEVICES=$(seq -s, 0 $((GPU_COUNT - 1)))
+    export CUDA_VISIBLE_DEVICES
+fi
+
+module purge
+module load anaconda/2025
+eval "$(/usr/local/anaconda2025/bin/conda shell.bash hook)"
+conda activate BMS
+
+echo "Nœud : $(hostname) à $(date)"
+nvidia-smi -L
+FAST="fast_sampling=true buffer_on_device=true fast_train=true"
+
+fail=0
+if [ "${TARGET}" = "demo" ]; then
+  export OMP_NUM_THREADS=4 MKL_NUM_THREADS=4
+  echo "=== AS, demo, ${EPOCHS} epochs"
+  python train.py experiment=demo_as num_epochs=${EPOCHS} dump_final=true ${FAST} \
+      hydra.run.dir=${ROOT}/demo > logs/as_then_imh_${PBS_JOBID%%.*}_demo_as.log 2>&1 || fail=1
+  echo "=== IMH on the final buffer"
+  python scripts/imh_fitted_demo.py --buffer ${ROOT}/demo/samples_final.pt --out ${ROOT}/demo/imh ${ARGS:-} \
+      > logs/as_then_imh_${PBS_JOBID%%.*}_demo_imh.log 2>&1 || fail=1
+  grep -v -i "warn\|super()" logs/as_then_imh_${PBS_JOBID%%.*}_demo_imh.log
+else
+  export OMP_NUM_THREADS=$(( 12 / ${#DIMS[@]} )) MKL_NUM_THREADS=$(( 12 / ${#DIMS[@]} ))
+  pids=()
+  for DIM in "${DIMS[@]}"; do
+    echo "=== AS, GMM d = K = ${DIM}, ${EPOCHS} epochs"
+    python train.py experiment=gmm_as dim=${DIM} K=${DIM} num_epochs=${EPOCHS} dump_final=true ${FAST} \
+        hydra.run.dir=${ROOT}/gmm_d${DIM} > logs/as_then_imh_${PBS_JOBID%%.*}_gmm_d${DIM}_as.log 2>&1 &
+    pids+=($!)
+  done
+  for p in "${pids[@]}"; do wait "$p" || fail=1; done
+  export OMP_NUM_THREADS=4 MKL_NUM_THREADS=4
+  for DIM in "${DIMS[@]}"; do
+    echo "=== IMH on the final buffer, GMM d = K = ${DIM}"
+    python scripts/imh_fitted_gmm.py --dim ${DIM} --K ${DIM} --buffer ${ROOT}/gmm_d${DIM}/samples_final.pt --wandb ${ARGS:-} \
+        > logs/as_then_imh_${PBS_JOBID%%.*}_gmm_d${DIM}_imh.log 2>&1 || fail=1
+    grep -v -i "warn\|super()" logs/as_then_imh_${PBS_JOBID%%.*}_gmm_d${DIM}_imh.log
+  done
+fi
+echo "Fin à $(date), statut : ${fail}"
+exit $fail

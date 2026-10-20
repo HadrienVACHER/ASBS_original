@@ -26,7 +26,7 @@ from adjoint_samplers.components.matcher import _kmeans
 from adjoint_samplers.energies.dist_energy import DistEnergy
 from adjoint_samplers.utils.dist_utils import GMM
 from imh_demo import imh_step
-from imh_fitted_demo import FittedGMM, fit_gmm
+from imh_fitted_demo import FittedGMM, fit_gmm, load_samples
 
 KEYS = ("mode_tv", "modes_covered", "eff_modes_ratio", "mode_spread", "energy_w2", "sample_w2")
 
@@ -68,7 +68,8 @@ def main():
     ap.add_argument("--K", type=int, default=12)
     ap.add_argument("--radius", type=float, default=4.25)
     ap.add_argument("--target-seed", type=int, default=0)
-    ap.add_argument("--buffer", default=None)
+    ap.add_argument("--buffer", default=None, help="samples_final.pt of train.py, or a tensor file")
+    ap.add_argument("--buffer-key", default="buffer_x1", choices=["buffer_x1", "model_samples"])
     ap.add_argument("--buffer-size", type=int, default=10000)
     ap.add_argument("--power", type=float, default=0.3, help="stand-in buffer: weights π^power")
     ap.add_argument("--model-std", type=float, default=1.025, help="stand-in buffer: std of the modes")
@@ -94,8 +95,10 @@ def main():
     energy = DistEnergy(p, device=args.device)
     evaluator = GMMEvaluator(energy, w2_samples=500)
 
+    model_samples = None
     if args.buffer:
-        buf = torch.load(args.buffer, map_location=args.device).reshape(-1, args.dim)
+        buf, model_samples = load_samples(args.buffer, args.buffer_key, args.device)
+        buf = buf.reshape(-1, args.dim)
     else:
         w = p.weights ** args.power
         k = torch.multinomial(w / w.sum(), args.buffer_size, replacement=True)
@@ -105,6 +108,8 @@ def main():
           f"fit M={M}, cov {args.cov} shrink {args.shrink}, inflate {args.inflate}, denoise {args.denoise}")
     print("  exact-sample floor:", fmt(evaluate(evaluator, p.sample([n,]).to(args.device))))
     print("  buffer:            ", fmt(evaluate(evaluator, buf[:n])))
+    if model_samples is not None:
+        print("  AS model samples:  ", fmt(evaluate(evaluator, model_samples.reshape(-1, args.dim)[:n])))
 
     run = None
     if args.wandb:

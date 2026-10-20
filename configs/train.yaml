@@ -11,6 +11,9 @@ ema_buffer: false # also generate the buffer with the EMA controller
 
 seed: 0
 
+dump_final: false # save the final buffer X1 and fresh model samples to samples_final.pt (in the run directory)
+dump_n_samples: 10000
+
 clip_grad_norm: false
 checkpoint: null
 save_freq: 100

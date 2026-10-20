@@ -29,6 +29,16 @@ from adjoint_samplers.utils.dist_utils import GMM1D
 from imh_demo import imh_step, metrics
 
 
+def load_samples(path, key="buffer_x1", device="cpu"):
+    """ a tensor file, or the samples_final.pt of train.py (dump_final=true): the replay buffer `buffer_x1`
+        (fitted on) and the fresh `model_samples` of the final model. Returns (x, model_samples or None).
+    """
+    obj = torch.load(path, map_location=device)
+    if isinstance(obj, dict):
+        return obj[key], obj.get("model_samples")
+    return obj, None
+
+
 class FittedGMM:
     """ mixture of Gaussians with full covariances: sample and log_prob, as the proposal r needs """
     def __init__(self, weights, means, covs):
@@ -101,7 +111,8 @@ def fit_gmm(x, M, iters=100, reg=1e-4, tol=1e-6, init_means=None, cov_type="full
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--buffer", default=None)
+    ap.add_argument("--buffer", default=None, help="samples_final.pt of train.py, or a tensor file")
+    ap.add_argument("--buffer-key", default="buffer_x1", choices=["buffer_x1", "model_samples"])
     ap.add_argument("--buffer-size", type=int, default=10000)
     ap.add_argument("--model-weight", type=float, default=0.45, help="stand-in buffer: weight of the left mode")
     ap.add_argument("--model-std", type=float, default=0.55, help="stand-in buffer: std of both modes")
@@ -119,8 +130,10 @@ def main():
     energy = DistEnergy(p)
     ref = p.sample([100000,]).reshape(-1).sort().values
 
+    model_samples = None
     if args.buffer:
-        buf = torch.load(args.buffer).reshape(-1, 1)
+        buf, model_samples = load_samples(args.buffer, args.buffer_key)
+        buf = buf.reshape(-1, 1)
     else:
         m = distributions.MixtureSameFamily(
             distributions.Categorical(torch.tensor([args.model_weight, 1 - args.model_weight])),
@@ -149,6 +162,14 @@ def main():
     tail = hist[len(hist) // 2:]
     print("second half of the chain: " + "  ".join(
         f"{k} {sum(h[k] for h in tail) / len(tail):.3f}" for k in ("accept_rate", "left_mass", "mode_tv", "w2")))
+
+    print("\n=== comparison (target left_mass 0.100; w2 noise floor about 0.2)")
+    rows = {"AS buffer (fitted on)": metrics(buf, p, ref)}
+    if model_samples is not None:
+        rows["AS model samples"] = metrics(model_samples.reshape(-1, 1), p, ref)
+    rows[f"IMH chain, last {len(tail)} steps"] = {k: sum(h[k] for h in tail) / len(tail) for k in ("left_mass", "mode_tv", "w2")}
+    for name, m in rows.items():
+        print(f"  {name:<34s} left_mass {m['left_mass']:.3f}  mode_tv {m['mode_tv']:.3f}  w2 {m['w2']:.3f}")
 
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)

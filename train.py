@@ -276,6 +276,24 @@ def main(cfg):
                 #     corrector_matcher=corrector_matcher,
                 # )
 
+        if cfg.dump_final and distributed_mode.is_main_process():
+            # final replay buffer X1 and fresh samples of the final model, for post-hoc use (scripts/imh_*.py)
+            buffer = adjoint_matcher.buffer
+            buffer_x1 = torch.cat(buffer.batches["x1"])[-buffer.buffer_size:].detach().cpu()
+            x1_list, n_gen = [], 0
+            while n_gen < cfg.dump_n_samples:
+                B = min(cfg.eval_batch_size, cfg.dump_n_samples - n_gen)
+                x0 = source.sample([B,]).to(device)
+                timesteps = train_utils.get_timesteps(**cfg.timesteps).to(x0)
+                _, x1 = sdeint(eval_sde, x0, timesteps, only_boundary=True)
+                x1_list.append(x1.detach().cpu())
+                n_gen += B
+            torch.save(
+                {"buffer_x1": buffer_x1, "model_samples": torch.cat(x1_list), "epoch": cfg.num_epochs, "exp_name": cfg.exp_name},
+                "samples_final.pt",
+            )
+            print(f"Saved samples_final.pt: buffer {tuple(buffer_x1.shape)}, model samples {cfg.dump_n_samples}")
+
     except Exception as e:
         # This way we have the full traceback in the log.  otherwise Hydra
         # will handle the exception and store only the error in a pkl file
