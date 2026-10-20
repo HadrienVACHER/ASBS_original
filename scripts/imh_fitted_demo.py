@@ -118,6 +118,8 @@ def main():
     ap.add_argument("--model-std", type=float, default=0.55, help="stand-in buffer: std of both modes")
     ap.add_argument("--components", type=int, default=4)
     ap.add_argument("--inflate", type=float, default=1.2, help="covariance factor")
+    ap.add_argument("--cov", default="full", choices=["full", "tied", "diag", "spherical"])
+    ap.add_argument("--shrink", type=float, default=0.0)
     ap.add_argument("--keep-weights", action="store_true")
     ap.add_argument("--chains", type=int, default=2000)
     ap.add_argument("--steps", type=int, default=200)
@@ -142,7 +144,7 @@ def main():
         buf = m.sample((args.buffer_size,))
     print(f"buffer: {len(buf)} samples, left share {(buf < 0).float().mean():.3f} (target {p.weights[0]:.1f})")
 
-    w, mu, cov = fit_gmm(buf, args.components)
+    w, mu, cov = fit_gmm(buf, args.components, cov_type=args.cov, shrink=args.shrink)
     print("fitted  weights", [round(v, 3) for v in w.tolist()], "means", [round(v, 2) for v in mu.reshape(-1).tolist()],
           "stds", [round(v, 2) for v in cov.reshape(-1).sqrt().tolist()])
     if not args.keep_weights:
