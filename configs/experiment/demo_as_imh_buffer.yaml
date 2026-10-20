@@ -1,0 +1,13 @@
+# @package _global_
+
+# demo_as with the buffer filled by independent MH on the target (proposal: equal mode weights).
+
+defaults:
+  - demo_as
+  - override /matcher@adjoint_matcher: adjoint_ve_imh_buffer
+
+exp_name: demo_as_imh_buffer_n${adjoint_matcher.n_steps}
+
+
+# === training ===
+num_epochs: 2000

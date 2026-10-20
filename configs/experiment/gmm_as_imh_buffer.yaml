@@ -1,0 +1,9 @@
+# @package _global_
+
+# gmm_as with the buffer filled by independent MH on the target (proposal: equal mode weights).
+
+defaults:
+  - gmm_as
+  - override /matcher@adjoint_matcher: adjoint_ve_imh_buffer
+
+exp_name: gmm${dim}d_as_imh_buffer_n${adjoint_matcher.n_steps}

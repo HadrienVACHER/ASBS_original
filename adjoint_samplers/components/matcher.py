@@ -264,6 +264,73 @@ class AdjointVEDiracMatcher(AdjointVEMatcher):
         return self.sde.ref_sde._pt_gauss_param(t, torch.zeros_like(t))[1]
 
 
+class AdjointVEIMHBufferMatcher(AdjointVEDiracMatcher):
+    """ X1 of the buffer comes from an independent Metropolis-Hastings chain on the target p1 = e^{-E} / Z,
+        not from the model. The proposal r is the target with equal mode weights (`dist.uniform_weights()`):
+
+            x' ~ r,   α(x, x') = min(1, e^{-[E(x') - E(x)]} r(x) / r(x'))
+
+        B chains (one per sample of the batch) persist across epochs and make `n_steps` MH steps each time
+        the buffer is filled; they start from r and burn in for `burn_in` steps. Like the exact-sample
+        buffer (AdjointVETargetBufferMatcher), the regression is then the one of u* up to the chain's
+        distance to p1; X0 is the Dirac source.
+    """
+    def __init__(self, n_steps: int = 1, burn_in: int = 100, **kwargs):
+        super().__init__(**kwargs)
+        assert n_steps >= 1 and burn_in >= 0
+        self.n_steps = n_steps
+        self.burn_in = burn_in
+        self.r = self.grad_term_cost.energy.dist.uniform_weights()
+        self.chain = None # (x, E(x), log r(x))
+        self._stats = defaultdict(float)
+
+    def _step(self, x, E, logr):
+        energy = self.grad_term_cost.energy
+        y = self.r.sample([x.shape[0],]).reshape(x.shape).to(x)
+        Ey = energy.eval(y).reshape(-1)
+        logry = self.r.log_prob(y).reshape(-1)
+        log_alpha = - (Ey - E) + logr - logry
+        accept = torch.rand_like(E).log() < log_alpha
+        self._stats["accepted"] += accept.sum().item()
+        self._stats["proposals"] += accept.numel()
+        return (
+            torch.where(accept[:, None], y, x),
+            torch.where(accept, Ey, E),
+            torch.where(accept, logry, logr),
+        )
+
+    @torch.no_grad()
+    def _advance(self, like, n_steps):
+        energy = self.grad_term_cost.energy
+        if self.chain is None:
+            x = self.r.sample([like.shape[0],]).reshape(like.shape).to(like)
+            self.chain = (x, energy.eval(x).reshape(-1), self.r.log_prob(x).reshape(-1))
+            n_steps += self.burn_in
+        for _ in range(n_steps):
+            self.chain = self._step(*self.chain)
+        return self.chain[0]
+
+    def populate_buffer(
+            self,
+            x0: torch.Tensor,
+            timesteps: torch.Tensor,
+            is_asbs_init_stage: bool,
+    ):
+        x1 = self._advance(x0, self.n_steps).clone()
+        adjoint1 = self._compute_adjoint1(x1, is_asbs_init_stage).clone()
+
+        self._check_buffer_sample_shape(x0, x1, adjoint1)
+        self.buffer.add({
+            "x0": x0.to("cpu"),
+            "x1": x1.to("cpu"),
+            "adjoint1": adjoint1.to("cpu"),
+        })
+
+    def pop_stats(self):
+        st, self._stats = self._stats, defaultdict(float)
+        return {"imh/accept_rate": st["accepted"] / st["proposals"]} if st["proposals"] else {}
+
+
 def _nearest(x, centres):
     # index of the nearest centre: (N, D) x (M, D) -> (N,)
     return torch.cdist(x, centres).argmin(-1)

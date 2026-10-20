@@ -1,0 +1,12 @@
+_target_: adjoint_samplers.components.matcher.AdjointVEIMHBufferMatcher
+
+# X1 of the buffer from independent MH on the target, proposal r = target with equal mode weights
+n_steps: 1 # MH steps per buffer fill, on persistent chains
+burn_in: 100 # extra steps at the first fill (the chains start from r)
+
+grad_state_cost:
+  _target_: adjoint_samplers.components.state_cost.ZeroGradStateCost
+
+buffer:
+  _target_: adjoint_samplers.components.buffer.BatchBuffer
+  buffer_size: ${adjoint_matcher.buffer_size}

@@ -1,5 +1,6 @@
 # Copyright (c) Meta Platforms, Inc. and affiliates.
 
+import copy
 import math
 import torch
 from torch import distributions
@@ -17,12 +18,13 @@ class GMM1D(distributions.Distribution):
 
         self.dim = 1
         self.name = "gmm1d"
+        self.weights = torch.tensor([.1, .9], dtype=torch.float)
         self._initialize_distr(device)
 
     def _initialize_distr(self, device) -> None:
         loc = torch.tensor([-3, 3], device=device, dtype=torch.float).reshape(2, 1)
         scale = torch.tensor([.5, .5], device=device, dtype=torch.float).reshape(2, 1)
-        weights = torch.tensor([.1, .9], device=device, dtype=torch.float).reshape(2)
+        weights = self.weights.to(device)
 
         modes = distributions.Independent(
             distributions.Normal(loc, scale), 1
@@ -41,6 +43,13 @@ class GMM1D(distributions.Distribution):
     def to(self, device) -> distributions.Distribution:
         self._initialize_distr(device)
         return self
+
+    def uniform_weights(self) -> "GMM1D":
+        """ same modes with equal weights: r in the independent MH of AdjointVEIMHBufferMatcher """
+        other = copy.copy(self)
+        other.weights = torch.full_like(self.weights, 1 / len(self.weights))
+        other._initialize_distr(self.weights.device)
+        return other
 
 class GMM(distributions.Distribution):
     """ Isotropic Gaussian mixture in `dim` dimensions with K modes
@@ -153,6 +162,12 @@ class GMM(distributions.Distribution):
         self.means = self.means.to(device)
         self.weights = self.weights.to(device)
         return self
+
+    def uniform_weights(self) -> "GMM":
+        """ same modes with equal weights: r in the independent MH of AdjointVEIMHBufferMatcher """
+        other = copy.copy(self)
+        other.weights = torch.full_like(self.weights, 1 / self.weights.numel())
+        return other
 
     def _component_logits(self, x: torch.Tensor) -> torch.Tensor:
         """ log π_k + log N(x | μ_k, I), shape (..., K)

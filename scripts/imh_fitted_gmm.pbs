@@ -1,0 +1,43 @@
+#!/bin/bash
+#PBS -N imh_fitted_gmm
+#PBS -P gs_ccds_haidang.dau
+#PBS -q gpu_as
+#PBS -l walltime=02:00:00
+#PBS -l select=1:ncpus=4:ngpus=1:mem=16gb
+#PBS -j oe
+
+# Independent MH with a proposal r fitted on a stand-in buffer, GMM target with K = d modes.
+# qsub scripts/imh_fitted_gmm.pbs     (extra flags: qsub -v ARGS="--denoise --inflate 1.5" scripts/imh_fitted_gmm.pbs)
+DIMS=(12 24 36)
+
+cd "${PBS_O_WORKDIR}" || exit 1
+mkdir -p logs
+export PYTHONUNBUFFERED=1
+
+# --- Correctif officiel PBS/GaaS pour les identifiants GPU (inchangé) ---
+if echo "${CUDA_VISIBLE_DEVICES:-}" | grep -q "GPU-"; then
+    GPU_COUNT=$(echo "${CUDA_VISIBLE_DEVICES}" | tr ',' '\n' | wc -l)
+    CUDA_VISIBLE_DEVICES=$(seq -s, 0 $((GPU_COUNT - 1)))
+    export CUDA_VISIBLE_DEVICES
+fi
+
+export OMP_NUM_THREADS=4
+export MKL_NUM_THREADS=4
+
+module purge
+module load anaconda/2025
+eval "$(/usr/local/anaconda2025/bin/conda shell.bash hook)"
+conda activate BMS
+
+echo "Nœud : $(hostname) à $(date)"
+nvidia-smi -L
+
+fail=0
+for DIM in "${DIMS[@]}"; do
+  echo "=== d = K = ${DIM}"
+  python scripts/imh_fitted_gmm.py --dim ${DIM} --K ${DIM} ${ARGS:-} \
+      > logs/imh_fitted_gmm_d${DIM}.log 2>&1 || fail=1
+  grep -v -i "warn\|super()" logs/imh_fitted_gmm_d${DIM}.log
+done
+echo "Fin à $(date), statut : ${fail}"
+exit $fail
