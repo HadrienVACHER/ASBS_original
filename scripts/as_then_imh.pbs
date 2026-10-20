@@ -48,7 +48,7 @@ if [ "${TARGET}" = "demo" ]; then
   python train.py experiment=demo_as num_epochs=${EPOCHS} dump_final=true ${FAST} \
       hydra.run.dir=${ROOT}/demo > logs/as_then_imh_${PBS_JOBID%%.*}_demo_as.log 2>&1 || fail=1
   echo "=== IMH on the final buffer"
-  python scripts/imh_fitted_demo.py --buffer ${ROOT}/demo/samples_final.pt --out ${ROOT}/demo/imh ${IMH_FLAGS} ${ARGS:-} \
+  python scripts/imh_fitted_demo.py --buffer ${ROOT}/demo/samples_final.pt --out ${ROOT}/demo/imh --wandb ${IMH_FLAGS} ${ARGS:-} \
       > logs/as_then_imh_${PBS_JOBID%%.*}_demo_imh.log 2>&1 || fail=1
   grep -v -i "warn\|super()" logs/as_then_imh_${PBS_JOBID%%.*}_demo_imh.log
 else

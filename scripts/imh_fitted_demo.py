@@ -121,6 +121,7 @@ def main():
     ap.add_argument("--cov", default="full", choices=["full", "tied", "diag", "spherical"])
     ap.add_argument("--shrink", type=float, default=0.0)
     ap.add_argument("--keep-weights", action="store_true")
+    ap.add_argument("--wandb", action="store_true")
     ap.add_argument("--chains", type=int, default=2000)
     ap.add_argument("--steps", type=int, default=200)
     ap.add_argument("--seed", type=int, default=0)
@@ -151,12 +152,25 @@ def main():
         w = torch.full_like(w, 1 / len(w))
     r = FittedGMM(w, mu, cov * args.inflate)
 
+    run = None
+    if args.wandb:
+        import wandb
+        run = wandb.init(
+            project="adjoint_sampler_cv",
+            name=f"imh_fitted_demo_{args.cov}_i{args.inflate}_M{args.components}",
+            config=vars(args),
+        )
+        wandb.define_metric("step")
+        wandb.define_metric("imh/*", step_metric="step")
+
     x = r.sample([args.chains,]).reshape(-1, 1)
     E, logr = energy.eval(x).reshape(-1), r.log_prob(x).reshape(-1)
     hist = [{"step": 0, "accept_rate": float("nan"), **metrics(x, p, ref)}]
     for step in range(1, args.steps + 1):
         x, E, logr, acc = imh_step(x, E, logr, energy, r)
         hist.append({"step": step, "accept_rate": acc, **metrics(x, p, ref)})
+        if run:
+            run.log({"step": step, **{f"imh/{k}": v for k, v in hist[-1].items() if k != "step"}})
         if step in (1, 5, 10, 25, 50, 100, args.steps):
             h = hist[-1]
             print(f"step {step:4d}  accept {acc:.3f}  left_mass {h['left_mass']:.3f}  "
@@ -172,6 +186,10 @@ def main():
     rows[f"IMH chain, last {len(tail)} steps"] = {k: sum(h[k] for h in tail) / len(tail) for k in ("left_mass", "mode_tv", "w2")}
     for name, m in rows.items():
         print(f"  {name:<34s} left_mass {m['left_mass']:.3f}  mode_tv {m['mode_tv']:.3f}  w2 {m['w2']:.3f}")
+        if run:
+            key = "imh_late" if name.startswith("IMH") else name.split(" (")[0].replace(" ", "_")
+            for k, v in m.items():
+                run.summary[f"{key}/{k}"] = v
 
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
@@ -192,6 +210,9 @@ def main():
     fig.tight_layout()
     fig.savefig(out / "imh_fitted_demo.png", dpi=120)
     print("saved", out / "imh_fitted_demo.png")
+    if run:
+        run.log({"imh_fitted_demo": wandb.Image(str(out / "imh_fitted_demo.png"))})
+        run.finish()
 
 
 if __name__ == "__main__":
