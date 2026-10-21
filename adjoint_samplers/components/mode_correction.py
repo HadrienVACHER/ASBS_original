@@ -168,6 +168,23 @@ def add_uncovered_centres(ec, x, centres, cov, quantile=0.99, max_outliers=1000,
     return torch.cat([centres, new]), len(new), len(out), n_grad
 
 
+def merge_centres(ec, existing, new, tol, gtol=1e-2):
+    """ The memory of the minima found so far: `existing` (M, d) plus the centres of `new` that are converged
+        (gradient norm <= gtol, so no stalled relaxation becomes a spurious mode) and farther than tol from every
+        centre kept. Returns the centres, the number added and the number of unconverged ones skipped.
+    """
+    if len(new) == 0:
+        return existing, 0, 0
+    _, g = ec.E_and_grad(new)
+    ok = g.norm(dim=-1) <= gtol
+    kept, added = existing, 0
+    for x in new[ok]:
+        if len(kept) == 0 or (x - kept).norm(dim=-1).min() > tol:
+            kept = torch.cat([kept, x[None]])
+            added += 1
+    return kept, added, int((~ok).sum())
+
+
 def _label_counts(labels, n_modes):
     return torch.bincount(labels, minlength=n_modes).float()
 
@@ -307,11 +324,14 @@ def preserve_rng():
 
 
 def buffer_correction_diagnostic(energy, dist, x1, M=None, chains=2000, steps=60, burn=15, inflate=1.0, merge_tol_mult=1.0,
-                                 cover_quantile=0.99, max_outliers=1000, refine_steps=200, refine_lr=0.1):
+                                 cover_quantile=0.99, max_outliers=1000, refine_steps=200, refine_lr=0.1,
+                                 memory=None, use_memory=True):
     """ What the correction would do to the buffer x1 (N, d), without changing it: fit (EM, M = 2K, tied), refine the centres,
         add the uncovered modes, run independent MH from buffer states. `dist` is the GMM target (K, dim, weights, assign).
-        The global random state is restored. Returns floats: mode_tv of the buffer and of the chain (pooled over all
-        post-burn-in states, and of the final states), acceptance, ESS, centres, coverage and the evaluation cost.
+        The global random state is restored. Returns (metrics, memory): floats (mode_tv of the buffer and of the chain
+        pooled over all post-burn-in states and of the final states, acceptance, ESS, centres, coverage, evaluation
+        cost) and the memory of the minima found so far. With `use_memory`, a second chain uses the centres of
+        `memory` (the minima of the earlier calls) together with the new ones: keys with the suffix `_mem`.
     """
     K, d = dist.K, dist.dim
     pi = dist.weights.to(x1.device)
@@ -332,12 +352,28 @@ def buffer_correction_diagnostic(energy, dist, x1, M=None, chains=2000, steps=60
         ec = EnergyCounter(energy)
         x0 = x1[torch.randint(len(x1), (chains,), device=x1.device)]
         x, counts, diag = run_imh(ec, r, x0, steps, burn, assign, K)
+        mem_out, extra = memory, {}
+        if use_memory:
+            empty = centres_cov.new_zeros(0, d)
+            mem_out, n_new_mem, n_unconv = merge_centres(ec_setup, empty if memory is None else memory, centres_cov, merge_tol)
+            ec_mem = EnergyCounter(energy)
+            x_m, counts_m, diag_m = run_imh(ec_mem, TiedMixture(mem_out, cov_t * inflate), x0, steps, burn, assign, K)
+            share_m = counts_m.sum(0) / counts_m.sum()
+            ratio_m = share_m / pi
+            extra = dict(
+                imh_mode_tv_mem=0.5 * (share_m - pi).abs().sum().item(), accept_mem=diag_m["acc"], ess_mem=chain_ess(counts_m, pi),
+                max_log_w_mem=diag_m["max_log_w"], M_mem=len(mem_out), centres_new_in_memory=n_new_mem, unconverged_skipped=n_unconv,
+                modes_with_centre_mem=torch.unique(assign(mem_out)).numel(),
+                ratio_lightest_imh_mem=ratio_m[order[:q]].mean().item(), n_under_half_imh_mem=int((ratio_m < 0.5).sum()),
+                n_E_mem=ec_mem.n_E, n_grad_mem=ec_mem.n_grad,
+            )
     share_buf = torch.bincount(assign(x1), minlength=K).float() / len(x1)
     share = counts.sum(0) / counts.sum()
     share_final = torch.bincount(assign(x), minlength=K).float() / len(x)
     ratio_buf, ratio = share_buf / pi, share / pi
     tv = lambda s_: 0.5 * (s_ - pi).abs().sum().item()
-    return dict(
+    n_E_mem, n_grad_mem = extra.get("n_E_mem", 0), extra.get("n_grad_mem", 0)
+    metrics = dict(
         buffer_mode_tv=tv(share_buf), imh_mode_tv=tv(share), imh_mode_tv_final=tv(share_final),
         accept=diag["acc"], ess=chain_ess(counts, pi), max_log_w=diag["max_log_w"],
         M_fit=M, M_cover=len(centres_cov), centres_added=n_added, outliers=n_out,
@@ -345,5 +381,6 @@ def buffer_correction_diagnostic(energy, dist, x1, M=None, chains=2000, steps=60
         ratio_lightest_buffer=ratio_buf[order[:q]].mean().item(), ratio_lightest_imh=ratio[order[:q]].mean().item(),
         ratio_heaviest_buffer=ratio_buf[order[-q:]].mean().item(), ratio_heaviest_imh=ratio[order[-q:]].mean().item(),
         n_under_half_buffer=int((ratio_buf < 0.5).sum()), n_under_half_imh=int((ratio < 0.5).sum()),
-        n_E_total=ec.n_E + ec_setup.n_E, n_grad_total=ec.n_grad + ec_setup.n_grad,
+        n_E_total=ec.n_E + ec_setup.n_E + n_E_mem, n_grad_total=ec.n_grad + ec_setup.n_grad + n_grad_mem, **extra,
     )
+    return metrics, mem_out

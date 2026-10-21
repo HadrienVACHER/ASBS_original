@@ -21,6 +21,7 @@ correction_warmup: 100
 correction_chains: 2000
 correction_steps: 60
 correction_burn: 15
+correction_memory: true # also log a chain whose centres include the minima found at the earlier diagnostics (keys *_mem)
 
 clip_grad_norm: false
 checkpoint: null

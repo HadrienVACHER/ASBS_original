@@ -178,7 +178,7 @@ def main(cfg):
         evaluator = hydra.utils.instantiate(cfg.evaluator, energy=energy)
 
 
-        corr_cost, warned_correction = {"E": 0, "grad": 0}, False
+        corr_cost, warned_correction, corr_memory = {"E": 0, "grad": 0}, False, None
         print(f"Starting from {start_epoch}/{cfg.num_epochs} epochs...")
         for epoch in range(start_epoch, cfg.num_epochs):
             stage = train_utils.determine_stage(epoch, cfg)
@@ -216,9 +216,9 @@ def main(cfg):
                 if hasattr(dist, "assign") and hasattr(dist, "K"):
                     buf = adjoint_matcher.buffer
                     x1_buf = torch.cat(buf.batches["x1"])[-buf.buffer_size:].to(device)
-                    diag = buffer_correction_diagnostic(
+                    diag, corr_memory = buffer_correction_diagnostic(
                         energy, dist, x1_buf, chains=cfg.correction_chains, steps=cfg.correction_steps,
-                        burn=cfg.correction_burn)
+                        burn=cfg.correction_burn, memory=corr_memory, use_memory=cfg.correction_memory)
                     corr_cost["E"] += diag["n_E_total"]
                     corr_cost["grad"] += diag["n_grad_total"]
                     writer.log({
@@ -229,7 +229,8 @@ def main(cfg):
                     }, step=epoch)
                     print(f"[correction diagnostic | ep={epoch:04}] buffer mode_tv {diag['buffer_mode_tv']:.3f} -> IMH {diag['imh_mode_tv']:.3f}"
                           f" (acc {diag['accept']:.2f}, ess {diag['ess']:.0f}, centres {diag['M_cover']}, "
-                          f"modes with a centre {diag['modes_with_centre_raw']} -> {diag['modes_with_centre_cover']}/{dist.K})")
+                          f"modes with a centre {diag['modes_with_centre_raw']} -> {diag['modes_with_centre_cover']}/{dist.K})"
+                          + (f"; with memory: IMH {diag['imh_mode_tv_mem']:.3f}, {diag['modes_with_centre_mem']}/{dist.K} modes" if "imh_mode_tv_mem" in diag else ""))
                 elif not warned_correction:
                     print("correction_every needs a GMM target (energy.dist with K and assign); ignored.")
                     warned_correction = True

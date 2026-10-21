@@ -12,7 +12,7 @@ import torch
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from adjoint_samplers.components.mode_correction import (
-    EnergyCounter, TiedMixture, add_uncovered_centres, buffer_correction_diagnostic, jump_mala_cycle, refine_centres, run_imh, run_jump_mala,
+    EnergyCounter, TiedMixture, add_uncovered_centres, buffer_correction_diagnostic, merge_centres, jump_mala_cycle, refine_centres, run_imh, run_jump_mala,
     snis_mode_weights,
 )
 
@@ -121,6 +121,20 @@ def test_cover():
     print(f"ok  coverage step: {n_out} outliers relaxed, 3 missing modes added (error {err:.1e}), none added when all are covered")
 
 
+def test_merge_centres():
+    """ the memory dedupes close centres, keeps the old ones, and skips a point that is not a minimum """
+    torch.manual_seed(0)
+    d, K = 12, 12
+    means, log_prob, _ = simplex_gmm(d, K, torch.full((K,), 1 / K))
+    ec = counter_of(log_prob)
+    mem = means[:5].clone()
+    new = torch.cat([means[3:8], means[:1] + 1e-4, means[8:9] + 3.0])   # 2 known, 3 new, a converged duplicate, a non-minimum
+    out, added, skipped = merge_centres(ec, mem, new, tol=1.0)
+    assert (len(out), added, skipped) == (8, 3, 1), (len(out), added, skipped)
+    assert torch.equal(out[:5], means[:5])
+    print("ok  centre memory: old centres kept, duplicates merged, a non-converged point skipped")
+
+
 def test_diagnostic():
     """ the observer improves a buffer with flattened weights, leaves the global random state alone and reports its cost """
     from adjoint_samplers.energies.dist_energy import DistEnergy
@@ -131,12 +145,18 @@ def test_diagnostic():
     k = torch.multinomial(w / w.sum(), 4000, replacement=True)
     buf = p.means[k] + 1.03 * torch.randn(4000, 6)
     state = torch.get_rng_state()
-    out = buffer_correction_diagnostic(DistEnergy(p), p, buf, chains=500, steps=30, burn=8)
+    out, mem = buffer_correction_diagnostic(DistEnergy(p), p, buf, chains=500, steps=30, burn=8)
     assert torch.equal(state, torch.get_rng_state()), "the global random state changed"
     assert out["imh_mode_tv"] < out["buffer_mode_tv"], out
     assert out["modes_with_centre_cover"] == 6 and out["n_E_total"] > 500 * 31 and out["n_grad_total"] > 0, out
+    assert len(mem) == 6 and out["modes_with_centre_mem"] == 6 and out["imh_mode_tv_mem"] < out["buffer_mode_tv"], out
+    # a later call with a buffer that lost two modes: the memory still has all six centres
+    keep = torch.isin(p.assign(buf), torch.arange(4))
+    out2, mem2 = buffer_correction_diagnostic(DistEnergy(p), p, buf[keep], chains=300, steps=10, burn=3, memory=mem)
+    assert out2["modes_with_centre_cover"] <= 4 and out2["modes_with_centre_mem"] == 6 and len(mem2) == 6, out2
     print(f"ok  diagnostic: buffer mode_tv {out['buffer_mode_tv']:.3f} -> IMH {out['imh_mode_tv']:.3f}, "
-          f"cost {out['n_E_total']} E and {out['n_grad_total']} gradients, random state restored")
+          f"cost {out['n_E_total']} E and {out['n_grad_total']} gradients, random state restored; "
+          f"memory keeps 6/6 centres when a later buffer shows only {out2['modes_with_centre_cover']}")
 
 
 def test_counters():
@@ -162,6 +182,6 @@ def test_counters():
 
 if __name__ == "__main__":
     t0 = time.time()
-    for test in (test_imh_oracle, test_jump_acceptance, test_jump_mala_invariance, test_refine, test_cover, test_diagnostic, test_counters):
+    for test in (test_imh_oracle, test_jump_acceptance, test_jump_mala_invariance, test_refine, test_cover, test_merge_centres, test_diagnostic, test_counters):
         test()
     print(f"all passed in {time.time() - t0:.1f}s")
