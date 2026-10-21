@@ -5,6 +5,9 @@
                by --power, modes slightly wide); --buffer-select all | recent:N | oldest:N picks the samples used.
     fit        EM on the buffer (M = 2K components, tied covariance), equal weights.
     refine     descent on E from each fitted mean, minima merged below merge_tol * sqrt(tr(Sigma) / d).
+    cover      buffer points that no refined centre explains (squared Mahalanobis distance above the chi2_d quantile) are
+               relaxed by descent on E and their new minima added as centres ("+cover" rows): modes with only a few buffer
+               samples get a centre, which EM with equal-cost components can miss.
     methods    AS buffer | IMH, SNIS with raw centres (inflate --inflate-raw) | IMH, SNIS with refined centres
                (inflate --inflate-refined) | jump + MALA with refined centres. IMH, SNIS and jump + MALA get the
                same budget of energy evaluations (IMH: chains x (1 + steps)); refinement gradients are counted apart.
@@ -23,8 +26,12 @@ import torch
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
+import matplotlib
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
+
 from adjoint_samplers.components.mode_correction import (
-    EnergyCounter, TiedMixture, chain_ess, iid_mode_tv, mode_tv_from_counts, refine_centres, run_imh,
+    EnergyCounter, TiedMixture, add_uncovered_centres, chain_ess, iid_mode_tv, refine_centres, run_imh,
     run_jump_mala, snis_mode_weights,
 )
 from adjoint_samplers.energies.dist_energy import DistEnergy
@@ -64,6 +71,9 @@ def main():
     ap.add_argument("--merge-tol", type=float, default=1.0, help="x sqrt(tr(Sigma)/d)")
     ap.add_argument("--refine-steps", type=int, default=200)
     ap.add_argument("--refine-lr", type=float, default=0.1)
+    ap.add_argument("--cover-quantile", type=float, default=0.99, help="chi2_d quantile of an unexplained buffer point")
+    ap.add_argument("--max-outliers", type=int, default=1000, help="unexplained points relaxed at most (farthest first)")
+    ap.add_argument("--no-cover", action="store_true", help="skip the coverage step and the +cover rows")
     ap.add_argument("--chains", type=int, default=2000)
     ap.add_argument("--steps", type=int, default=100)
     ap.add_argument("--burn", type=int, default=20)
@@ -114,15 +124,30 @@ def main():
           f"(merge_tol {merge_tol:.2f}), true modes covered {covered}/{K}; "
           f"raw centre -> minimum distance mean {moved.mean():.2f} max {moved.max():.2f}; {n_grad_refine} gradient evaluations")
 
+    centres_cov, n_added, n_outliers, n_grad_cover = centres, 0, 0, 0
+    if not args.no_cover:
+        ec_cov = EnergyCounter(energy)
+        centres_cov, n_added, n_outliers, n_grad_cover = add_uncovered_centres(
+            ec_cov, buf, centres, cov_t, quantile=args.cover_quantile, max_outliers=args.max_outliers,
+            n_steps=args.refine_steps, lr=args.refine_lr, merge_tol=merge_tol)
+        n_grad_cover_total = n_grad_refine + n_grad_cover
+        covered_cov = torch.unique(assign(centres_cov)).numel()
+        print(f"cover: {n_outliers} buffer points unexplained by the {len(centres)} refined centres, relaxed; "
+              f"{n_added} new centres -> M'={len(centres_cov)}, true modes covered {covered_cov}/{K}; {n_grad_cover} more gradient evaluations")
+    centre_counts = {"raw": torch.bincount(assign(mu), minlength=K), "refined": torch.bincount(assign(centres), minlength=K),
+                     "cover": torch.bincount(assign(centres_cov), minlength=K)}
+
     r_raw = TiedMixture(mu, cov_t * args.inflate_raw)
     r_ref = TiedMixture(centres, cov_t * args.inflate_refined)
+    r_cov = TiedMixture(centres_cov, cov_t * args.inflate_refined)
 
     x0 = buf[torch.randint(len(buf), (C,), device=dev)]
     floor_big = iid_mode_tv(pi, 50000)
-    rows = {}
+    rows, shares = {}, {}
 
     def add_row(name, share, final_labels, counts, diag, ec, ess, setup_grad=0, n_centres=None):
         tv = tv_of(share, pi)
+        shares[name] = share
         rows[name] = dict(
             mode_tv=tv,
             mode_tv_final=tv_of(torch.bincount(final_labels, minlength=K).float() / len(final_labels), pi) if final_labels is not None else float("nan"),
@@ -136,7 +161,10 @@ def main():
     # ---- IMH (raw / refined), T3
     T, burn = args.steps, args.burn
     imh = {}
-    for name, r, setup, n_c in (("IMH raw", r_raw, 0, M), ("IMH refined", r_ref, n_grad_refine, len(centres))):
+    imh_methods = [("IMH raw", r_raw, 0, M), ("IMH refined", r_ref, n_grad_refine, len(centres))]
+    if not args.no_cover:
+        imh_methods.append(("IMH +cover", r_cov, n_grad_cover_total, len(centres_cov)))
+    for name, r, setup, n_c in imh_methods:
         ec = EnergyCounter(energy)
         x, counts, diag = run_imh(ec, r, x0, T, burn, assign, K)
         add_row(name, counts.sum(0) / counts.sum(), assign(x), counts, dict(acc=diag["acc"], max_log_w=diag["max_log_w"]),
@@ -145,18 +173,24 @@ def main():
     budget = imh["IMH refined"]
 
     # ---- SNIS at the same budget, T4
-    for name, r, setup, n_c in (("SNIS raw", r_raw, 0, M), ("SNIS refined", r_ref, n_grad_refine, len(centres))):
+    snis_methods = [("SNIS raw", r_raw, 0, M), ("SNIS refined", r_ref, n_grad_refine, len(centres))]
+    if not args.no_cover:
+        snis_methods.append(("SNIS +cover", r_cov, n_grad_cover_total, len(centres_cov)))
+    for name, r, setup, n_c in snis_methods:
         ec = EnergyCounter(energy)
         pk, ess_norm, _, _ = snis_mode_weights(ec, r, budget, assign, K)
         add_row(name, pk, None, None, dict(ess_norm=ess_norm), ec, ess_norm * budget, setup, n_c)
 
-    # ---- jump + MALA (refined centres), T5
+    # ---- jump + MALA (refined centres, and with the covered modes), T5
     h = args.mala_h0 * d ** (-1 / 3)
     cycles = args.jump_cycles or max(6, budget // (C * (args.n_mala + 2)))
-    ec = EnergyCounter(energy)
-    x, counts, diag = run_jump_mala(ec, r_ref, x0, cycles, cycles // 3, args.n_mala, h, assign, K)
-    add_row("jump+MALA refined", counts.sum(0) / counts.sum(), assign(x), counts, diag, ec, chain_ess(counts, pi),
-            n_grad_refine, len(centres))
+    jump_methods = [("jump+MALA refined", r_ref, n_grad_refine, len(centres))]
+    if not args.no_cover:
+        jump_methods.append(("jump+MALA +cover", r_cov, n_grad_cover_total, len(centres_cov)))
+    for name, r, setup, n_c in jump_methods:
+        ec = EnergyCounter(energy)
+        x, counts, diag = run_jump_mala(ec, r, x0, cycles, cycles // 3, args.n_mala, h, assign, K)
+        add_row(name, counts.sum(0) / counts.sum(), assign(x), counts, diag, ec, chain_ess(counts, pi), setup, n_c)
 
     # ---- report
     print(f"\n=== mode_tv (pooled labels of the post-burn-in states), floor at 50000 iid samples {floor_big:.3f}; "
@@ -169,10 +203,45 @@ def main():
     print(f"\ncost of the AS training itself (for scale): about {args.as_epochs * args.as_resample} gradient evaluations "
           f"({args.as_epochs} epochs x {args.as_resample} buffer samples); refinement above: {n_grad_refine}")
 
+    # ---- per-mode proportions: share of the samples in mode k / target weight (1: right, 0: missed), lightest first
+    order = pi.argsort().cpu()
+    shown = [n for n in ("AS buffer", "IMH raw", "IMH +cover", "SNIS raw", "SNIS +cover", "jump+MALA +cover") if n in shares] \
+        or ["AS buffer", "IMH raw", "SNIS raw"]
+    ratios = {n: (shares[n].cpu() / pi.cpu()) for n in shares}
+    if K <= 64:
+        print(f"\n=== per-mode proportion / target weight, lightest modes first; 'centres' = components of r on that true mode (raw/refined/cover)")
+        print(f"  {'target w':>9s} {'centres':>10s} " + "".join(f"{n:>17s}" for n in shown))
+        for j in order.tolist():
+            cn = "/".join(str(int(centre_counts[k][j])) for k in ("raw", "refined", "cover"))
+            print(f"  {pi[j].item():9.4f} {cn:>10s} " + "".join(f"{ratios[n][j].item():17.2f}" for n in shown))
+    q = max(1, K // 4)
+    light, heavy = order[:q], order[-q:]
+    print(f"\n  modes with ratio < 0.1 (missed), mean ratio of the lightest {q} / heaviest {q} modes, modes with no centre (raw/refined/cover):")
+    for n in shares:
+        print(f"    {n:<20s} missed {int((ratios[n] < 0.1).sum()):3d}   lightest {ratios[n][light].mean():6.2f}   heaviest {ratios[n][heavy].mean():6.2f}")
+    print("    modes with no centre: " + "  ".join(f"{k} {int((v == 0).sum())}" for k, v in centre_counts.items()))
+
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
-    summary = dict(args=vars(args), M_refined=len(centres), covered=covered, raw_covered=raw_covered,
-                   n_grad_refine=n_grad_refine, floor_50000=floor_big, rows=rows)
+    fig, ax = plt.subplots(figsize=(max(6, 0.45 * K + 3), 4))
+    width = 0.8 / len(shown)
+    xs = torch.arange(K).float()
+    for i, n in enumerate(shown):
+        ax.bar((xs + i * width).tolist(), ratios[n][order].tolist(), width, label=n)
+    ax.axhline(1.0, color="k", ls="--")
+    ax.set_xticks((xs + 0.4).tolist())
+    ax.set_xticklabels([f"{w:.3f}" for w in pi.cpu()[order].tolist()], rotation=60, fontsize=7)
+    ax.set_xlabel("target weight (lightest first)")
+    ax.set_ylabel("share / target weight")
+    ax.legend(fontsize=7)
+    fig.tight_layout()
+    fig.savefig(out / "mode_ratios.png", dpi=120)
+    print("saved", out / "mode_ratios.png")
+
+    summary = dict(args=vars(args), M_refined=len(centres), M_cover=len(centres_cov), n_added=n_added, n_outliers=n_outliers,
+                   covered=covered, raw_covered=raw_covered, n_grad_refine=n_grad_refine, n_grad_cover=n_grad_cover,
+                   floor_50000=floor_big, rows=rows, centre_counts={k: v.tolist() for k, v in centre_counts.items()},
+                   ratios={n: v.tolist() for n, v in ratios.items()}, weights=pi.cpu().tolist())
     (out / "summary.json").write_text(json.dumps(summary, indent=1, default=float))
 
     if args.wandb:
@@ -187,8 +256,16 @@ def main():
             for c in cols:
                 if isinstance(r_.get(c), (int, float)):
                     run.summary[f"{n.replace(' ', '_').replace('+', '_')}/{c}"] = r_[c]
-        run.summary.update({"M_refined": len(centres), "modes_covered_refined": covered, "floor_50000": floor_big,
-                            "n_grad_refine": n_grad_refine})
+        run.summary.update({"M_refined": len(centres), "M_cover": len(centres_cov), "centres_added": n_added,
+                            "modes_covered_raw": raw_covered, "modes_covered_refined": covered,
+                            "modes_covered_cover": int((centre_counts["cover"] > 0).sum()), "floor_50000": floor_big,
+                            "n_grad_refine": n_grad_refine, "n_grad_cover": n_grad_cover})
+        for n_, v in ratios.items():
+            key = n_.replace(" ", "_").replace("+", "_")
+            run.summary[f"n_missed/{key}"] = int((v < 0.1).sum())
+            run.summary[f"ratio_lightest/{key}"] = v[light].mean().item()
+            run.summary[f"ratio_heaviest/{key}"] = v[heavy].mean().item()
+        run.log({"mode_ratios": wandb.Image(str(out / "mode_ratios.png"))})
         run.finish()
 
 

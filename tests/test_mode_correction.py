@@ -12,7 +12,8 @@ import torch
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from adjoint_samplers.components.mode_correction import (
-    EnergyCounter, TiedMixture, jump_mala_cycle, refine_centres, run_imh, run_jump_mala, snis_mode_weights,
+    EnergyCounter, TiedMixture, add_uncovered_centres, jump_mala_cycle, refine_centres, run_imh, run_jump_mala,
+    snis_mode_weights,
 )
 
 
@@ -100,6 +101,26 @@ def test_refine():
     print(f"ok  refinement: {2 * K} -> {len(out)} centres, max error {err:.1e}, {n_grad} gradient evaluations")
 
 
+def test_cover():
+    """ 3 of the 12 modes have no centre but a few buffer samples: they are added, nothing is added when all are covered """
+    torch.manual_seed(0)
+    d, K = 12, 12
+    means, log_prob, _ = simplex_gmm(d, K, torch.full((K,), 1 / K))
+    ec = counter_of(log_prob)
+    # buffer: 300 samples in each of the 9 covered modes, only 4 in each of the 3 uncovered ones
+    cnt = [300] * 9 + [4] * 3
+    x = torch.cat([means[k] + torch.randn(n, d) for k, n in enumerate(cnt)])
+    centres = means[:9] + 0.05 * torch.randn(9, d)
+    out, n_added, n_out, n_grad = add_uncovered_centres(ec, x, centres, torch.eye(d))
+    assert n_added == 3 and len(out) == 12, (n_added, len(out))
+    err = torch.cdist(out[9:], means[9:]).min(-1).values.max().item()
+    assert err < 1e-3, err
+    assert n_out < 100 and n_grad > 0 and n_grad == ec.n_grad
+    full, n_added0, _, _ = add_uncovered_centres(counter_of(log_prob), x, means, torch.eye(d))
+    assert n_added0 == 0 and len(full) == K
+    print(f"ok  coverage step: {n_out} outliers relaxed, 3 missing modes added (error {err:.1e}), none added when all are covered")
+
+
 def test_counters():
     torch.manual_seed(0)
     d, K, C, T, n_mala = 4, 4, 100, 7, 3
@@ -123,6 +144,6 @@ def test_counters():
 
 if __name__ == "__main__":
     t0 = time.time()
-    for test in (test_imh_oracle, test_jump_acceptance, test_jump_mala_invariance, test_refine, test_counters):
+    for test in (test_imh_oracle, test_jump_acceptance, test_jump_mala_invariance, test_refine, test_cover, test_counters):
         test()
     print(f"all passed in {time.time() - t0:.1f}s")

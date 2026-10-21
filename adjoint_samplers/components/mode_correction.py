@@ -85,6 +85,29 @@ class TiedMixture:
         return self.m[j] + torch.randn(n, self.d, device=self.m.device, dtype=self.m.dtype) @ self.L.T
 
 
+def add_uncovered_centres(ec, x, centres, cov, quantile=0.99, max_outliers=1000, n_steps=200, lr=0.1,
+                          max_step=0.5, gtol=1e-4, merge_tol=1.0):
+    """ Add the modes that no centre explains. Buffer points x (N, d) whose squared Mahalanobis distance (tied covariance
+        `cov`) to every centre exceeds the chi2_d quantile are relaxed by descent on E (at most `max_outliers`, the
+        farthest first), and each minimum farther than merge_tol from every existing centre becomes a new centre.
+        Returns the centres (M + added, d), the number added, the number of outliers relaxed, and the gradients used.
+        A mode with a handful of buffer samples is enough: a single outlier relaxed into it adds its minimum.
+    """
+    from scipy.stats import chi2
+    L = torch.linalg.cholesky(cov)
+    z = torch.linalg.solve_triangular(L, x.T, upper=False).T
+    zc = torch.linalg.solve_triangular(L, centres.T, upper=False).T
+    d2 = torch.cdist(z, zc).min(-1).values ** 2
+    out = (d2 > float(chi2.ppf(quantile, x.shape[1]))).nonzero(as_tuple=True)[0]
+    if len(out) == 0:
+        return centres, 0, 0, 0
+    if len(out) > max_outliers:
+        out = out[d2[out].argsort(descending=True)[:max_outliers]]
+    minima, n_grad = refine_centres(ec, x[out], n_steps=n_steps, lr=lr, max_step=max_step, gtol=gtol, merge_tol=merge_tol)
+    new = minima[(torch.cdist(minima, centres).min(-1).values > merge_tol)]
+    return torch.cat([centres, new]), len(new), len(out), n_grad
+
+
 def _label_counts(labels, n_modes):
     return torch.bincount(labels, minlength=n_modes).float()
 
