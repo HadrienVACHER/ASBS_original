@@ -12,7 +12,7 @@ import torch
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from adjoint_samplers.components.mode_correction import (
-    EnergyCounter, TiedMixture, add_uncovered_centres, jump_mala_cycle, refine_centres, run_imh, run_jump_mala,
+    EnergyCounter, TiedMixture, add_uncovered_centres, buffer_correction_diagnostic, jump_mala_cycle, refine_centres, run_imh, run_jump_mala,
     snis_mode_weights,
 )
 
@@ -121,6 +121,24 @@ def test_cover():
     print(f"ok  coverage step: {n_out} outliers relaxed, 3 missing modes added (error {err:.1e}), none added when all are covered")
 
 
+def test_diagnostic():
+    """ the observer improves a buffer with flattened weights, leaves the global random state alone and reports its cost """
+    from adjoint_samplers.energies.dist_energy import DistEnergy
+    from adjoint_samplers.utils.dist_utils import GMM
+    torch.manual_seed(0)
+    p = GMM(dim=6, K=6, seed=0, layout="spread", weight_law="loguniform", weight_ratio=20, radius=4.25)
+    w = p.weights ** 0.3
+    k = torch.multinomial(w / w.sum(), 4000, replacement=True)
+    buf = p.means[k] + 1.03 * torch.randn(4000, 6)
+    state = torch.get_rng_state()
+    out = buffer_correction_diagnostic(DistEnergy(p), p, buf, chains=500, steps=30, burn=8)
+    assert torch.equal(state, torch.get_rng_state()), "the global random state changed"
+    assert out["imh_mode_tv"] < out["buffer_mode_tv"], out
+    assert out["modes_with_centre_cover"] == 6 and out["n_E_total"] > 500 * 31 and out["n_grad_total"] > 0, out
+    print(f"ok  diagnostic: buffer mode_tv {out['buffer_mode_tv']:.3f} -> IMH {out['imh_mode_tv']:.3f}, "
+          f"cost {out['n_E_total']} E and {out['n_grad_total']} gradients, random state restored")
+
+
 def test_counters():
     torch.manual_seed(0)
     d, K, C, T, n_mala = 4, 4, 100, 7, 3
@@ -144,6 +162,6 @@ def test_counters():
 
 if __name__ == "__main__":
     t0 = time.time()
-    for test in (test_imh_oracle, test_jump_acceptance, test_jump_mala_invariance, test_refine, test_cover, test_counters):
+    for test in (test_imh_oracle, test_jump_acceptance, test_jump_mala_invariance, test_refine, test_cover, test_diagnostic, test_counters):
         test()
     print(f"all passed in {time.time() - t0:.1f}s")

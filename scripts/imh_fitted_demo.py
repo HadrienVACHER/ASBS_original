@@ -23,7 +23,7 @@ from torch import distributions
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from adjoint_samplers.components.matcher import _kmeans
+from adjoint_samplers.components.mode_correction import fit_gmm, structure_cov  # noqa: F401 (re-exported)
 from adjoint_samplers.energies.dist_energy import DistEnergy
 from adjoint_samplers.utils.dist_utils import GMM1D
 from imh_demo import imh_step, metrics
@@ -53,60 +53,6 @@ class FittedGMM:
 
     def log_prob(self, x):
         return self.distr.log_prob(x)
-
-
-def structure_cov(covs, Nk, cov_type, shrink, reg):
-    """ covs (M, D, D) of the components -> the covariance family, then shrunk towards tr(C)/D I, then + reg I
-          full       as is
-          tied       the pooled covariance Σ_k N_k C_k / N, the same for every component
-          diag       diag(C_k)
-          spherical  tr(C_k) / D I
-    """
-    M, D, _ = covs.shape
-    eye = torch.eye(D, device=covs.device, dtype=covs.dtype)
-    if cov_type == "tied":
-        covs = ((Nk[:, None, None] * covs).sum(0) / Nk.sum()).expand(M, D, D)
-    elif cov_type == "diag":
-        covs = torch.diag_embed(torch.diagonal(covs, dim1=-2, dim2=-1))
-    elif cov_type == "spherical":
-        covs = torch.diagonal(covs, dim1=-2, dim2=-1).mean(-1)[:, None, None] * eye
-    else:
-        assert cov_type == "full", cov_type
-    scale = torch.diagonal(covs, dim1=-2, dim2=-1).mean(-1)[:, None, None]
-    return (1 - shrink) * covs + shrink * scale * eye + reg * eye
-
-
-def fit_gmm(x, M, iters=100, reg=1e-4, tol=1e-6, init_means=None, cov_type="full", shrink=0.0):
-    """ EM for a Gaussian mixture on x (N, D) from k-means++ (Lloyd) centres (or from `init_means`);
-        covariance family `cov_type` (see structure_cov), shrunk by `shrink` in [0, 1]
-    """
-    N, D = x.shape
-    means = _kmeans(x, M, iters=20) if init_means is None else init_means.clone()
-    a = torch.cdist(x, means).argmin(-1)
-    counts = torch.bincount(a, minlength=M).float().clamp(min=1)
-    weights = counts / N
-    eye = torch.eye(D, device=x.device, dtype=x.dtype)
-    covs = torch.stack([
-        torch.cov(x[a == k].T).reshape(D, D) if (a == k).sum() > 1 else eye
-        for k in range(M)
-    ])
-    covs = structure_cov(covs, counts, cov_type, shrink, reg)
-    prev = -float("inf")
-    for _ in range(iters):
-        comp = distributions.MultivariateNormal(means, covariance_matrix=covs)
-        logp = comp.log_prob(x.unsqueeze(1)) + weights.log() # (N, M)
-        ll = torch.logsumexp(logp, -1)
-        resp = (logp - ll.unsqueeze(-1)).exp()
-        Nk = resp.sum(0).clamp(min=1e-8)
-        weights = Nk / N
-        means = (resp.T @ x) / Nk[:, None]
-        diff = x.unsqueeze(1) - means # (N, M, D)
-        covs = torch.einsum("nk,nkd,nke->kde", resp, diff, diff) / Nk[:, None, None]
-        covs = structure_cov(covs, Nk, cov_type, shrink, reg)
-        if abs(ll.mean().item() - prev) < tol:
-            break
-        prev = ll.mean().item()
-    return weights, means, covs
 
 
 def main():

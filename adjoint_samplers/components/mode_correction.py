@@ -5,8 +5,68 @@
     Target p = e^{-E} / Z. Energy cost is counted through `EnergyCounter` so that methods compare at equal budget.
 """
 import math
+from contextlib import contextmanager
 
 import torch
+from torch import distributions
+
+
+
+
+
+def structure_cov(covs, Nk, cov_type, shrink, reg):
+    """ covs (M, D, D) of the components -> the covariance family, then shrunk towards tr(C)/D I, then + reg I
+          full       as is
+          tied       the pooled covariance Σ_k N_k C_k / N, the same for every component
+          diag       diag(C_k)
+          spherical  tr(C_k) / D I
+    """
+    M, D, _ = covs.shape
+    eye = torch.eye(D, device=covs.device, dtype=covs.dtype)
+    if cov_type == "tied":
+        covs = ((Nk[:, None, None] * covs).sum(0) / Nk.sum()).expand(M, D, D)
+    elif cov_type == "diag":
+        covs = torch.diag_embed(torch.diagonal(covs, dim1=-2, dim2=-1))
+    elif cov_type == "spherical":
+        covs = torch.diagonal(covs, dim1=-2, dim2=-1).mean(-1)[:, None, None] * eye
+    else:
+        assert cov_type == "full", cov_type
+    scale = torch.diagonal(covs, dim1=-2, dim2=-1).mean(-1)[:, None, None]
+    return (1 - shrink) * covs + shrink * scale * eye + reg * eye
+
+
+def fit_gmm(x, M, iters=100, reg=1e-4, tol=1e-6, init_means=None, cov_type="full", shrink=0.0):
+    """ EM for a Gaussian mixture on x (N, D) from k-means++ (Lloyd) centres (or from `init_means`);
+        covariance family `cov_type` (see structure_cov), shrunk by `shrink` in [0, 1]
+    """
+    N, D = x.shape
+    from adjoint_samplers.components.matcher import _kmeans # lazy: matcher is heavy
+    means = _kmeans(x, M, iters=20) if init_means is None else init_means.clone()
+    a = torch.cdist(x, means).argmin(-1)
+    counts = torch.bincount(a, minlength=M).float().clamp(min=1)
+    weights = counts / N
+    eye = torch.eye(D, device=x.device, dtype=x.dtype)
+    covs = torch.stack([
+        torch.cov(x[a == k].T).reshape(D, D) if (a == k).sum() > 1 else eye
+        for k in range(M)
+    ])
+    covs = structure_cov(covs, counts, cov_type, shrink, reg)
+    prev = -float("inf")
+    for _ in range(iters):
+        comp = distributions.MultivariateNormal(means, covariance_matrix=covs)
+        logp = comp.log_prob(x.unsqueeze(1)) + weights.log() # (N, M)
+        ll = torch.logsumexp(logp, -1)
+        resp = (logp - ll.unsqueeze(-1)).exp()
+        Nk = resp.sum(0).clamp(min=1e-8)
+        weights = Nk / N
+        means = (resp.T @ x) / Nk[:, None]
+        diff = x.unsqueeze(1) - means # (N, M, D)
+        covs = torch.einsum("nk,nkd,nke->kde", resp, diff, diff) / Nk[:, None, None]
+        covs = structure_cov(covs, Nk, cov_type, shrink, reg)
+        if abs(ll.mean().item() - prev) < tol:
+            break
+        prev = ll.mean().item()
+    return weights, means, covs
 
 
 class EnergyCounter:
@@ -224,3 +284,66 @@ def iid_mode_tv(pi, n, draws=20, generator=None):
         share = torch.bincount(c, minlength=len(pi)).float() / n
         tv.append(0.5 * (share - pi).abs().sum().item())
     return sum(tv) / len(tv)
+
+
+@contextmanager
+def preserve_rng():
+    """ restore the global (CPU and CUDA) random state on exit, so that an observer leaves the run it watches unchanged """
+    cpu = torch.get_rng_state()
+    cuda = None
+    try:
+        cuda = torch.cuda.get_rng_state_all() if torch.cuda.is_available() else None
+    except Exception:
+        cuda = None
+    try:
+        yield
+    finally:
+        torch.set_rng_state(cpu)
+        if cuda is not None:
+            try:
+                torch.cuda.set_rng_state_all(cuda)
+            except Exception:
+                pass
+
+
+def buffer_correction_diagnostic(energy, dist, x1, M=None, chains=2000, steps=60, burn=15, inflate=1.0, merge_tol_mult=1.0,
+                                 cover_quantile=0.99, max_outliers=1000, refine_steps=200, refine_lr=0.1):
+    """ What the correction would do to the buffer x1 (N, d), without changing it: fit (EM, M = 2K, tied), refine the centres,
+        add the uncovered modes, run independent MH from buffer states. `dist` is the GMM target (K, dim, weights, assign).
+        The global random state is restored. Returns floats: mode_tv of the buffer and of the chain (pooled over all
+        post-burn-in states, and of the final states), acceptance, ESS, centres, coverage and the evaluation cost.
+    """
+    K, d = dist.K, dist.dim
+    pi = dist.weights.to(x1.device)
+    assign = dist.assign
+    M = M or 2 * K
+    q = max(1, K // 4)
+    order = pi.argsort()
+    with preserve_rng():
+        _, mu, cov = fit_gmm(x1, M, cov_type="tied")
+        cov_t = cov[0]
+        ec_setup = EnergyCounter(energy)
+        merge_tol = merge_tol_mult * (cov_t.trace() / d).sqrt().item()
+        centres, _ = refine_centres(ec_setup, mu, n_steps=refine_steps, lr=refine_lr, merge_tol=merge_tol)
+        centres_cov, n_added, n_out, _ = add_uncovered_centres(
+            ec_setup, x1, centres, cov_t, quantile=cover_quantile, max_outliers=max_outliers,
+            n_steps=refine_steps, lr=refine_lr, merge_tol=merge_tol)
+        r = TiedMixture(centres_cov, cov_t * inflate)
+        ec = EnergyCounter(energy)
+        x0 = x1[torch.randint(len(x1), (chains,), device=x1.device)]
+        x, counts, diag = run_imh(ec, r, x0, steps, burn, assign, K)
+    share_buf = torch.bincount(assign(x1), minlength=K).float() / len(x1)
+    share = counts.sum(0) / counts.sum()
+    share_final = torch.bincount(assign(x), minlength=K).float() / len(x)
+    ratio_buf, ratio = share_buf / pi, share / pi
+    tv = lambda s_: 0.5 * (s_ - pi).abs().sum().item()
+    return dict(
+        buffer_mode_tv=tv(share_buf), imh_mode_tv=tv(share), imh_mode_tv_final=tv(share_final),
+        accept=diag["acc"], ess=chain_ess(counts, pi), max_log_w=diag["max_log_w"],
+        M_fit=M, M_cover=len(centres_cov), centres_added=n_added, outliers=n_out,
+        modes_with_centre_raw=torch.unique(assign(mu)).numel(), modes_with_centre_cover=torch.unique(assign(centres_cov)).numel(),
+        ratio_lightest_buffer=ratio_buf[order[:q]].mean().item(), ratio_lightest_imh=ratio[order[:q]].mean().item(),
+        ratio_heaviest_buffer=ratio_buf[order[-q:]].mean().item(), ratio_heaviest_imh=ratio[order[-q:]].mean().item(),
+        n_under_half_buffer=int((ratio_buf < 0.5).sum()), n_under_half_imh=int((ratio < 0.5).sum()),
+        n_E_total=ec.n_E + ec_setup.n_E, n_grad_total=ec.n_grad + ec_setup.n_grad,
+    )

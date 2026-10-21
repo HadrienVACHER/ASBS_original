@@ -11,6 +11,7 @@ from pathlib import Path
 import torch
 import torch.backends.cudnn as cudnn
 
+from adjoint_samplers.components.mode_correction import buffer_correction_diagnostic
 from adjoint_samplers.components.sde import ControlledSDE, sdeint, enable_cuda_graph_sampling
 from adjoint_samplers.train_loop import train_one_epoch
 import adjoint_samplers.utils.train_utils as train_utils
@@ -177,6 +178,7 @@ def main(cfg):
         evaluator = hydra.utils.instantiate(cfg.evaluator, energy=energy)
 
 
+        corr_cost, warned_correction = {"E": 0, "grad": 0}, False
         print(f"Starting from {start_epoch}/{cfg.num_epochs} epochs...")
         for epoch in range(start_epoch, cfg.num_epochs):
             stage = train_utils.determine_stage(epoch, cfg)
@@ -205,6 +207,32 @@ def main(cfg):
             if hasattr(matcher, "pop_stats"):
                 log_dict.update(matcher.pop_stats())
             writer.log(log_dict, step=epoch)
+
+            # Observer (no feedback into training): what the IMH correction would do to the current buffer
+            if (cfg.get("correction_every") and stage == "adjoint" and distributed_mode.is_main_process()
+                    and epoch >= cfg.correction_warmup
+                    and (epoch % cfg.correction_every == 0 or epoch == cfg.num_epochs - 1)):
+                dist = getattr(energy, "dist", None)
+                if hasattr(dist, "assign") and hasattr(dist, "K"):
+                    buf = adjoint_matcher.buffer
+                    x1_buf = torch.cat(buf.batches["x1"])[-buf.buffer_size:].to(device)
+                    diag = buffer_correction_diagnostic(
+                        energy, dist, x1_buf, chains=cfg.correction_chains, steps=cfg.correction_steps,
+                        burn=cfg.correction_burn)
+                    corr_cost["E"] += diag["n_E_total"]
+                    corr_cost["grad"] += diag["n_grad_total"]
+                    writer.log({
+                        **{f"corr/{k}": v for k, v in diag.items()},
+                        "cost/as_grad_evals": (epoch + 1) * cfg.adjoint_matcher.resample_size, # buffer refills, one gradient each
+                        "cost/corr_E_cum": corr_cost["E"],
+                        "cost/corr_grad_cum": corr_cost["grad"],
+                    }, step=epoch)
+                    print(f"[correction diagnostic | ep={epoch:04}] buffer mode_tv {diag['buffer_mode_tv']:.3f} -> IMH {diag['imh_mode_tv']:.3f}"
+                          f" (acc {diag['accept']:.2f}, ess {diag['ess']:.0f}, centres {diag['M_cover']}, "
+                          f"modes with a centre {diag['modes_with_centre_raw']} -> {diag['modes_with_centre_cover']}/{dist.K})")
+                elif not warned_correction:
+                    print("correction_every needs a GMM target (energy.dist with K and assign); ignored.")
+                    warned_correction = True
 
             print("[{0} | {1}] {2}".format(
                 cyan(  f"{stage:<7}"),

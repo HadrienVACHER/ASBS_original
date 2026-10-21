@@ -13,6 +13,14 @@ seed: 0
 
 dump_final: false # save the final buffer X1 and fresh model samples to samples_final.pt (in the run directory)
 dump_n_samples: 10000
+# Observer, GMM targets only: every `correction_every` epochs (from `correction_warmup`) fit a proposal on the current buffer,
+# refine and cover its centres, run IMH from the buffer states and log what mode_tv the corrected buffer would have
+# (corr/*, cost/*). Nothing is fed back into training; the random state is restored.
+correction_every: null
+correction_warmup: 100
+correction_chains: 2000
+correction_steps: 60
+correction_burn: 15
 
 clip_grad_norm: false
 checkpoint: null
