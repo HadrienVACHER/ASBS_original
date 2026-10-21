@@ -1,0 +1,74 @@
+#!/bin/bash
+#PBS -N as_imh_gmm
+#PBS -P gs_ccds_haidang.dau
+#PBS -q gpu_as
+#PBS -l walltime=10:00:00
+#PBS -l select=1:ncpus=12:ngpus=1:mem=32gb
+#PBS -j oe
+
+# AS then IMH on GMM targets with a few heavy modes and many light ones (a "demo" in higher dimension).
+# Each target is "dim:K:weight_ratio:radius" (loguniform weights, max/min <= weight_ratio, K <= dim + 1 for a simplex layout).
+#   qsub scripts/as_then_imh_gmm.pbs                                  # AS + IMH on every target of CONFIGS
+#   qsub -v STAGE=as scripts/as_then_imh_gmm.pbs                      # pilot: AS only (check mode_tv / modes_covered on W&B)
+#   qsub -v STAGE=imh,RUN_ROOT=results/gmm_hard_<jobid> scripts/as_then_imh_gmm.pbs   # IMH only, on saved buffers
+#   qsub -v CONFIGS="16:10:100:4.25 32:20:100:4.25" scripts/as_then_imh_gmm.pbs
+#   IMH flags default to IMH_FLAGS below; ARGS comes after and overrides.
+CONFIGS=${CONFIGS:-"8:5:100:4.25 16:10:100:4.25 16:10:100:6 32:20:100:4.25 32:10:1000:4.25"}
+STAGE=${STAGE:-both}
+EPOCHS=${EPOCHS:-2000}
+IMH_FLAGS="--cov tied --inflate 1.2"
+read -r -a CFG <<< "${CONFIGS}"
+
+cd "${PBS_O_WORKDIR}" || exit 1
+mkdir -p logs
+export PYTHONUNBUFFERED=1
+JOB=${PBS_JOBID%%.*}
+ROOT=${RUN_ROOT:-results/gmm_hard_${JOB}}
+
+# --- Correctif officiel PBS/GaaS pour les identifiants GPU (inchangé) ---
+if echo "${CUDA_VISIBLE_DEVICES:-}" | grep -q "GPU-"; then
+    GPU_COUNT=$(echo "${CUDA_VISIBLE_DEVICES}" | tr ',' '\n' | wc -l)
+    CUDA_VISIBLE_DEVICES=$(seq -s, 0 $((GPU_COUNT - 1)))
+    export CUDA_VISIBLE_DEVICES
+fi
+
+module purge
+module load anaconda/2025
+eval "$(/usr/local/anaconda2025/bin/conda shell.bash hook)"
+conda activate BMS
+
+echo "Nœud : $(hostname) à $(date)"
+nvidia-smi -L
+echo "stage ${STAGE}, ${#CFG[@]} targets: ${CONFIGS}, root ${ROOT}"
+FAST="fast_sampling=true buffer_on_device=true fast_train=true"
+fail=0
+
+if [ "${STAGE}" = "both" ] || [ "${STAGE}" = "as" ]; then
+  export OMP_NUM_THREADS=$(( 12 / ${#CFG[@]} > 0 ? 12 / ${#CFG[@]} : 1 )) MKL_NUM_THREADS=$(( 12 / ${#CFG[@]} > 0 ? 12 / ${#CFG[@]} : 1 ))
+  pids=()
+  for C in "${CFG[@]}"; do
+    IFS=: read -r D K WR RAD <<< "${C}"
+    TAG=d${D}_K${K}_wr${WR}_rad${RAD}
+    echo "=== AS ${TAG}, ${EPOCHS} epochs"
+    python train.py experiment=gmm_as dim=${D} K=${K} weight_ratio=${WR} radius=${RAD} num_epochs=${EPOCHS} \
+        exp_name=hard_${TAG} dump_final=true ${FAST} hydra.run.dir=${ROOT}/${TAG} \
+        > logs/gmm_hard_${JOB}_${TAG}_as.log 2>&1 &
+    pids+=($!)
+  done
+  for p in "${pids[@]}"; do wait "$p" || fail=1; done
+fi
+
+if [ "${STAGE}" = "both" ] || [ "${STAGE}" = "imh" ]; then
+  export OMP_NUM_THREADS=4 MKL_NUM_THREADS=4
+  for C in "${CFG[@]}"; do
+    IFS=: read -r D K WR RAD <<< "${C}"
+    TAG=d${D}_K${K}_wr${WR}_rad${RAD}
+    echo "=== IMH ${TAG}"
+    python scripts/imh_fitted_gmm.py --dim ${D} --K ${K} --weight-ratio ${WR} --radius ${RAD} \
+        --buffer ${ROOT}/${TAG}/samples_final.pt --out ${ROOT}/${TAG}/imh --wandb ${IMH_FLAGS} ${ARGS:-} \
+        > logs/gmm_hard_${JOB}_${TAG}_imh.log 2>&1 || fail=1
+    grep -v -i "warn\|super()" logs/gmm_hard_${JOB}_${TAG}_imh.log
+  done
+fi
+echo "Fin à $(date), statut : ${fail}"
+exit $fail

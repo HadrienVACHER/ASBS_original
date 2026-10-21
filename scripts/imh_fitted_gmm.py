@@ -16,6 +16,9 @@ import argparse
 import sys
 from pathlib import Path
 
+import matplotlib
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
 import torch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -36,6 +39,15 @@ def evaluate(evaluator, x):
     with contextlib.redirect_stdout(io.StringIO()):
         out = evaluator(x)
     return {k: out[k] for k in KEYS}
+
+
+def mode_ratios(evaluator, x):
+    """ share of the samples in mode k / target weight π_k, per mode (1: right proportion, 0: missed) """
+    import contextlib, io
+    with contextlib.redirect_stdout(io.StringIO()):
+        m = evaluator.mode_metrics(x, per_mode=True)
+    K = evaluator.dist.K
+    return torch.tensor([m[f"mode_ratio/{k}"] for k in range(K)])
 
 
 def fmt(m):
@@ -67,6 +79,8 @@ def main():
     ap.add_argument("--dim", type=int, default=12)
     ap.add_argument("--K", type=int, default=12)
     ap.add_argument("--radius", type=float, default=4.25)
+    ap.add_argument("--weight-ratio", type=float, default=20.0, help="max/min mode weight (loguniform law)")
+    ap.add_argument("--out", default="results/imh_fitted_gmm")
     ap.add_argument("--target-seed", type=int, default=0)
     ap.add_argument("--buffer", default=None, help="samples_final.pt of train.py, or a tensor file")
     ap.add_argument("--buffer-key", default="buffer_x1", choices=["buffer_x1", "model_samples"])
@@ -90,7 +104,7 @@ def main():
 
     torch.manual_seed(args.seed)
     p = GMM(dim=args.dim, K=args.K, seed=args.target_seed, layout="spread",
-            weight_law="loguniform", weight_ratio=20, radius=args.radius)
+            weight_law="loguniform", weight_ratio=args.weight_ratio, radius=args.radius)
     p.to(args.device)
     energy = DistEnergy(p, device=args.device)
     evaluator = GMMEvaluator(energy, w2_samples=500)
@@ -116,7 +130,7 @@ def main():
         import wandb
         run = wandb.init(
             project="adjoint_sampler_cv",
-            name=f"imh_fitted_gmm_d{args.dim}_K{args.K}_M{M}_{args.cov}{args.shrink}_i{args.inflate}_dn{int(args.denoise)}",
+            name=f"imh_fitted_gmm_d{args.dim}_K{args.K}_wr{args.weight_ratio:g}_rad{args.radius:g}_M{M}_{args.cov}{args.shrink}_i{args.inflate}_dn{int(args.denoise)}",
             config=vars(args),
         )
         wandb.define_metric("step")
@@ -132,8 +146,8 @@ def main():
 
     report = {1, 5, 20, 100, args.steps}
     print("  chain, oracle r (true modes, equal weights):")
-    _, acc = run_chain(p.uniform_weights(), energy, evaluator, args.chains, args.steps, report,
-                       make_log("oracle"), args.eval_every)
+    x_oracle, acc = run_chain(p.uniform_weights(), energy, evaluator, args.chains, args.steps, report,
+                              make_log("oracle"), args.eval_every)
     print(f"    accept (2nd half) {acc:.3f}")
 
     init = _kmeans(buf + p.score(buf), M, iters=20) if args.denoise else None
@@ -144,9 +158,51 @@ def main():
           f"eigenvalues of the covariances "
           f"min {torch.linalg.eigvalsh(cov).min().item():.3f} max {torch.linalg.eigvalsh(cov).max().item():.3f}")
     print("  chain, fitted r:")
-    _, acc = run_chain(r, energy, evaluator, args.chains, args.steps, report,
-                       make_log("fitted"), args.eval_every)
+    x_fit, acc = run_chain(r, energy, evaluator, args.chains, args.steps, report,
+                           make_log("fitted"), args.eval_every)
     print(f"    accept (2nd half) {acc:.3f}")
+
+    # per-mode proportions: share of the samples in mode k / target weight (1: right)
+    if args.K <= 64:
+        rows = {"AS buffer": mode_ratios(evaluator, buf[:n])}
+        if model_samples is not None:
+            rows["AS model samples"] = mode_ratios(evaluator, model_samples.reshape(-1, args.dim)[:n])
+        rows["IMH oracle r"] = mode_ratios(evaluator, x_oracle)
+        rows["IMH fitted r"] = mode_ratios(evaluator, x_fit)
+        order = p.weights.argsort() # lightest first
+        print("\n=== per-mode proportion / target weight, lightest modes first")
+        print(f"  {'target w':>9s} " + " ".join(f"{k:>16s}" for k in rows))
+        for j in order.tolist():
+            print(f"  {p.weights[j].item():9.4f} " + " ".join(f"{v[j].item():16.2f}" for v in rows.values()))
+        lightest = order[: max(1, args.K // 4)]
+        heaviest = order[-max(1, args.K // 4):]
+        print(f"  mean ratio, lightest {len(lightest)} modes / heaviest {len(heaviest)} modes:")
+        for name, v in rows.items():
+            print(f"    {name:<18s} {v[lightest].mean().item():6.2f} / {v[heaviest].mean().item():6.2f}")
+
+        out = Path(args.out)
+        out.mkdir(parents=True, exist_ok=True)
+        fig, ax = plt.subplots(figsize=(max(6, 0.5 * args.K + 3), 4))
+        width = 0.8 / len(rows)
+        xs = torch.arange(args.K).float()
+        for i, (name, v) in enumerate(rows.items()):
+            ax.bar((xs + i * width).tolist(), v[order].tolist(), width, label=name)
+        ax.axhline(1.0, color="k", ls="--")
+        ax.set_xticks((xs + 0.4).tolist())
+        ax.set_xticklabels([f"{w:.3f}" for w in p.weights[order].tolist()], rotation=60, fontsize=7)
+        ax.set_xlabel("target weight (lightest first)")
+        ax.set_ylabel("share / target weight")
+        ax.legend()
+        fig.tight_layout()
+        fig.savefig(out / "mode_ratios.png", dpi=120)
+        print("saved", out / "mode_ratios.png")
+        if run:
+            import wandb
+            run.log({"mode_ratios": wandb.Image(str(out / "mode_ratios.png"))})
+            for name, v in rows.items():
+                key = name.replace(" ", "_")
+                run.summary[f"ratio_lightest/{key}"] = v[lightest].mean().item()
+                run.summary[f"ratio_heaviest/{key}"] = v[heaviest].mean().item()
     if run:
         run.summary["fitted/accept_2nd_half"] = acc
         run.summary["fitted/modes_with_component"] = (assigned > 0).sum().item()
