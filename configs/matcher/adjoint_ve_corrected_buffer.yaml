@@ -10,6 +10,11 @@ steps_per_epoch: 2 # independent-MH steps per epoch
 mala_steps: 0 # MALA steps after them (local moves)
 inflate: 1.0
 
+# alternation with plain AS (on-policy fills); all off by default = MH buffer after the warm-up
+model_frac: 0.0 # share of each batch simulated from the model
+stop_epoch: null # plain AS again after this many epochs
+alternate_every: null # blocks of this many epochs: MH buffer, plain AS, MH buffer, ...
+
 grad_state_cost:
   _target_: adjoint_samplers.components.state_cost.ZeroGradStateCost
 

@@ -371,6 +371,9 @@ class AdjointVECorrectedBufferMatcher(AdjointVEDiracMatcher):
           - the chain states are the X1 of the buffer, with the adjoint computed at them; X0 is the Dirac source.
         A mode with no centre has no proposals: the chains already there keep the proportion they had at the start.
         The model only enters through the fits of r (it sets which modes are found).
+
+        Alternation with plain AS (on-policy fills): `model_frac` = share of every batch simulated from the model, `stop_epoch`
+        = plain AS again after that many fills, `alternate_every` = blocks of that many fills, MH buffer then plain AS.
     """
     def __init__(
         self,
@@ -386,10 +389,15 @@ class AdjointVECorrectedBufferMatcher(AdjointVEDiracMatcher):
         merge_tol_mult: float = 1.0,
         cover_quantile: float = 0.99,
         max_outliers: int = 1000,
+        model_frac: float = 0.0,
+        stop_epoch: int | None = None,
+        alternate_every: int | None = None,
         **kwargs,
     ):
         super().__init__(**kwargs)
-        assert warmup >= 0 and refit_every >= 1 and steps_per_epoch >= 1
+        assert warmup >= 0 and refit_every >= 1 and steps_per_epoch >= 1 and 0.0 <= model_frac < 1.0
+        self.model_frac, self.stop_epoch, self.alternate_every = model_frac, stop_epoch, alternate_every
+        self.last_refit_fill = None
         self.n_components, self.warmup, self.refit_every, self.n_fit = n_components, warmup, refit_every, n_fit
         self.burn_in, self.steps_per_epoch, self.n_mala, self.mala_h0 = burn_in, steps_per_epoch, mala_steps, mala_h0
         self.inflate, self.merge_tol_mult = inflate, merge_tol_mult
@@ -423,6 +431,7 @@ class AdjointVECorrectedBufferMatcher(AdjointVEDiracMatcher):
             self.chain = (x, E, self.r.logpdf(x))
         self._stats["refits"] += 1
         self._stats["centres_new_in_memory"] += n_new
+        self.last_refit_fill = self.fills
 
     @torch.no_grad()
     def _advance(self, n_steps):
@@ -442,6 +451,17 @@ class AdjointVECorrectedBufferMatcher(AdjointVEDiracMatcher):
         self.chain = (x, E, logr)
         return x
 
+    def _mh_epoch(self):
+        """ does this fill take its X1 from the chains? plain AS during the warm-up, after `stop_epoch`, and in the odd
+            blocks of `alternate_every` fills """
+        if self.fills <= self.warmup:
+            return False
+        if self.stop_epoch is not None and self.fills > self.stop_epoch:
+            return False
+        if self.alternate_every is not None and ((self.fills - self.warmup - 1) // self.alternate_every) % 2 == 1:
+            return False
+        return True
+
     def populate_buffer(
             self,
             x0: torch.Tensor,
@@ -449,15 +469,21 @@ class AdjointVECorrectedBufferMatcher(AdjointVEDiracMatcher):
             is_asbs_init_stage: bool,
     ):
         self.fills += 1
-        if self.fills <= self.warmup:
+        use_mh = self._mh_epoch()
+        self._stats["mh_epoch"] += float(use_mh)
+        if not use_mh:
             return super().populate_buffer(x0, timesteps, is_asbs_init_stage)
-        if self.r is None or (self.fills - self.warmup - 1) % self.refit_every == 0:
+        if self.r is None or self.fills - self.last_refit_fill >= self.refit_every:
             self._refit(x0, timesteps)
         if self.chain is None:
             x = sdeint(self.sde, x0, timesteps, only_boundary=True)[1].clone()
             self.chain = (x, self.ec.E(x), self.r.logpdf(x))
             self._advance(self.burn_in)
         x1 = self._advance(self.steps_per_epoch).clone()
+        n_model = int(round(self.model_frac * x1.shape[0]))
+        if n_model > 0: # a fraction of the batch is still simulated from the model (on-policy)
+            keep = torch.randperm(x1.shape[0], device=x1.device)[: x1.shape[0] - n_model]
+            x1 = torch.cat([x1[keep], sdeint(self.sde, x0, timesteps, only_boundary=True)[1][:n_model]])
         adjoint1 = self._compute_adjoint1(x1, is_asbs_init_stage).clone()
 
         self._check_buffer_sample_shape(x0, x1, adjoint1)
@@ -469,7 +495,7 @@ class AdjointVECorrectedBufferMatcher(AdjointVEDiracMatcher):
 
     def pop_stats(self):
         st, self._stats = self._stats, defaultdict(float)
-        out = {"cb/n_E": float(self.ec.n_E), "cb/n_grad": float(self.ec.n_grad)}
+        out = {"cb/n_E": float(self.ec.n_E), "cb/n_grad": float(self.ec.n_grad), "cb/mh_fraction_of_epochs": st["mh_epoch"]}
         if self.memory is not None:
             out["cb/M_memory"] = float(len(self.memory))
         if st["proposals"]:
