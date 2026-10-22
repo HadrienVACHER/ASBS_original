@@ -1,0 +1,18 @@
+_target_: adjoint_samplers.components.matcher.AdjointVEGelfandDeyMatcher
+
+# Gelfand-Dey control variate (1D, 2 modes) with Laplace-fitted N_k, carrier w = 1.
+# c < 0: pushes the drift toward the left mode when it is under-sampled (|c| ~ 0.05 first).
+# sigma_scale: Σ_k = sigma_scale / E''(μ_k), must stay < 2 (infinite variance beyond).
+c: -0.05
+sigma_scale: 0.8
+# N_k: null = Laplace fit of the modes of the target (logged as gd/source = 1);
+# or fixed by hand (gd/source = 2): adjoint_matcher.modes='[{mu: -3, var: 0.2}, {mu: 3, var: 0.2}]'
+# gd/source = 0: the fit did not find 2 modes, cv disabled (= demo_as)
+modes: null
+
+grad_state_cost:
+  _target_: adjoint_samplers.components.state_cost.ZeroGradStateCost
+
+buffer:
+  _target_: adjoint_samplers.components.buffer.BatchBuffer
+  buffer_size: ${adjoint_matcher.buffer_size}

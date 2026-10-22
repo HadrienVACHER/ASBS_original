@@ -1,0 +1,13 @@
+# @package _global_
+
+# demo_as with the Gelfand-Dey control variate (Laplace-fitted Gaussians on the modes) in the target.
+
+defaults:
+  - demo_as
+  - override /matcher@adjoint_matcher: adjoint_ve_gd
+
+exp_name: demo_as_gd_c${adjoint_matcher.c}
+
+
+# === training ===
+num_epochs: 2000

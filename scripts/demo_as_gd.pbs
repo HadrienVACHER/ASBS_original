@@ -1,0 +1,60 @@
+#!/bin/bash
+#PBS -N demo_as_gd
+#PBS -P gs_ccds_haidang.dau
+#PBS -q gpu_as
+#PBS -l walltime=06:00:00
+#PBS -l select=1:ncpus=8:ngpus=1:mem=24gb
+#PBS -j oe
+
+# Balayage de c pour le control variate Gelfand-Dey (Laplace) sur la démo 1D, + baseline demo_as
+# à 2000 epochs (même budget). Un processus par (c, seed), tous sur le même GPU.
+CS=(-0.5 -2 -5)
+SEEDS=(0 1)
+NPROC=$(( (${#CS[@]} + 1) * ${#SEEDS[@]} ))
+THREADS=$(( 8 / NPROC > 0 ? 8 / NPROC : 1 ))
+
+cd "${PBS_O_WORKDIR}" || exit 1
+mkdir -p logs
+export PYTHONUNBUFFERED=1
+
+# --- Correctif officiel PBS/GaaS pour les identifiants GPU (inchangé) ---
+if echo "${CUDA_VISIBLE_DEVICES:-}" | grep -q "GPU-"; then
+    GPU_COUNT=$(echo "${CUDA_VISIBLE_DEVICES}" | tr ',' '\n' | wc -l)
+    CUDA_VISIBLE_DEVICES=$(seq -s, 0 $((GPU_COUNT - 1)))
+    export CUDA_VISIBLE_DEVICES
+fi
+
+export OMP_NUM_THREADS=${THREADS}
+export MKL_NUM_THREADS=${THREADS}
+
+module purge
+module load anaconda/2025
+eval "$(/usr/local/anaconda2025/bin/conda shell.bash hook)"
+conda activate BMS
+
+echo "Nœud : $(hostname) à $(date)"
+nvidia-smi -L
+
+COMMON="fast_sampling=true buffer_on_device=true fast_train=true num_epochs=2000"
+
+pids=()
+for SEED in "${SEEDS[@]}"; do
+  # baseline: AS sans control variate, 2000 epochs
+  python train.py experiment=demo_as seed=${SEED} ${COMMON} exp_name=demo_as_2000ep \
+      hydra.run.dir=results/demo_as_gd/base_seed${SEED} \
+      > logs/demo_as_gd_base_seed${SEED}.log 2>&1 &
+  pids+=($!)
+  for C in "${CS[@]}"; do
+    echo "Lancement demo_as_gd c=${C} seed=${SEED}"
+    python train.py experiment=demo_as_gd seed=${SEED} ${COMMON} adjoint_matcher.c=${C} \
+        hydra.run.dir=results/demo_as_gd/c${C}_seed${SEED} \
+        > logs/demo_as_gd_c${C}_seed${SEED}.log 2>&1 &
+    pids+=($!)
+  done
+done
+
+# Attend chaque processus et garde la trace des échecs
+fail=0
+for p in "${pids[@]}"; do wait "$p" || fail=1; done
+echo "Fin à $(date), échec=${fail}"
+exit $fail

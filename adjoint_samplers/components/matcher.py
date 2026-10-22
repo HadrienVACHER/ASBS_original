@@ -360,6 +360,213 @@ class AdjointVESteinMatcher(AdjointVEMatcher):
         return (t, xt), - (adjoint1 + stein)
 
 
+class AdjointVEGelfandDeyMatcher(AdjointVEMatcher):
+    """ AdjointVEMatcher with a Gelfand-Dey control variate added to the target (1D, K = 2 modes):
+
+            target = - (∇g(X1) + c · cv(Xt, X1)),
+            cv = h(Xt) Σ_k λ_k N_k(X1) e^{E(X1)} / C_k(Xt),   λ = (1, -1) (modes sorted by position)
+
+        N_k = N(μ_k, Σ_k) is the Laplace approximation of mode k of the target e^{-E}: μ_k a local
+        minimum of E, Σ_k = sigma_scale / E''(μ_k), fitted once from the first buffer batch.
+        With X0 = 0 (Dirac), κ_t = ν_t / ν_1, v_t = ν_1 κ_t (1 - κ_t):
+
+            C_k(xt) = ∫ N_k(x1) p^base(xt | x1) dx1 = N(xt; κ_t μ_k, v_t + κ_t² Σ_k),
+            h(xt) = 1 / Σ_k C_k(xt)^-1  (any function of xt keeps the zero mean; this one makes
+                                         h / C_k ≤ 1, so cv is bounded by Σ_k sup(N_k e^E))
+
+        E_{π(x1|xt)}[cv | xt] = 0 for π ∝ p1 p^base(xt | x1), p1 = e^{-E}: exact, and h = 1 is NOT
+        enough (E[cv²] = ∞ for every Σ_k). Under the model posterior it is not zero but
+
+            E_{π^u}[cv | xt] ∝ h(xt) Σ_k λ_k E_{ψ_k(.|xt)}[p1^u / p1],
+
+        a signed detector of the mode weights; u* stays the fixed point. The carrier is w = 1
+        (a function of xt only, as needed): with λ = (1, -1) and c < 0, the drift is pushed toward
+        the left mode when it is under-sampled and toward the right one when it is over-sampled.
+        Assumes Z = 1 (as for DistEnergy of a normalized density); otherwise cv scales with 1/Z.
+
+        Which N_k are used (`mode_source`, tracked by `log_stats`):
+            "manual":   `modes=[{mu, var}, {mu, var}]` given in the config, no fit
+            "laplace":  `modes=None`, fitted as above
+            "disabled": `modes=None` and the fit did not find exactly 2 modes: cv = 0, i.e. demo_as
+    """
+    SOURCE_CODE = {"disabled": 0, "laplace": 1, "manual": 2}
+
+    def __init__(
+        self,
+        c: float = -0.05,
+        sigma_scale: float = 0.8,
+        modes: list | None = None,
+        **kwargs,
+    ):
+        super().__init__(**kwargs)
+        assert c <= 0
+        assert 0 < sigma_scale < 2, "N_k must be thinner than 2 x the mode variance"
+        self.c = c
+        self.sigma_scale = sigma_scale
+        self.modes = None # (mu, var), each (K,) double
+        self.mode_source = None
+        self._reset_stats()
+
+        if modes is not None:
+            assert len(modes) == 2 and all(m["var"] > 0 for m in modes), "need 2 modes with var > 0"
+            modes = sorted(modes, key=lambda m: m["mu"])
+            self.modes = (
+                torch.tensor([float(m["mu"]) for m in modes], dtype=torch.float64),
+                torch.tensor([float(m["var"]) for m in modes], dtype=torch.float64),
+            )
+            self.mode_source = "manual"
+            print(f"[GelfandDey] manual modes mu={self.modes[0].tolist()} var={self.modes[1].tolist()}")
+
+    def _check_soc_problem(self):
+        super()._check_soc_problem()
+        # AS from a Dirac X0: p^base_1 = N(X0, ν_1)
+        assert isinstance(self.grad_term_cost, ScoreGradTermCost)
+        var1 = self.grad_term_cost.var1
+        assert torch.allclose(var1, self._nu(torch.ones_like(var1)))
+
+    def _nu(self, t):
+        # ν_t = ∫_0^t σ(s)² ds
+        return self.sde.ref_sde._pt_gauss_param(t, torch.zeros_like(t))[1]
+
+    def fit_modes(self, x1, n_seeds=64, n_iter=200, h=1e-3):
+        """ Laplace approximation of the modes of e^{-E}: damped Newton descent on E from
+            quantiles of the buffer samples x1, then μ_k = minimum, Σ_k = sigma_scale / E''(μ_k).
+        """
+        energy = self.grad_term_cost.energy
+        assert x1.shape[1] == 1, "Gelfand-Dey matcher is 1D"
+
+        def grad_E(x):
+            return energy.grad_E(x)
+
+        def hess_E(x):
+            return (grad_E(x + h) - grad_E(x - h)) / (2 * h)
+
+        q = torch.linspace(0, 1, n_seeds, device=x1.device, dtype=torch.float64)
+        x = torch.quantile(x1[:, 0].double(), q).reshape(-1, 1)
+        for _ in range(n_iter):
+            x = x - grad_E(x) / hess_E(x).clamp(min=1.0)
+        g, H = grad_E(x), hess_E(x)
+
+        ok = (g.abs() < 1e-4) & (H > 1e-3)
+        mus = x[ok].sort().values
+        keep = [mus[0]] if len(mus) else []
+        for m in mus[1:]:
+            if m - keep[-1] > 1e-2:
+                keep.append(m)
+        if len(keep) == 2:
+            mu = torch.stack(keep)
+            var = self.sigma_scale / hess_E(mu.reshape(-1, 1)).reshape(-1)
+            self.modes = (mu, var)
+            self.mode_source = "laplace"
+            print(f"[GelfandDey] laplace modes mu={mu.tolist()} var={var.tolist()}")
+        else:
+            self.modes = (None, None)
+            self.mode_source = "disabled"
+            print(f"[GelfandDey] found {len(keep)} modes, need 2: control variate disabled")
+
+    def populate_buffer(
+            self,
+            x0: torch.Tensor,
+            timesteps: torch.Tensor,
+            is_asbs_init_stage: bool,
+    ):
+        (x0, x1) = sdeint(
+            self.sde,
+            x0,
+            timesteps,
+            only_boundary=True,
+        )
+        adjoint1 = self._compute_adjoint1(x1, is_asbs_init_stage).clone()
+        if self.modes is None:
+            self.fit_modes(x1)
+
+        self._check_buffer_sample_shape(x0, x1, adjoint1)
+        with torch.no_grad():
+            E1 = self.grad_term_cost.energy.eval(x1)
+        self.buffer.add({
+            "x0": x0.to("cpu"),
+            "x1": x1.to("cpu"),
+            "adjoint1": adjoint1.to("cpu"),
+            "E1": E1.reshape(-1, 1).to("cpu"),
+        })
+
+    def control_variate(self, t, x0, xt, x1, E1):
+        """ cv(xt, x1), (B, 1). Computed in log space, in double.
+        """
+        (mu, var) = self.modes
+        if mu is None:
+            return torch.zeros_like(x1)
+        (t, x0, xt, x1, E1) = (a.double() for a in (t, x0, xt, x1, E1))
+        mu, var = mu.to(x1.device), var.to(x1.device)
+
+        nut, nu1 = self._nu(t), self._nu(torch.ones_like(t))
+        kappa = nut / nu1
+        v = nu1 * kappa * (1 - kappa)
+
+        s2 = v + kappa ** 2 * var # (B, K)
+        m = (1 - kappa) * x0 + kappa * mu
+        logC = - 0.5 * (xt - m) ** 2 / s2 - 0.5 * torch.log(2 * torch.pi * s2)
+        logN = - 0.5 * (x1 - mu) ** 2 / var - 0.5 * torch.log(2 * torch.pi * var)
+
+        # log (h / C_k) + log N_k(x1) e^{E(x1)}
+        l = logN + E1 - logC - torch.logsumexp(- logC, dim=-1, keepdim=True)
+        lam = torch.tensor([1.0, -1.0], dtype=l.dtype, device=l.device)
+        lmax = l.max(dim=-1, keepdim=True).values
+        return torch.exp(lmax) * (lam * torch.exp(l - lmax)).sum(-1, keepdim=True)
+
+    def prepare_target(self, data, device):
+        (t, xt), target = super().prepare_target(data, device)
+        x0 = data["x0"].to(device)
+        x1 = data["x1"].to(device)
+        E1 = data["E1"].to(device)
+
+        cv = self.control_variate(t, x0, xt, x1, E1).to(target)
+        self._check_target_shape(t, xt, cv)
+        self._accumulate_stats(cv, target)
+        return (t, xt), target - self.c * cv
+
+    def _reset_stats(self):
+        self._stats = None
+
+    @torch.no_grad()
+    def _accumulate_stats(self, cv, target):
+        # tensors only (no host sync): summed over the train steps since the last log_stats()
+        s = torch.stack([
+            cv.sum(), (cv ** 2).sum(), cv.abs().max(), (self.c * cv).abs().sum(),
+            target.abs().sum(), torch.tensor(float(len(cv)), device=cv.device),
+        ])
+        if self._stats is None:
+            self._stats = s
+        else:
+            self._stats = torch.cat([
+                (self._stats[:2] + s[:2]),
+                torch.maximum(self._stats[2:3], s[2:3]),
+                (self._stats[3:] + s[3:]),
+            ])
+
+    def log_stats(self):
+        """ Scalars for the writer: which N_k option is active, its parameters, and the
+            statistics of cv over the train steps since the last call.
+        """
+        out = {"gd/source": self.SOURCE_CODE.get(self.mode_source, -1)} # -1: not fitted yet
+        mu, var = self.modes if self.modes is not None else (None, None)
+        out["gd/active"] = float(mu is not None)
+        if mu is not None:
+            for k in range(len(mu)):
+                out[f"gd/mu_{k}"], out[f"gd/var_{k}"] = mu[k].item(), var[k].item()
+        if self._stats is not None:
+            (sum1, sum2, amax, shift, tgt, n) = self._stats.tolist()
+            mean = sum1 / n
+            out.update({
+                "gd/cv_mean": mean,
+                "gd/cv_std": max(sum2 / n - mean ** 2, 0.0) ** 0.5,
+                "gd/cv_absmax": amax,
+                "gd/shift_over_target": shift / max(tgt, 1e-12), # mean |c cv| / mean |target|
+            })
+        self._reset_stats()
+        return out
+
+
 class CorrectorMatcher(Matcher):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)

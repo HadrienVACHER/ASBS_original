@@ -200,6 +200,8 @@ def main(cfg):
                 f"{stage}_loss": loss,
                 f"{stage}_buffer_size": len(matcher.buffer),
             }, step=epoch)
+            if hasattr(matcher, "log_stats"):
+                writer.log(matcher.log_stats(), step=epoch)
 
             print("[{0} | {1}] {2}".format(
                 cyan(  f"{stage:<7}"),
