@@ -1,0 +1,18 @@
+_target_: adjoint_samplers.components.matcher.AdjointVECorrectedBufferMatcher
+
+# plain AS for `warmup` epochs, then the buffer X1 are the states of persistent independent-MH chains on the target
+n_components: 4 # EM components for the proposal: 2K
+warmup: 100
+refit_every: 50 # the proposal is rebuilt from fresh model samples (EM, refined centres, coverage step, memory of minima)
+n_fit: 10000
+burn_in: 30 # MH steps at the first fill
+steps_per_epoch: 2 # independent-MH steps per epoch
+mala_steps: 0 # MALA steps after them (local moves)
+inflate: 1.0
+
+grad_state_cost:
+  _target_: adjoint_samplers.components.state_cost.ZeroGradStateCost
+
+buffer:
+  _target_: adjoint_samplers.components.buffer.BatchBuffer
+  buffer_size: ${adjoint_matcher.buffer_size}

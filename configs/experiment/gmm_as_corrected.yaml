@@ -1,0 +1,12 @@
+# @package _global_
+
+# gmm_as with the buffer kept close to the target by independent-MH chains (proposal refit from the model every refit_every epochs).
+
+defaults:
+  - gmm_as
+  - override /matcher@adjoint_matcher: adjoint_ve_corrected_buffer
+
+exp_name: gmm${dim}d_as_corrected
+
+adjoint_matcher:
+  n_components: ${mul:2,${K}}

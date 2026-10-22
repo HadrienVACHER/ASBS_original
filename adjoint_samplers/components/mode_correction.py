@@ -228,6 +228,22 @@ def snis_mode_weights(ec, r, B, assign, n_modes, chunk=50000):
     return pk, ess.item(), w, labels
 
 
+def mala_steps(ec, x, n, h):
+    """ n MALA steps on p from x (C, d), step h. Returns the new x and the mean acceptance. """
+    C = x.shape[0]
+    e, g = ec.E_and_grad(x)
+    acc = 0.0
+    for _ in range(n):
+        y = x - h * g + math.sqrt(2 * h) * torch.randn_like(x)
+        ey, gy = ec.E_and_grad(y)
+        lq_fw = -((y - x + h * g) ** 2).sum(-1) / (4 * h)
+        lq_bw = -((x - y + h * gy) ** 2).sum(-1) / (4 * h)
+        a = torch.rand(C, device=x.device).log() < (e - ey + lq_bw - lq_fw)
+        x, e, g = torch.where(a[:, None], y, x), torch.where(a, ey, e), torch.where(a[:, None], gy, g)
+        acc += a.float().mean().item() / max(n, 1)
+    return x, acc
+
+
 def jump_mala_cycle(ec, r, x, n_mala, h):
     """ One cycle of the augmented chain (x, k) with target p(x) rho_k(x), rho = responsibilities of r: n_mala MALA
         steps on p, Gibbs k | x, then the translation x' = x + m_k' - m_k to a uniformly chosen other centre.

@@ -7,6 +7,9 @@ from torch.func import grad
 from torch.utils.data import DataLoader
 
 from adjoint_samplers.components.buffer import BatchBuffer, DeviceBatchLoader
+from adjoint_samplers.components.mode_correction import (
+    EnergyCounter, TiedMixture, add_uncovered_centres, fit_gmm, mala_steps, merge_centres, refine_centres,
+)
 from adjoint_samplers.components.sde import BaseSDE, sdeint
 from adjoint_samplers.components.state_cost import GradStateCost, ZeroGradStateCost
 from adjoint_samplers.components.term_cost import GradEnergy, ScoreGradTermCost
@@ -352,6 +355,129 @@ class AdjointVEIMHBufferMatcher(AdjointVEDiracMatcher):
     def pop_stats(self):
         st, self._stats = self._stats, defaultdict(float)
         return {"imh/accept_rate": st["accepted"] / st["proposals"]} if st["proposals"] else {}
+
+
+class AdjointVECorrectedBufferMatcher(AdjointVEDiracMatcher):
+    """ The buffer is kept as close as possible to the target p1 = e^{-E} / Z by Metropolis-Hastings steps on persistent chains.
+
+        First `warmup` epochs: plain AS (X1 simulated from the model). Then:
+          - every `refit_every` epochs, a proposal r is rebuilt from `n_fit` fresh MODEL samples (not chain states, so the
+            adaptation does not depend on the chains): EM (`n_components`, tied covariance), centres refined by descent on
+            E, the modes no centre explains added (coverage step), and the minima merged into a memory that only grows.
+            r = equal-weight mixture of the memory centres with the shared covariance.
+          - C = batch-size chains, started from model samples and burnt in for `burn_in` steps, make `steps_per_epoch`
+            independent-MH steps per epoch (accept min(1, e^{-[E(y) - E(x)]} r(x) / r(y))), optionally followed by
+            `mala_steps` MALA steps (local moves: within-mode diversity). Every kernel leaves p1 invariant.
+          - the chain states are the X1 of the buffer, with the adjoint computed at them; X0 is the Dirac source.
+        A mode with no centre has no proposals: the chains already there keep the proportion they had at the start.
+        The model only enters through the fits of r (it sets which modes are found).
+    """
+    def __init__(
+        self,
+        n_components: int,
+        warmup: int = 100,
+        refit_every: int = 50,
+        n_fit: int = 10000,
+        burn_in: int = 30,
+        steps_per_epoch: int = 2,
+        mala_steps: int = 0,
+        mala_h0: float = 0.5,
+        inflate: float = 1.0,
+        merge_tol_mult: float = 1.0,
+        cover_quantile: float = 0.99,
+        max_outliers: int = 1000,
+        **kwargs,
+    ):
+        super().__init__(**kwargs)
+        assert warmup >= 0 and refit_every >= 1 and steps_per_epoch >= 1
+        self.n_components, self.warmup, self.refit_every, self.n_fit = n_components, warmup, refit_every, n_fit
+        self.burn_in, self.steps_per_epoch, self.n_mala, self.mala_h0 = burn_in, steps_per_epoch, mala_steps, mala_h0
+        self.inflate, self.merge_tol_mult = inflate, merge_tol_mult
+        self.cover_quantile, self.max_outliers = cover_quantile, max_outliers
+        self.fills = 0
+        self.r, self.memory, self.chain = None, None, None
+        self.ec = EnergyCounter(self.grad_term_cost.energy)
+        self._stats = defaultdict(float)
+
+    def _model_samples(self, x0, timesteps, n):
+        out = []
+        for _ in range(-(-n // x0.shape[0])):
+            out.append(sdeint(self.sde, x0, timesteps, only_boundary=True)[1])
+        return torch.cat(out)[:n]
+
+    def _refit(self, x0, timesteps):
+        samples = self._model_samples(x0, timesteps, self.n_fit)
+        d = samples.shape[1]
+        _, mu, cov = fit_gmm(samples, self.n_components, cov_type="tied")
+        cov_t = cov[0]
+        tol = self.merge_tol_mult * (cov_t.trace() / d).sqrt().item()
+        centres, _ = refine_centres(self.ec, mu, merge_tol=tol)
+        centres, n_added, _, _ = add_uncovered_centres(
+            self.ec, samples, centres, cov_t, quantile=self.cover_quantile, max_outliers=self.max_outliers, merge_tol=tol)
+        empty = centres.new_zeros(0, d)
+        self.memory, n_new, _ = merge_centres(self.ec, empty if self.memory is None else self.memory, centres, tol)
+        self.r = TiedMixture(self.memory, cov_t * self.inflate)
+        self.cov_t = cov_t
+        if self.chain is not None: # the proposal changed: refresh log r of the current states
+            x, E, _ = self.chain
+            self.chain = (x, E, self.r.logpdf(x))
+        self._stats["refits"] += 1
+        self._stats["centres_new_in_memory"] += n_new
+
+    @torch.no_grad()
+    def _advance(self, n_steps):
+        x, E, logr = self.chain
+        C = x.shape[0]
+        for _ in range(n_steps):
+            y = self.r.sample(C)
+            Ey, logry = self.ec.E(y), self.r.logpdf(y)
+            a = torch.rand_like(E).log() < - (Ey - E) + logr - logry
+            x, E, logr = torch.where(a[:, None], y, x), torch.where(a, Ey, E), torch.where(a, logry, logr)
+            self._stats["accepted"] += a.sum().item()
+            self._stats["proposals"] += C
+        if self.n_mala > 0:
+            h = self.mala_h0 * x.shape[1] ** (-1 / 3)
+            x, _ = mala_steps(self.ec, x, self.n_mala, h)
+            E, logr = self.ec.E(x), self.r.logpdf(x)
+        self.chain = (x, E, logr)
+        return x
+
+    def populate_buffer(
+            self,
+            x0: torch.Tensor,
+            timesteps: torch.Tensor,
+            is_asbs_init_stage: bool,
+    ):
+        self.fills += 1
+        if self.fills <= self.warmup:
+            return super().populate_buffer(x0, timesteps, is_asbs_init_stage)
+        if self.r is None or (self.fills - self.warmup - 1) % self.refit_every == 0:
+            self._refit(x0, timesteps)
+        if self.chain is None:
+            x = sdeint(self.sde, x0, timesteps, only_boundary=True)[1].clone()
+            self.chain = (x, self.ec.E(x), self.r.logpdf(x))
+            self._advance(self.burn_in)
+        x1 = self._advance(self.steps_per_epoch).clone()
+        adjoint1 = self._compute_adjoint1(x1, is_asbs_init_stage).clone()
+
+        self._check_buffer_sample_shape(x0, x1, adjoint1)
+        self.buffer.add({
+            "x0": x0.to("cpu"),
+            "x1": x1.to("cpu"),
+            "adjoint1": adjoint1.to("cpu"),
+        })
+
+    def pop_stats(self):
+        st, self._stats = self._stats, defaultdict(float)
+        out = {"cb/n_E": float(self.ec.n_E), "cb/n_grad": float(self.ec.n_grad)}
+        if self.memory is not None:
+            out["cb/M_memory"] = float(len(self.memory))
+        if st["proposals"]:
+            out["cb/accept"] = st["accepted"] / st["proposals"]
+        if st["refits"]:
+            out["cb/refits"] = st["refits"]
+            out["cb/centres_new_in_memory"] = st["centres_new_in_memory"]
+        return out
 
 
 def _nearest(x, centres):

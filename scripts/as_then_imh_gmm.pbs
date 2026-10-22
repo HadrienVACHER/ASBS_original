@@ -14,6 +14,7 @@
 #   qsub -v STAGE=refined,RUN_ROOT=results/gmm_hard_<jobid> scripts/as_then_imh_gmm.pbs   # refined centres, IMH / SNIS / jump + MALA
 #                                                                   # (scripts/imh_refined_gmm.py); REFINED_ARGS adds flags
 #   qsub -v CONFIGS="16:10:100:4.25 32:20:100:4.25" scripts/as_then_imh_gmm.pbs
+#   another experiment: qsub -v STAGE=as,EXPERIMENT=gmm_as_corrected,EXP_SUFFIX=_corr,CONFIGS="24:24:20:4.25" ...  (EXPERIMENT defaults to gmm_as)
 #   extra training flags: qsub -v STAGE=as,TRAIN_ARGS="correction_every=100" ...   (no commas inside the value); the observer
 #                         logs corr/* (what IMH would do to the buffer) and cost/* to the AS run on W&B
 #   IMH flags default to IMH_FLAGS below; ARGS comes after and overrides.
@@ -54,8 +55,8 @@ if [ "${STAGE}" = "both" ] || [ "${STAGE}" = "as" ]; then
     IFS=: read -r D K WR RAD <<< "${C}"
     TAG=d${D}_K${K}_wr${WR}_rad${RAD}
     echo "=== AS ${TAG}, ${EPOCHS} epochs"
-    python train.py experiment=gmm_as dim=${D} K=${K} weight_ratio=${WR} radius=${RAD} num_epochs=${EPOCHS} \
-        exp_name=hard_${TAG} dump_final=true ${FAST} ${TRAIN_ARGS:-} hydra.run.dir=${ROOT}/${TAG} \
+    python train.py experiment=${EXPERIMENT:-gmm_as} dim=${D} K=${K} weight_ratio=${WR} radius=${RAD} num_epochs=${EPOCHS} \
+        exp_name=hard_${TAG}${EXP_SUFFIX:-} dump_final=true ${FAST} ${TRAIN_ARGS:-} hydra.run.dir=${ROOT}/${TAG} \
         > logs/gmm_hard_${JOB}_${TAG}_as.log 2>&1 &
     pids+=($!)
   done

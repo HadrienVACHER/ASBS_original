@@ -1,0 +1,16 @@
+# @package _global_
+
+# demo_as with the buffer kept close to the target by independent-MH chains (proposal refit from the model every refit_every epochs).
+
+defaults:
+  - demo_as
+  - override /matcher@adjoint_matcher: adjoint_ve_corrected_buffer
+
+exp_name: demo_as_corrected
+
+adjoint_matcher:
+  n_components: 4
+
+
+# === training ===
+num_epochs: 2000
