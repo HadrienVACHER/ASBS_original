@@ -1,0 +1,13 @@
+# @package _global_
+
+# Sanity check: demo_as with the buffer filled with exact samples of the target.
+
+defaults:
+  - demo_as
+  - override /matcher@adjoint_matcher: adjoint_ve_target_buffer
+
+exp_name: demo_as_target_buffer
+
+
+# === training ===
+num_epochs: 2000
