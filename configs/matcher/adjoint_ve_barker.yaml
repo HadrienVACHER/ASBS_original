@@ -10,9 +10,10 @@ stats_every: 10 # mh/* and barker/* diagnostics every n steps
 # centres: kmeans (M = n_clusters, on the points denoised once with the stored gradient) | oracle (GMM only: the true means,
 # needs n_clusters = K) | threshold: leader clustering of the basin minima of the buffer samples (per-point
 # Barzilai-Borwein descent on E, computed once at insertion), radius = radius_scale x median mode width, no K needed;
-# n_clusters is then the capacity (the most populated centres are kept beyond it)
+# n_clusters is then unused (max_centres is the capacity)
 centre_method: kmeans
-denoise_steps: 8 # max descent steps per sample
+denoise_steps: 12 # max descent steps per sample (converged points stop early: it only costs for slow points)
+max_centres: 128 # threshold: capacity of the stored translates (padded ones are invalid, no energy call); beyond it the LIGHT modes would be dropped (warning)
 denoise_tol: 0.05 # converged = last step < tol mode widths
 radius_scale: 1.0
 t_focus: 0.0

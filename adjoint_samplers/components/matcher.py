@@ -1,5 +1,6 @@
 # Copyright (c) Meta Platforms, Inc. and affiliates.
 
+import warnings
 from collections import defaultdict
 
 import torch
@@ -718,9 +719,10 @@ class AdjointVEMHMatcher(AdjointVEDiracMatcher):
         stats_every: int = 10,
         oracle_centres: bool = False,
         centre_method: str = "kmeans",
-        denoise_steps: int = 8,
+        denoise_steps: int = 12,
         denoise_tol: float = 0.05,
         radius_scale: float = 1.0,
+        max_centres: int = 128,
         **kwargs,
     ):
         super().__init__(**kwargs)
@@ -730,6 +732,7 @@ class AdjointVEMHMatcher(AdjointVEDiracMatcher):
         assert centre_method in ("kmeans", "threshold", "oracle")
         self.centre_method = centre_method
         self.denoise_steps = denoise_steps
+        self.max_centres = max_centres # threshold clustering: capacity (padded translates are invalid: no energy call)
         self.denoise_tol = denoise_tol
         self.radius_scale = radius_scale
         self._centre_info = {}
@@ -745,12 +748,17 @@ class AdjointVEMHMatcher(AdjointVEDiracMatcher):
         self._stats = defaultdict(float)
         self._step = 0
 
+    @property
+    def capacity(self):
+        """ number of clusters the stored translates are padded to """
+        return self.max_centres if self.centre_method == "threshold" else self.n_clusters
+
     def propose(self, x1):
         """ jumps Y - X1 = m_k - m_c (N, J, D) from the cluster c of X1 to every other cluster k
             (J = M - 1) or to one at random (J = 1), and valid = 1[Y in cluster k] (N, J).
             No centres yet: no valid jump.
         """
-        (N, D), Mmax = x1.shape, self.n_clusters
+        (N, D), Mmax = x1.shape, self.capacity
         J = Mmax - 1 if self.rao_blackwell else 1
         if self.centres is None or len(self.centres) < 2:
             return x1.new_zeros(N, J, D), x1.new_zeros(N, J)
@@ -826,11 +834,16 @@ class AdjointVEMHMatcher(AdjointVEDiracMatcher):
         # GMM diagnostic: accepted jumps that stay in the same true mode do nothing for the weights
         dist = getattr(energy, "dist", None)
         if hasattr(dist, "assign"):
-            same = dist.assign(x1.unsqueeze(1) + jumps) == dist.assign(x1).unsqueeze(1)
+            m1 = dist.assign(x1)
+            Je = 0 if self.centres is None else (len(self.centres) - 1 if self.rao_blackwell else jumps.shape[1])
+            mY = m1.unsqueeze(1).repeat(1, jumps.shape[1]) # padded / invalid translates: same mode, weight 0
+            if Je > 0:
+                mY[:, :Je] = dist.assign(x1.unsqueeze(1) + jumps[:, :Je])
+            same = mY == m1.unsqueeze(1)
             data["same_mode"] = (same.to(x1) * valid).to("cpu")
             # true mode of x1 and of every translate, for the per-mode flux diagnostics of the Barker matcher
-            data["mode1"] = dist.assign(x1).to("cpu")
-            data["modeY"] = dist.assign(x1.unsqueeze(1) + jumps).to("cpu")
+            data["mode1"] = m1.to("cpu")
+            data["modeY"] = mY.to("cpu")
         if self.centre_method == "threshold":
             # basin minimum of each new sample, computed once: it depends only on x and E, never on the model.
             # ∇E(x1) is stored with the sample (adjoint1 = ∇E + ∇log p^base_1), so the first gradient is free
@@ -854,9 +867,13 @@ class AdjointVEMHMatcher(AdjointVEDiracMatcher):
         lam = torch.cat(self.buffer.batches["lam"])[-n:].to(like)
         centres, counts, info = _converged_centres(self.grad_term_cost.energy, xd, conv, lam, self.radius_scale)
         info["n_found"] = len(centres)
-        if len(centres) > self.n_clusters: # over capacity: keep the most populated
-            info["dropped"] = len(centres) - self.n_clusters
-            centres = centres[torch.topk(counts, self.n_clusters).indices]
+        info["dropped"] = 0
+        if len(centres) > self.max_centres:
+            # over capacity: the most populated are kept, i.e. the LIGHT modes are the ones dropped
+            info["dropped"] = len(centres) - self.max_centres
+            warnings.warn(f"threshold centres: {len(centres)} found > max_centres = {self.max_centres}: "
+                          f"{info['dropped']} least populated dropped (light modes); raise max_centres")
+            centres = centres[torch.topk(counts, self.max_centres).indices]
         info["n"] = len(centres)
         if len(centres) >= 2:
             self.centres = centres
@@ -907,7 +924,9 @@ class AdjointVEMHMatcher(AdjointVEDiracMatcher):
         for name, v in (("n_valid", valid), ("acc", alpha), ("acc_pred", pred)):
             st[name] = st[name] + alpha.new_zeros(nb).index_add_(0, b, v.reshape(-1))
 
-        st["proposals"] += alpha.numel()
+        # proposals among the real translates only (the columns beyond the centres are padding)
+        n_cols = alpha.shape[1] if self.centres is None or not self.rao_blackwell else min(len(self.centres) - 1, alpha.shape[1])
+        st["proposals"] += alpha.shape[0] * n_cols
         st["valid"] += valid.sum()
         if same is not None:
             st["acc_same_mode"] += (alpha * same).sum()

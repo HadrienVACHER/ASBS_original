@@ -179,6 +179,19 @@ def load(
     return checkpoint["epoch"] + 1
 
 
+def git_commit():
+    """ short hash of the checked-out commit ("-dirty" if the working tree has uncommitted changes), or None """
+    import subprocess
+    root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    try:
+        h = subprocess.check_output(["git", "rev-parse", "--short", "HEAD"], cwd=root, stderr=subprocess.DEVNULL).decode().strip()
+        dirty = subprocess.check_output(["git", "status", "--porcelain", "--untracked-files=no"], cwd=root,
+                                        stderr=subprocess.DEVNULL).decode().strip()
+        return h + ("-dirty" if dirty else "")
+    except Exception:
+        return None
+
+
 class Writer:
     def __init__(self, name: str, cfg: DictConfig, is_main_process: bool):
         if cfg.use_wandb and is_main_process:
@@ -192,12 +205,15 @@ class Writer:
                 tags += [str(cfg[k]) for k in ("layout", "weight_law") if k in cfg]
                 if cfg.get("radius") is not None:
                     tags.append(f"r{cfg.radius:g}")
+            commit = git_commit() # the code that produced the run, as a tag and a config entry
+            if commit is not None:
+                tags = (tags or []) + [f"git:{commit}"]
             self.writer = wandb.init(
                 mode=os.environ.get('WANDB_MODE', 'online'),
                 project=cfg.project,
                 name=name,
                 tags=tags,
-                config=dict(cfg),
+                config={**dict(cfg), "git_commit": commit},
             )
         else:
             self.writer = None

@@ -19,8 +19,9 @@ from test_mh_matcher import (  # noqa: E402
     test_drift_to_weights, with_weights, zscores,
 )
 from adjoint_samplers.components.matcher import (  # noqa: E402
-    AdjointVEBarkerMatcher, AdjointVEMatcher, AdjointVEMHMatcher, _kmeans, _threshold_centres,
+    AdjointVEBarkerMatcher, AdjointVEMatcher, AdjointVEMHMatcher, _bb_denoise, _converged_centres, _kmeans, _threshold_centres,
 )
+from adjoint_samplers.energies.dist_energy import DistEnergy  # noqa: E402
 
 
 def test_zero_mean_under_target_posterior(n=60000):
@@ -48,48 +49,106 @@ def test_zero_mean_under_target_posterior(n=60000):
     print("ok  h has zero mean under the target posterior (exact draws), not under a wrong-weight model")
 
 
-def test_orbit_enumeration_is_exact():
-    """ Σ_{z in O} p_O(z) h(z) = 0 to machine precision, p_O ∝ π(z | xt) on the orbit; every member of the
-        orbit sees the same orbit (same set of points). Float64, arbitrary x and xt, M = K and M = 2K.
+def check_orbits(target, matcher, kappas=(0.03, 0.3, 0.7), n_per=30):
+    """ Σ_{z in O} p_O(z) h(z), p_O ∝ π(z | xt) on the orbit, and the orbit seen from every member (same set of
+        points), for arbitrary x and xt. Float64. Returns the worst |Σ p_O h| and the number of orbits checked.
     """
+    dim = target.dim
+    worst, n_checked = 0.0, 0
+    for kappa0 in kappas:
+        t = t_at_kappa(matcher, kappa0)
+        # κ_t, ν_{1|t} in float64, as the matcher computes them (kappa_nu rounds t to float32)
+        t64 = torch.tensor([[t]], dtype=torch.float64)
+        nut, nu1 = matcher._nu(t64), matcher._nu(torch.ones_like(t64))
+        kappa, nu1t = (nut / nu1).item(), (nu1 - nut).item()
+        v = nu1.item() * kappa * (1 - kappa)
+        for _ in range(n_per):
+            x = target.sample([1]) + torch.randn(1, dim)
+            xt = kappa * x[0] + 2 * torch.randn(dim)
+            jumps, valid = matcher.propose(x)
+            z = torch.cat([x, x + jumps[0][valid[0].bool()]]) # orbit, own point first
+            ref = z.round(decimals=8).sort(dim=0).values
+            for zi in z: # every member recomputes its own orbit: same set
+                j, val = matcher.propose(zi[None])
+                oz = torch.cat([zi[None], zi[None] + j[0][val[0].bool()]])
+                assert oz.shape == z.shape and torch.equal(oz.round(decimals=8).sort(dim=0).values, ref)
+            logp = target.log_prob(z) - 0.5 * (xt - kappa * z).pow(2).sum(-1) / v
+            p = torch.softmax(logp, 0)
+            term, _ = matcher.mh_term(**mh_inputs(matcher, t, xt, z))
+            err = (p.unsqueeze(-1) * term).sum(0).abs().max().item() * nu1t
+            worst, n_checked = max(worst, err), n_checked + 1
+    return worst, n_checked
+
+
+def test_orbit_enumeration_is_exact():
+    """ Σ_{z in O} p_O(z) h(z) = 0 to machine precision, every member of the orbit sees the same orbit; M = K and 2K """
     torch.manual_seed(1)
     torch.set_default_dtype(torch.float64)
     try:
-        dim = 3
-        target = make_gmm(dim=dim, K=4, radius=4.25)
+        target = make_gmm(dim=3, K=4, radius=4.25)
         target.means, target.weights = target.means.double(), target.weights.double()
-        worst, n_checked = 0.0, 0
+        total, count = 0.0, 0
         for M in (4, 8):
-            centres = torch.randn(M, dim) * 3
             matcher = make_matcher(target, AdjointVEBarkerMatcher, gamma=1.0, n_clusters=M)
-            matcher.centres = centres
-            for kappa0 in (0.03, 0.3, 0.7):
-                t = t_at_kappa(matcher, kappa0)
-                # κ_t, ν_{1|t} in float64, as the matcher computes them (kappa_nu rounds t to float32)
-                t64 = torch.tensor([[t]], dtype=torch.float64)
-                nut, nu1 = matcher._nu(t64), matcher._nu(torch.ones_like(t64))
-                kappa, nu1t = (nut / nu1).item(), (nu1 - nut).item()
-                v = nu1.item() * kappa * (1 - kappa)
-                for _ in range(30):
-                    x = target.sample([1]) + torch.randn(1, dim)
-                    xt = kappa * x[0] + 2 * torch.randn(dim)
-                    jumps, valid = matcher.propose(x)
-                    z = torch.cat([x, x + jumps[0][valid[0].bool()]]) # orbit, own point first
-                    # every member recomputes its own orbit: same set
-                    ref = z.round(decimals=8).sort(dim=0).values
-                    for zi in z:
-                        j, val = matcher.propose(zi[None])
-                        oz = torch.cat([zi[None], zi[None] + j[0][val[0].bool()]])
-                        assert oz.shape == z.shape and torch.equal(oz.round(decimals=8).sort(dim=0).values, ref)
-                    logp = target.log_prob(z) - 0.5 * (xt - kappa * z).pow(2).sum(-1) / v
-                    p = torch.softmax(logp, 0)
-                    term, _ = matcher.mh_term(**mh_inputs(matcher, t, xt, z))
-                    err = (p.unsqueeze(-1) * term).sum(0).abs().max().item() * nu1t
-                    worst, n_checked = max(worst, err), n_checked + 1
+            matcher.centres = torch.randn(M, 3) * 3
+            worst, n = check_orbits(target, matcher)
+            assert worst < 1e-10, worst
+            total, count = max(total, worst), count + n
+    finally:
+        torch.set_default_dtype(torch.float32)
+    print(f"ok  orbit enumeration: max |Σ p_O h| = {total:.1e} over {count} orbits (M = K and 2K, same orbit from every member)")
+
+
+def test_threshold_derived_centres_keep_the_exact_zero_mean():
+    """ Centres built from denoised points (threshold clustering, partially converged on purpose so they are not the
+        exact means), capacity 8 > number of centres (padded invalid translates). x1 and every translate Y_k are
+        assigned by the same raw-point rule, xd is only used to compute centres: the orbit is the same set seen from
+        any member and the zero mean is exact.
+    """
+    torch.manual_seed(10)
+    torch.set_default_dtype(torch.float64)
+    try:
+        target = make_gmm(dim=3, K=4, radius=4.25)
+        target.means, target.weights = target.means.double(), target.weights.double()
+        energy = DistEnergy(target)
+        x = with_weights(target, target.weights.flip(0)).sample([3000]) + 0.3 * torch.randn(3000, 3)
+        xd, conv, lam, steps, _, _ = _bb_denoise(energy, x, energy.eval(x).reshape(-1), energy.grad_E(x), max_steps=3)
+        centres, counts, info = _converged_centres(energy, xd, conv, lam)
+        assert 2 <= len(centres) <= 8
+        offset = (torch.cdist(target.means, centres).min(1).values).max().item()
+        matcher = make_matcher(target, AdjointVEBarkerMatcher, gamma=1.0, centre_method="threshold", max_centres=8)
+        assert matcher.capacity == 8
+        matcher.centres = centres
+        jumps, valid = matcher.propose(x[:5])
+        assert jumps.shape == (5, 7, 3) and valid[:, len(centres) - 1:].sum() == 0
+        worst, n = check_orbits(target, matcher)
         assert worst < 1e-10, worst
     finally:
         torch.set_default_dtype(torch.float32)
-    print(f"ok  orbit enumeration: max |Σ p_O h| = {worst:.1e} over {n_checked} orbits (M = K and 2K, same orbit from every member)")
+    print(f"ok  threshold-derived centres ({len(centres)} centres, converged {info['conv_frac']:.2f}, farthest true mean"
+          f" {offset:.2f} from a centre): orbit invariance and max |Σ p_O h| = {worst:.1e} over {n} orbits")
+
+
+def test_threshold_capacity_is_large_and_dropping_warns():
+    import warnings
+    target = make_gmm(dim=6, K=4, radius=4.25)
+    default = make_matcher(target, AdjointVEBarkerMatcher, centre_method="threshold")
+    assert default.max_centres == 128 and default.denoise_steps == 12 and default.capacity == 128
+    # capacity below the number of modes: the least populated centres are dropped, loudly
+    timesteps = torch.linspace(0, 1, 50)
+    small = make_matcher(target, AdjointVEBarkerMatcher, centre_method="threshold", max_centres=3)
+    small.populate_buffer(torch.zeros(256, 6), timesteps, False)
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        small.populate_buffer(torch.zeros(256, 6), timesteps, False)
+    assert small._centre_info["dropped"] == small._centre_info["n_found"] - 3 > 0 and len(small.centres) == 3
+    assert any("least populated dropped" in str(x.message) for x in w)
+    ok = make_matcher(target, AdjointVEBarkerMatcher, centre_method="threshold") # capacity 128: nothing dropped
+    for _ in range(2):
+        ok.populate_buffer(torch.zeros(256, 6), timesteps, False)
+    assert ok._centre_info["dropped"] == 0
+    print(f"ok  capacity: default 128 (nothing dropped, {len(ok.centres)} centres); capacity 3 drops "
+          f"{small._centre_info['dropped']} centre(s) with a warning")
 
 
 def test_flux_is_weight_error_at_t0(n=150000):
@@ -232,7 +291,7 @@ def test_threshold_centres_in_the_matcher():
     torch.manual_seed(9)
     target = make_gmm(dim=6, K=4, radius=4.25)
     timesteps = torch.linspace(0, 1, 50)
-    matcher = make_matcher(target, AdjointVEBarkerMatcher, n_clusters=6, stats_every=1, centre_method="threshold")
+    matcher = make_matcher(target, AdjointVEBarkerMatcher, max_centres=6, stats_every=1, centre_method="threshold")
     for _ in range(3):
         matcher.populate_buffer(torch.zeros(256, 6), timesteps, False)
         if _ == 0:
@@ -295,6 +354,8 @@ if __name__ == "__main__":
     test_flux_diagnostics_point_to_underweighted_modes()
     test_own_weight_goes_to_one()
     test_orbit_enumeration_is_exact()
+    test_threshold_derived_centres_keep_the_exact_zero_mean()
+    test_threshold_capacity_is_large_and_dropping_warns()
     test_zero_mean_under_target_posterior()
     test_flux_is_weight_error_at_t0()
     if "--heavy" in sys.argv:
