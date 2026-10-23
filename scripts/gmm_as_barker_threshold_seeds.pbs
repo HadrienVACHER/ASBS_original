@@ -2,16 +2,22 @@
 #PBS -N gmm_as_barker_threshold_seeds
 #PBS -P gs_ccds_haidang.dau
 #PBS -q gpu_as
-#PBS -l walltime=08:00:00
-#PBS -l select=1:ncpus=12:ngpus=1:mem=40gb
+#PBS -l walltime=10:00:00
+#PBS -l select=1:ncpus=12:ngpus=1:mem=64gb
 #PBS -j oe
 
-# SI GO seulement (À lancer depuis la branche mh). AS et Barker (centres threshold, gamma = 2) à d = 24 et 36, seeds 0 à 2,
-# 2000 epochs, dump_final pour tous (AS compris, pour la comparaison d'energy_w2).
+# GO confirmé (À lancer depuis la branche mh). Pour d = 24 et 36, seeds 0 à 2, 2000 epochs, dump_final pour tous :
+#   AS                                    (6 runs)
+#   Barker, centres threshold, gamma = 2  (6 runs)
+#   Barker, centres threshold, gamma = 3  (6 runs) : ablation pour UN gamma global (celui qui minimise la moyenne de
+#                                          |log R| moyennée sur les deux dimensions, figé ensuite pour toutes les cibles)
+# Code : centres threshold avec capacité 128 (avertissement si des centres sont écartés), affectation de x1 et de tous les
+# translates par la même règle sur points bruts (xd ne sert qu'aux centres), denoise_steps = 12. Chaque run porte le
+# tag git:<hash> du commit récupéré sur le cluster.
 DIMS=(24 36)
 SEEDS=(0 1 2)
 EPOCHS=2000
-NPROC=$(( ${#DIMS[@]} * ${#SEEDS[@]} * 2 ))
+NPROC=$(( ${#DIMS[@]} * ${#SEEDS[@]} * 3 ))
 THREADS=$(( 12 / NPROC > 0 ? 12 / NPROC : 1 ))
 
 cd "${PBS_O_WORKDIR}" || exit 1
@@ -41,18 +47,20 @@ COMMON="num_epochs=${EPOCHS} dump_final=true fast_sampling=true buffer_on_device
 pids=()
 for DIM in "${DIMS[@]}"; do
   for SEED in "${SEEDS[@]}"; do
-    echo "Lancement AS et Barker-threshold K=${DIM} dim=${DIM} seed=${SEED}"
+    echo "Lancement AS et Barker-threshold (gamma 2 et 3) K=${DIM} dim=${DIM} seed=${SEED}"
     python train.py experiment=gmm_as dim=${DIM} K=${DIM} seed=${SEED} ${COMMON} \
         exp_name=gmm${DIM}d_as_cmp \
         hydra.run.dir=results/gmm_as_barker_threshold_seeds/as_K${DIM}_seed${SEED} \
         > logs/as_cmp_K${DIM}_seed${SEED}.log 2>&1 &
     pids+=($!)
-    python train.py experiment=gmm_as_barker dim=${DIM} K=${DIM} seed=${SEED} ${COMMON} \
-        adjoint_matcher.gamma=2 adjoint_matcher.centre_method=threshold \
-        exp_name=gmm${DIM}d_as_barker_g2_thr \
-        hydra.run.dir=results/gmm_as_barker_threshold_seeds/barker_thr_K${DIM}_seed${SEED} \
-        > logs/barker_thr_K${DIM}_seed${SEED}.log 2>&1 &
-    pids+=($!)
+    for G in 2 3; do
+      python train.py experiment=gmm_as_barker dim=${DIM} K=${DIM} seed=${SEED} ${COMMON} \
+          adjoint_matcher.gamma=${G} adjoint_matcher.centre_method=threshold \
+          exp_name=gmm${DIM}d_as_barker_g${G}_thr \
+          hydra.run.dir=results/gmm_as_barker_threshold_seeds/barker_thr_g${G}_K${DIM}_seed${SEED} \
+          > logs/barker_thr_g${G}_K${DIM}_seed${SEED}.log 2>&1 &
+      pids+=($!)
+    done
   done
 done
 
