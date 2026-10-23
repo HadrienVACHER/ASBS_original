@@ -1,0 +1,22 @@
+# @package _global_
+
+# FROZEN GMM method: Barker orbit control variate with gamma = 3, threshold centres (Barzilai-Borwein basin minima of the
+# buffer samples, radius = 1 x median mode width, capacity 128, 12 denoising steps) and the big controller (256 x 6).
+# Chosen on d = 24 and 36, seeds 0-2: gamma = 3 minimises the mean |log R| over both dimensions; the big controller
+# helps AS and Barker alike.
+
+defaults:
+  - gmm_as_barker
+
+exp_name: gmm${dim}d_as_barker_final
+
+adjoint_matcher:
+  gamma: 3.0
+  centre_method: threshold
+  radius_scale: 1.0
+  denoise_steps: 12
+  max_centres: 128
+
+controller:
+  channels: 256
+  num_layers: 6

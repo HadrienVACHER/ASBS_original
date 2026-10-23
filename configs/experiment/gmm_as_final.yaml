@@ -1,0 +1,12 @@
+# @package _global_
+
+# FROZEN GMM baseline: AS with the big controller (256 channels x 6 layers), 2000 epochs.
+
+defaults:
+  - gmm_as
+
+exp_name: gmm${dim}d_as_final
+
+controller:
+  channels: 256
+  num_layers: 6
