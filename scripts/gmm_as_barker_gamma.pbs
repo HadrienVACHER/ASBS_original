@@ -1,0 +1,64 @@
+#!/bin/bash
+#PBS -N gmm_as_barker_gamma
+#PBS -P gs_ccds_haidang.dau
+#PBS -q gpu_as
+#PBS -l walltime=06:00:00
+#PBS -l select=1:ncpus=10:ngpus=1:mem=32gb
+#PBS -j oe
+
+# À lancer depuis la branche mh. Balayage de gamma pour Barker (M = K), avec centres k-means ("km") ou centres
+# oracle = vraies moyennes du GMM ("oracle"), sur la config des runs épinglés (seed 0, 2000 epochs, rayon 4.25,
+# rapport de poids 20). Le final de chaque run est sauvegardé (dump_final) pour analyser le vrai buffer en local.
+#   d = 36 : gamma 1, 2, 3, 5 x {km, oracle}  (8 runs) : effet de gamma, et borne haute avec centres parfaits
+#   d = 24 : oracle gamma 1 (le mode 12 se débloque-t-il avec de bons centres ?) et km gamma 3
+# Référence gamma = 1, centres k-means (déjà dans W&B) : d24 mode_tv 0.0506 (10 dernières évals 0.055),
+# d36 0.0731 (0.082) ; AS : d24 0.0966 (0.091), d36 0.119 (0.129).
+CONFIGS=(36:1:km 36:2:km 36:3:km 36:5:km 36:1:oracle 36:2:oracle 36:3:oracle 36:5:oracle 24:1:oracle 24:3:km)
+SEED=0
+EPOCHS=2000
+NPROC=${#CONFIGS[@]}
+THREADS=$(( 10 / NPROC > 0 ? 10 / NPROC : 1 ))
+
+cd "${PBS_O_WORKDIR}" || exit 1
+mkdir -p logs
+export PYTHONUNBUFFERED=1
+
+# --- Correctif officiel PBS/GaaS pour les identifiants GPU (inchangé) ---
+if echo "${CUDA_VISIBLE_DEVICES:-}" | grep -q "GPU-"; then
+    GPU_COUNT=$(echo "${CUDA_VISIBLE_DEVICES}" | tr ',' '\n' | wc -l)
+    CUDA_VISIBLE_DEVICES=$(seq -s, 0 $((GPU_COUNT - 1)))
+    export CUDA_VISIBLE_DEVICES
+fi
+
+export OMP_NUM_THREADS=${THREADS}
+export MKL_NUM_THREADS=${THREADS}
+
+module purge
+module load anaconda/2025
+eval "$(/usr/local/anaconda2025/bin/conda shell.bash hook)"
+conda activate BMS
+
+echo "Nœud : $(hostname) à $(date)"
+nvidia-smi -L
+git log --oneline -1
+
+pids=()
+for CFG in "${CONFIGS[@]}"; do
+  IFS=: read -r DIM G C <<< "${CFG}"
+  EXTRA=""
+  if [ "${C}" = "oracle" ]; then EXTRA="adjoint_matcher.oracle_centres=true"; fi
+  echo "Lancement Barker K=${DIM} dim=${DIM} gamma=${G} centres=${C}"
+  python train.py experiment=gmm_as_barker dim=${DIM} K=${DIM} seed=${SEED} num_epochs=${EPOCHS} \
+      adjoint_matcher.gamma=${G} ${EXTRA} dump_final=true \
+      fast_sampling=true buffer_on_device=true fast_train=true \
+      exp_name=gmm${DIM}d_as_barker_g${G}_${C} \
+      hydra.run.dir=results/gmm_as_barker_gamma/K${DIM}_g${G}_${C}_seed${SEED} \
+      > logs/barker_gamma_K${DIM}_g${G}_${C}_seed${SEED}.log 2>&1 &
+  pids+=($!)
+done
+
+# Attend chaque processus et garde la trace des échecs
+fail=0
+for p in "${pids[@]}"; do wait "$p" || fail=1; done
+echo "Fin à $(date), statut : ${fail}"
+exit $fail

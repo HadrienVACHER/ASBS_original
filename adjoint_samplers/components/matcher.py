@@ -572,6 +572,7 @@ class AdjointVEMHMatcher(AdjointVEDiracMatcher):
         kmeans_iters: int = 20,
         denoise_step: float = 1.0,
         stats_every: int = 10,
+        oracle_centres: bool = False,
         **kwargs,
     ):
         super().__init__(**kwargs)
@@ -581,6 +582,8 @@ class AdjointVEMHMatcher(AdjointVEDiracMatcher):
         self.rao_blackwell = rao_blackwell
         self.kmeans_iters = kmeans_iters
         self.denoise_step = denoise_step
+        self.oracle_centres = oracle_centres # GMM only: centres = the true means (upper bound on the clustering)
+        self._mode_batch = None
         self.stats_every = stats_every # diagnostics are many small kernels: not every step
         self.centres = None
         self._stats = defaultdict(float)
@@ -623,8 +626,13 @@ class AdjointVEMHMatcher(AdjointVEDiracMatcher):
         adjoint1 = self._compute_adjoint1(x1, is_asbs_init_stage).clone()
         self._check_buffer_sample_shape(x0, x1, adjoint1)
 
+        if self.oracle_centres and self.centres is None:
+            means = self.grad_term_cost.energy.dist.means
+            assert len(means) == self.n_clusters, "oracle centres need n_clusters = K"
+            self.centres = means.to(x1).clone()
+
         # centres from the buffer before this batch, so they do not depend on its samples
-        if len(self.buffer) > 0:
+        if len(self.buffer) > 0 and not self.oracle_centres:
             n = self.buffer.buffer_size
             buffer_x1 = torch.cat(self.buffer.batches["x1"])[-n:].to(x1)
             buffer_adjoint1 = torch.cat(self.buffer.batches["adjoint1"])[-n:].to(x1)
@@ -657,6 +665,9 @@ class AdjointVEMHMatcher(AdjointVEDiracMatcher):
         if hasattr(dist, "assign"):
             same = dist.assign(x1.unsqueeze(1) + jumps) == dist.assign(x1).unsqueeze(1)
             data["same_mode"] = (same.to(x1) * valid).to("cpu")
+            # true mode of x1 and of every translate, for the per-mode flux diagnostics of the Barker matcher
+            data["mode1"] = dist.assign(x1).to("cpu")
+            data["modeY"] = dist.assign(x1.unsqueeze(1) + jumps).to("cpu")
         self.buffer.add(data)
 
     def mh_term(self, t, x0, xt, x1, E1, jumps, EY, valid):
@@ -682,6 +693,7 @@ class AdjointVEMHMatcher(AdjointVEDiracMatcher):
         self._step += 1
         if self._step % self.stats_every == 0:
             same = data["same_mode"].to(device) if "same_mode" in data else None
+            self._mode_batch = (data["mode1"].to(device), data["modeY"].to(device)) if "mode1" in data else None
             self._update_stats(t, jumps, valid, alpha, term, - target, same)
 
         self._check_target_shape(t, xt, term)
@@ -784,6 +796,16 @@ class AdjointVEBarkerMatcher(AdjointVEMHMatcher):
         for name, v in (("n", torch.ones_like(own)), ("own", own), ("ess", ess)):
             st[f"barker_{name}"] = st[f"barker_{name}"] + alpha.new_zeros(nb).index_add_(0, b, v)
 
+        if self._mode_batch is not None: # GMM: mass moved between true modes by the translates, t < 0.1
+            (m1, mY), K = self._mode_batch, len(self.grad_term_cost.energy.dist.weights)
+            active = t.squeeze(-1) < 0.1
+            moved = alpha * (mY != m1[:, None]) * active[:, None]
+            zeros = alpha.new_zeros(K)
+            st["flux_out"] = st["flux_out"] + zeros.index_add(0, m1, moved.sum(1))
+            st["flux_in"] = st["flux_in"] + zeros.index_add(0, mY.reshape(-1), moved.reshape(-1))
+            st["flux_n"] = st["flux_n"] + active.sum()
+            st["mode_cnt"] = st["mode_cnt"] + zeros.index_add(0, m1, torch.ones_like(m1, dtype=zeros.dtype))
+
     def pop_stats(self):
         st = self._stats
         out = super().pop_stats()
@@ -797,6 +819,23 @@ class AdjointVEBarkerMatcher(AdjointVEMHMatcher):
                     bucket = f"t{self.T_EDGES[i]:g}-{self.T_EDGES[i + 1]:g}"
                     out[f"barker/own_weight/{bucket}"] = own[i] / n[i]
                     out[f"barker/orbit_ess/{bucket}"] = ess[i] / n[i]
+
+        dist = getattr(self.grad_term_cost.energy, "dist", None)
+        if hasattr(dist, "means") and self.centres is not None:
+            # clustering quality against the true modes: a mode without a centre can neither send nor receive mass
+            d = torch.cdist(dist.means.to(self.centres), self.centres)
+            out["barker/centre_coverage"] = float((d.min(1).values < 1.0).float().mean())
+            out["barker/centres_spurious"] = float((d.min(0).values >= 1.0).float().mean())
+        if torch.is_tensor(st["flux_n"]) and st["flux_n"] > 0:
+            # net mass flux into each true mode (t < 0.1, per sample) against the weight error e = w - ŵ of the buffer
+            net = (st["flux_in"] - st["flux_out"]) / st["flux_n"]
+            w_hat = st["mode_cnt"] / st["mode_cnt"].sum()
+            e = dist.weights.to(w_hat) - w_hat
+            if net.std() > 0 and e.std() > 0:
+                out["barker/flux_err_corr"] = float(torch.corrcoef(torch.stack([net, e]))[0, 1])
+            for j in range(len(net)):
+                out[f"barker/flux_net/{j}"] = float(net[j])
+                out[f"barker/err/{j}"] = float(e[j])
         return out
 
 

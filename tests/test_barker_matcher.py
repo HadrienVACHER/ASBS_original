@@ -159,6 +159,45 @@ def test_no_centres_or_no_valid_jump_is_finite():
     print("ok  no centres -> no valid jump -> zero, finite term")
 
 
+def test_oracle_centres():
+    """ oracle_centres: centres = the true means from the first batch, never refitted; coverage diagnostic = 1 """
+    torch.manual_seed(6)
+    target = make_gmm(dim=6, K=4, radius=4.25)
+    matcher = make_matcher(target, AdjointVEBarkerMatcher, n_clusters=4, stats_every=1, oracle_centres=True)
+    timesteps = torch.linspace(0, 1, 50)
+    for _ in range(3):
+        matcher.populate_buffer(torch.zeros(128, 6), timesteps, False)
+        assert torch.equal(matcher.centres, target.means)
+    assert matcher.buffer.batches["valid"][0].sum() > 0, "valid jumps from the first batch on"
+    data = next(iter(matcher.build_dataloader(256)))
+    matcher.prepare_target(data, "cpu")
+    stats = matcher.pop_stats()
+    assert stats["barker/centre_coverage"] == 1.0 and stats["barker/centres_spurious"] == 0.0
+    # k-means centres do not necessarily cover the modes of an untrained model's buffer
+    plain = make_matcher(target, AdjointVEBarkerMatcher, n_clusters=4)
+    assert plain.centres is None
+    print("ok  oracle centres: used from the first batch, never refitted; coverage 1.0, no spurious centre")
+
+
+def test_flux_diagnostics_point_to_underweighted_modes(n=30000):
+    """ per-mode net flux (t < 0.1) correlates with the buffer weight error e = w - ŵ, and the keys exist """
+    torch.manual_seed(7)
+    target = make_gmm(dim=6, K=4, radius=6.0)
+    model = with_weights(target, target.weights * torch.exp(0.7 * torch.randn(4)))
+    matcher = make_matcher(target, AdjointVEBarkerMatcher, n_clusters=4, stats_every=1)
+    matcher.centres = target.means.clone()
+    x1 = model.sample([n])
+    inputs = mh_inputs(matcher, 0.0, torch.zeros(6), x1)
+    data = {"x0": inputs["x0"], "x1": x1, "adjoint1": matcher.grad_term_cost(x1), "E1": inputs["E1"],
+            "jumps": inputs["jumps"], "EY": inputs["EY"], "valid": inputs["valid"],
+            "mode1": target.assign(x1), "modeY": target.assign(x1.unsqueeze(1) + inputs["jumps"])}
+    matcher.prepare_target(data, "cpu")
+    stats = matcher.pop_stats()
+    assert stats["barker/flux_err_corr"] > 0.5, stats["barker/flux_err_corr"]
+    assert all(f"barker/flux_net/{j}" in stats and f"barker/err/{j}" in stats for j in range(4))
+    print(f"ok  flux diagnostics: corr(net flux, weight error) = {stats['barker/flux_err_corr']:.2f}")
+
+
 def test_buffer_to_loss():
     """ populate (no centres, then k-means on the previous buffer) -> dataloader -> target -> stats """
     torch.manual_seed(5)
@@ -191,6 +230,8 @@ if __name__ == "__main__":
     test_gamma_zero_recovers_adjoint_ve_matcher()
     test_no_centres_or_no_valid_jump_is_finite()
     test_buffer_to_loss()
+    test_oracle_centres()
+    test_flux_diagnostics_point_to_underweighted_modes()
     test_own_weight_goes_to_one()
     test_orbit_enumeration_is_exact()
     test_zero_mean_under_target_posterior()

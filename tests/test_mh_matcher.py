@@ -242,7 +242,7 @@ def test_buffer_to_loss():
     assert matcher.centres is None and matcher.buffer.batches["valid"][0].sum() == 0
     matcher.populate_buffer(torch.zeros(256, 6), timesteps, False)
     assert matcher.centres.shape == (4, 6) and matcher.buffer.batches["valid"][1].sum() > 0
-    assert set(matcher.buffer.batches) == {"x0", "x1", "adjoint1", "E1", "jumps", "EY", "valid", "same_mode"}
+    assert set(matcher.buffer.batches) == {"x0", "x1", "adjoint1", "E1", "jumps", "EY", "valid", "same_mode", "mode1", "modeY"}
 
     data = next(iter(matcher.build_dataloader(512)))
     (t, xt), target_ = matcher.prepare_target(data, "cpu")
