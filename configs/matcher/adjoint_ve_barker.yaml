@@ -7,7 +7,14 @@ n_clusters: 2 # M = K (modes), no sub-clusters: M = 2K breaks the mode-level exa
 kmeans_iters: 20
 denoise_step: 1.0 # k-means on x1 + s ∇log p1(x1) (the mode centre for unit-variance modes); 0: raw x1
 stats_every: 10 # mh/* and barker/* diagnostics every n steps
-oracle_centres: false # GMM only: centres = true means (needs n_clusters = K); diagnoses the clustering
+# centres: kmeans (M = n_clusters, on the points denoised once with the stored gradient) | oracle (GMM only: the true means,
+# needs n_clusters = K) | threshold: leader clustering of the basin minima of the buffer samples (per-point
+# Barzilai-Borwein descent on E, computed once at insertion), radius = radius_scale x median mode width, no K needed;
+# n_clusters is then the capacity (the most populated centres are kept beyond it)
+centre_method: kmeans
+denoise_steps: 8 # max descent steps per sample
+denoise_tol: 0.05 # converged = last step < tol mode widths
+radius_scale: 1.0
 t_focus: 0.0
 t_focus_max: 0.15
 

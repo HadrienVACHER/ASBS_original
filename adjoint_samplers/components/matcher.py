@@ -533,6 +533,150 @@ def _kmeans(x, M, init=None, iters=20):
     return centres
 
 
+def _threshold_centres(x, radius, min_count=1, refine_iters=3, generator=None):
+    """ Leader (threshold) clustering of x (N, D): no number of clusters, no local minima, no energy evaluation.
+        Take an unassigned point (random order), give every unassigned point within `radius` of it to its
+        cluster, repeat; then refine: centre = mean of the points closest to it (within `radius`). Clusters with
+        fewer than `min_count` points are dropped (noise). One pass per cluster, O(M N D).
+        `radius` must lie between the spread of a blob and half the minimum separation of the blobs.
+        Returns the centres (M, D) and their point counts (M,).
+    """
+    N = len(x)
+    unassigned = torch.ones(N, dtype=torch.bool, device=x.device)
+    order = torch.randperm(N, generator=generator).to(x.device)
+    leaders = []
+    for i in order.tolist():
+        if not unassigned[i]:
+            continue
+        leaders.append(x[i])
+        unassigned &= (x - x[i]).norm(dim=-1) > radius
+    centres = torch.stack(leaders)
+    for _ in range(refine_iters):
+        d = torch.cdist(x, centres)
+        near = d.argmin(-1)
+        ok = d.min(-1).values <= radius
+        counts = torch.bincount(near[ok], minlength=len(centres))
+        sums = torch.zeros_like(centres).index_add_(0, near[ok], x[ok])
+        centres = torch.where(counts[:, None] > 0, sums / counts.clamp(min=1)[:, None], centres)
+    d = torch.cdist(x, centres)
+    near, ok = d.argmin(-1), d.min(-1).values <= radius
+    counts = torch.bincount(near[ok], minlength=len(centres))
+    keep = counts >= min_count
+    return centres[keep], counts[keep]
+
+
+@torch.no_grad()
+def _bb_denoise(energy, x, E0, s0, max_steps=8, tol=0.05, back=6):
+    """ Per-point descent on E from x (N, D) to the minimum of its basin, with no global state: the limit of a
+        converged point depends only on x and E, so a cached result never goes stale.
+        Step 1: Armijo backtracking from eta = 1 (one E per try; eta = 1 is the exact step E[m | x] - x on unit-
+        covariance Gaussian modes). Next steps: Barzilai-Borwein eta = |dx|^2 / <dx, ds> from the last two
+        iterates (exact 1 / curvature on an isotropic quadratic basin), clipped to [eta_1 / 100, 100 eta_1].
+        A point has converged when its last step is < `tol` mode widths, width = 1 / sqrt(secant curvature)
+        = sqrt(|dx|^2 / <dx, ds>). E0 = E(x) (N,), s0 = ∇E(x) (N, D) are given (stored with the sample).
+        Returns the final iterates, converged (N,), the secant curvature (N,), steps taken (N,) and the number
+        of gradient / energy evaluations (excluding the stored ∇E(x)).
+    """
+    N = len(x)
+    eta = torch.ones(N, device=x.device, dtype=x.dtype)
+    g2 = (s0 ** 2).sum(-1)
+    n_E, pending = 0, torch.ones(N, dtype=torch.bool, device=x.device)
+    for _ in range(back + 1):
+        p = pending.nonzero().flatten()
+        if len(p) == 0:
+            break
+        En = energy.eval(x[p] - eta[p, None] * s0[p]).reshape(-1)
+        n_E += len(p)
+        ok = En <= E0[p] - 1e-4 * eta[p] * g2[p] + 1e-7 * (1 + E0[p].abs())
+        pending[p[ok]] = False
+        eta[p[~ok]] *= 0.5
+    eta1 = eta.clone()
+
+    xp, sp = x.clone(), s0.clone()
+    xc = x - eta[:, None] * s0
+    sc = energy.grad_E(xc)
+    n_grad, steps = N, torch.ones(N, device=x.device)
+    active = torch.ones(N, dtype=torch.bool, device=x.device)
+    conv = torch.zeros_like(active)
+    lam_out = torch.ones(N, device=x.device, dtype=x.dtype)
+    while True:
+        dx, ds = xc - xp, sc - sp
+        dxx, dxs = (dx * dx).sum(-1), (dx * ds).sum(-1)
+        lam = dxs / dxx.clamp(min=1e-30)
+        pos = lam > 1e-12
+        width_steps = dxx.sqrt() * lam.clamp(min=0).sqrt()
+        newly = active & ((pos & (width_steps < tol)) | (dxx < 1e-20))
+        lam_out = torch.where(active & pos, lam, lam_out)
+        conv |= newly
+        active &= ~newly
+        if not active.any() or steps.max() >= max_steps:
+            break
+        a = active.nonzero().flatten()
+        eta_a = torch.where(pos[a], 1.0 / lam[a].clamp(min=1e-12), eta[a])
+        eta_a = torch.minimum(torch.maximum(eta_a, eta1[a] * 1e-2), eta1[a] * 1e2)
+        eta[a] = eta_a
+        xn = xc[a] - eta_a[:, None] * sc[a]
+        sn = energy.grad_E(xn)
+        n_grad += len(a)
+        xp[a], sp[a], xc[a], sc[a] = xc[a], sc[a], xn, sn
+        steps[a] += 1
+    return xc, conv, lam_out, steps, n_grad, n_E
+
+
+@torch.no_grad()
+def _barrier_merge(energy, centres, counts, radius, factor=8.0, n_seg=9, tol=0.1):
+    """ Candidate centres that are not separated by an energy barrier belong to the same basin: along the segment
+        between two centres closer than factor x radius, a barrier is max E(segment) - max(E(a), E(b)) > tol. If
+        there is none, the higher-energy centre is a stalled point near a saddle: drop it (its count goes to the
+        other). Returns the kept centres, counts and the number merged.
+    """
+    M = len(centres)
+    if M < 2:
+        return centres, counts, 0
+    d = torch.cdist(centres, centres)
+    iu = torch.triu_indices(M, M, 1, device=centres.device)
+    near = d[iu[0], iu[1]] <= factor * radius
+    i, j = iu[0][near], iu[1][near]
+    if len(i) == 0:
+        return centres, counts, 0
+    t = torch.linspace(0, 1, n_seg + 2, device=centres.device, dtype=centres.dtype)[1:-1]
+    seg = centres[i].unsqueeze(1) + t[None, :, None] * (centres[j] - centres[i]).unsqueeze(1)
+    E_seg = energy.eval(seg.reshape(-1, centres.shape[1])).reshape(len(i), n_seg)
+    E_c = energy.eval(centres).reshape(-1)
+    barrier = E_seg.max(1).values - torch.maximum(E_c[i], E_c[j])
+    counts, keep, merged = counts.clone(), torch.ones(M, dtype=torch.bool, device=centres.device), 0
+    for k in torch.argsort(d[i, j]).tolist():
+        a, b = int(i[k]), int(j[k])
+        if barrier[k] <= tol and keep[a] and keep[b]:
+            drop, stay = (a, b) if E_c[a] > E_c[b] else (b, a)
+            keep[drop] = False
+            counts[stay] += counts[drop]
+            merged += 1
+    return centres[keep], counts[keep], merged
+
+
+@torch.no_grad()
+def _converged_centres(energy, pts, conv, lam, radius_scale=1.0, min_count=1, generator=None):
+    """ Centres from cached denoised points: only the converged ones are clustered (leader clustering with
+        radius = radius_scale x median width, width = 1 / sqrt(secant curvature)), then centres without an
+        energy barrier between them are merged. Returns the centres, counts and a dict of diagnostics.
+    """
+    n = len(pts)
+    info = {"conv_frac": float(conv.float().mean()) if n else 0.0}
+    if conv.sum() == 0:
+        return pts[:0], torch.zeros(0, dtype=torch.long, device=pts.device), info
+    pc = pts[conv]
+    width = (1.0 / lam[conv].clamp(min=1e-12).sqrt()).median()
+    radius = radius_scale * float(width)
+    centres, counts = _threshold_centres(pc, radius, min_count=min_count, generator=generator)
+    n_raw = len(centres)
+    centres, counts, merged = _barrier_merge(energy, centres, counts, radius)
+    near = torch.cdist(pc, centres).min(-1).values <= radius
+    info.update({"n_raw": n_raw, "n_merged": merged, "radius": radius, "width": float(width),
+                 "explained": float(near.float().sum() / n)})
+    return centres, counts, info
+
+
 class AdjointVEMHMatcher(AdjointVEDiracMatcher):
     """ AdjointVEMatcher with a Metropolis-Hastings control variate added to the target:
 
@@ -573,16 +717,28 @@ class AdjointVEMHMatcher(AdjointVEDiracMatcher):
         denoise_step: float = 1.0,
         stats_every: int = 10,
         oracle_centres: bool = False,
+        centre_method: str = "kmeans",
+        denoise_steps: int = 8,
+        denoise_tol: float = 0.05,
+        radius_scale: float = 1.0,
         **kwargs,
     ):
         super().__init__(**kwargs)
         assert gamma >= 0 and n_clusters >= 2
+        if oracle_centres:
+            centre_method = "oracle"
+        assert centre_method in ("kmeans", "threshold", "oracle")
+        self.centre_method = centre_method
+        self.denoise_steps = denoise_steps
+        self.denoise_tol = denoise_tol
+        self.radius_scale = radius_scale
+        self._centre_info = {}
         self.gamma = gamma
         self.n_clusters = n_clusters
         self.rao_blackwell = rao_blackwell
         self.kmeans_iters = kmeans_iters
         self.denoise_step = denoise_step
-        self.oracle_centres = oracle_centres # GMM only: centres = the true means (upper bound on the clustering)
+        self.oracle_centres = centre_method == "oracle" # GMM only: centres = the true means (upper bound on the clustering)
         self._mode_batch = None
         self.stats_every = stats_every # diagnostics are many small kernels: not every step
         self.centres = None
@@ -594,12 +750,13 @@ class AdjointVEMHMatcher(AdjointVEDiracMatcher):
             (J = M - 1) or to one at random (J = 1), and valid = 1[Y in cluster k] (N, J).
             No centres yet: no valid jump.
         """
-        (N, D), M = x1.shape, self.n_clusters
-        J = M - 1 if self.rao_blackwell else 1
-        if self.centres is None:
+        (N, D), Mmax = x1.shape, self.n_clusters
+        J = Mmax - 1 if self.rao_blackwell else 1
+        if self.centres is None or len(self.centres) < 2:
             return x1.new_zeros(N, J, D), x1.new_zeros(N, J)
 
         m = self.centres.to(x1)
+        M = len(m) # = n_clusters for k-means / oracle; <= n_clusters (capacity) for threshold clustering
         c = _nearest(x1, m)
         others = torch.arange(M, device=x1.device).expand(N, M)
         others = others[others != c[:, None]].view(N, M - 1)
@@ -607,9 +764,13 @@ class AdjointVEMHMatcher(AdjointVEDiracMatcher):
             others = others.gather(1, torch.randint(M - 1, (N, 1), device=x1.device))
 
         jumps = m[others] - m[c].unsqueeze(1)
-        valid = _nearest((x1.unsqueeze(1) + jumps).reshape(-1, D), m).view(N, J) == others
+        valid = _nearest((x1.unsqueeze(1) + jumps).reshape(-1, D), m).view(N, -1) == others
         valid = valid.to(x1)
-        return jumps * valid.unsqueeze(-1), valid
+        jumps = jumps * valid.unsqueeze(-1)
+        if self.rao_blackwell and M < Mmax: # fewer centres than the capacity: pad with invalid translates
+            jumps = torch.cat([jumps, x1.new_zeros(N, Mmax - M, D)], 1)
+            valid = torch.cat([valid, x1.new_zeros(N, Mmax - M)], 1)
+        return jumps, valid
 
     def populate_buffer(
             self,
@@ -632,7 +793,9 @@ class AdjointVEMHMatcher(AdjointVEDiracMatcher):
             self.centres = means.to(x1).clone()
 
         # centres from the buffer before this batch, so they do not depend on its samples
-        if len(self.buffer) > 0 and not self.oracle_centres:
+        if len(self.buffer) > 0 and self.centre_method == "threshold":
+            self._refit_threshold_centres(x1)
+        if len(self.buffer) > 0 and self.centre_method == "kmeans":
             n = self.buffer.buffer_size
             buffer_x1 = torch.cat(self.buffer.batches["x1"])[-n:].to(x1)
             buffer_adjoint1 = torch.cat(self.buffer.batches["adjoint1"])[-n:].to(x1)
@@ -668,7 +831,36 @@ class AdjointVEMHMatcher(AdjointVEDiracMatcher):
             # true mode of x1 and of every translate, for the per-mode flux diagnostics of the Barker matcher
             data["mode1"] = dist.assign(x1).to("cpu")
             data["modeY"] = dist.assign(x1.unsqueeze(1) + jumps).to("cpu")
+        if self.centre_method == "threshold":
+            # basin minimum of each new sample, computed once: it depends only on x and E, never on the model.
+            # ∇E(x1) is stored with the sample (adjoint1 = ∇E + ∇log p^base_1), so the first gradient is free
+            assert not is_asbs_init_stage
+            s0 = adjoint1 - self.grad_term_cost.base_score(x1)
+            xd, conv, lam, steps, n_grad, n_E = _bb_denoise(energy, x1, E1, s0, self.denoise_steps, self.denoise_tol)
+            data.update({"xd": xd.to("cpu"), "conv": conv.to("cpu"), "lam": lam.to("cpu")})
+            st = self._stats
+            st["dn_n"] += x1.shape[0]
+            st["dn_grad"] += n_grad
+            st["dn_E"] += n_E
+            st["dn_steps"] += steps.sum()
+            st["dn_conv"] += conv.sum()
         self.buffer.add(data)
+
+    def _refit_threshold_centres(self, like):
+        """ centres from the cached converged points of the buffer, before the new batch is inserted """
+        n = self.buffer.buffer_size
+        xd = torch.cat(self.buffer.batches["xd"])[-n:].to(like)
+        conv = torch.cat(self.buffer.batches["conv"])[-n:].to(like.device)
+        lam = torch.cat(self.buffer.batches["lam"])[-n:].to(like)
+        centres, counts, info = _converged_centres(self.grad_term_cost.energy, xd, conv, lam, self.radius_scale)
+        info["n_found"] = len(centres)
+        if len(centres) > self.n_clusters: # over capacity: keep the most populated
+            info["dropped"] = len(centres) - self.n_clusters
+            centres = centres[torch.topk(counts, self.n_clusters).indices]
+        info["n"] = len(centres)
+        if len(centres) >= 2:
+            self.centres = centres
+        self._centre_info = info
 
     def mh_term(self, t, x0, xt, x1, E1, jumps, EY, valid):
         """ γ h / ν_{1|t} (N, D) and the acceptance α (N, J) """
@@ -743,6 +935,13 @@ class AdjointVEMHMatcher(AdjointVEDiracMatcher):
                     bucket = f"t{self.T_EDGES[i]:g}-{self.T_EDGES[i + 1]:g}"
                     out[f"mh/acc/{bucket}"] = acc[i] / n[i]
                     out[f"mh/acc_pred/{bucket}"] = pred[i] / n[i]
+        if st["dn_n"]: # threshold centres: cost of the denoising (per sample, beyond the stored first gradient) and quality
+            out["denoise/grad_evals_per_sample"] = float(st["dn_grad"] / st["dn_n"])
+            out["denoise/E_evals_per_sample"] = float(st["dn_E"] / st["dn_n"])
+            out["denoise/steps_mean"] = float(st["dn_steps"] / st["dn_n"])
+            out["denoise/converged_frac_new"] = float(st["dn_conv"] / st["dn_n"])
+        for k, v in self._centre_info.items():
+            out[f"centres/{k}"] = v
         return out
 
 

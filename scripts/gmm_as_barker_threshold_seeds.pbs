@@ -1,0 +1,62 @@
+#!/bin/bash
+#PBS -N gmm_as_barker_threshold_seeds
+#PBS -P gs_ccds_haidang.dau
+#PBS -q gpu_as
+#PBS -l walltime=08:00:00
+#PBS -l select=1:ncpus=12:ngpus=1:mem=40gb
+#PBS -j oe
+
+# SI GO seulement (À lancer depuis la branche mh). AS et Barker (centres threshold, gamma = 2) à d = 24 et 36, seeds 0 à 2,
+# 2000 epochs, dump_final pour tous (AS compris, pour la comparaison d'energy_w2).
+DIMS=(24 36)
+SEEDS=(0 1 2)
+EPOCHS=2000
+NPROC=$(( ${#DIMS[@]} * ${#SEEDS[@]} * 2 ))
+THREADS=$(( 12 / NPROC > 0 ? 12 / NPROC : 1 ))
+
+cd "${PBS_O_WORKDIR}" || exit 1
+mkdir -p logs
+export PYTHONUNBUFFERED=1
+
+# --- Correctif officiel PBS/GaaS pour les identifiants GPU (inchangé) ---
+if echo "${CUDA_VISIBLE_DEVICES:-}" | grep -q "GPU-"; then
+    GPU_COUNT=$(echo "${CUDA_VISIBLE_DEVICES}" | tr ',' '\n' | wc -l)
+    CUDA_VISIBLE_DEVICES=$(seq -s, 0 $((GPU_COUNT - 1)))
+    export CUDA_VISIBLE_DEVICES
+fi
+
+export OMP_NUM_THREADS=${THREADS}
+export MKL_NUM_THREADS=${THREADS}
+
+module purge
+module load anaconda/2025
+eval "$(/usr/local/anaconda2025/bin/conda shell.bash hook)"
+conda activate BMS
+
+echo "Nœud : $(hostname) à $(date)"
+nvidia-smi -L
+git log --oneline -1
+
+COMMON="num_epochs=${EPOCHS} dump_final=true fast_sampling=true buffer_on_device=true fast_train=true"
+pids=()
+for DIM in "${DIMS[@]}"; do
+  for SEED in "${SEEDS[@]}"; do
+    echo "Lancement AS et Barker-threshold K=${DIM} dim=${DIM} seed=${SEED}"
+    python train.py experiment=gmm_as dim=${DIM} K=${DIM} seed=${SEED} ${COMMON} \
+        exp_name=gmm${DIM}d_as_cmp \
+        hydra.run.dir=results/gmm_as_barker_threshold_seeds/as_K${DIM}_seed${SEED} \
+        > logs/as_cmp_K${DIM}_seed${SEED}.log 2>&1 &
+    pids+=($!)
+    python train.py experiment=gmm_as_barker dim=${DIM} K=${DIM} seed=${SEED} ${COMMON} \
+        adjoint_matcher.gamma=2 adjoint_matcher.centre_method=threshold \
+        exp_name=gmm${DIM}d_as_barker_g2_thr \
+        hydra.run.dir=results/gmm_as_barker_threshold_seeds/barker_thr_K${DIM}_seed${SEED} \
+        > logs/barker_thr_K${DIM}_seed${SEED}.log 2>&1 &
+    pids+=($!)
+  done
+done
+
+fail=0
+for p in "${pids[@]}"; do wait "$p" || fail=1; done
+echo "Fin à $(date), statut : ${fail}"
+exit $fail

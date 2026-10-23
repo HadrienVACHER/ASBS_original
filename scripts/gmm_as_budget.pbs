@@ -1,0 +1,48 @@
+#!/bin/bash
+#PBS -N gmm_as_budget
+#PBS -P gs_ccds_haidang.dau
+#PBS -q gpu_as
+#PBS -l walltime=12:00:00
+#PBS -l select=1:ncpus=4:ngpus=1:mem=16gb
+#PBS -j oe
+
+# SI GO seulement (À lancer depuis la branche mh). AS à budget d'appels d'énergie égal à Barker, d = 36, seed 0 :
+# resample_batch_size 4096 (x8 échantillons par epoch) et 8000 epochs (x4) = 32x le budget d'AS standard.
+# Remarque : adjoint_matcher.resample_size doit valoir au moins resample_batch_size (sinon resample_size // batch = 0 : aucun
+# nouvel échantillon). Barker appelle E, AS appelle grad E (2 à 3 fois plus cher) : le rapport 32x est pessimiste pour Barker.
+# Contrôle : AS 8000 epochs à la taille de lot actuelle (sépare échantillons frais et entraînement plus long).
+cd "${PBS_O_WORKDIR}" || exit 1
+mkdir -p logs
+export PYTHONUNBUFFERED=1
+
+# --- Correctif officiel PBS/GaaS pour les identifiants GPU (inchangé) ---
+if echo "${CUDA_VISIBLE_DEVICES:-}" | grep -q "GPU-"; then
+    GPU_COUNT=$(echo "${CUDA_VISIBLE_DEVICES}" | tr ',' '\n' | wc -l)
+    CUDA_VISIBLE_DEVICES=$(seq -s, 0 $((GPU_COUNT - 1)))
+    export CUDA_VISIBLE_DEVICES
+fi
+
+export OMP_NUM_THREADS=2
+export MKL_NUM_THREADS=2
+
+module purge
+module load anaconda/2025
+eval "$(/usr/local/anaconda2025/bin/conda shell.bash hook)"
+conda activate BMS
+
+echo "Nœud : $(hostname) à $(date)"
+nvidia-smi -L
+git log --oneline -1
+
+COMMON="experiment=gmm_as dim=36 K=36 seed=0 num_epochs=8000 dump_final=true fast_sampling=true buffer_on_device=true fast_train=true"
+python train.py ${COMMON} resample_batch_size=4096 adjoint_matcher.resample_size=4096 \
+    exp_name=gmm36d_as_budget32x hydra.run.dir=results/gmm_as_budget/as_batch4096_8000ep \
+    > logs/as_budget32x.log 2>&1 &
+p1=$!
+python train.py ${COMMON} exp_name=gmm36d_as_8000ep hydra.run.dir=results/gmm_as_budget/as_batch512_8000ep \
+    > logs/as_8000ep.log 2>&1 &
+p2=$!
+fail=0
+for p in $p1 $p2; do wait "$p" || fail=1; done
+echo "Fin à $(date), statut : ${fail}"
+exit $fail

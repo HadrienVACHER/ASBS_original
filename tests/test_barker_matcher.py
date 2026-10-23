@@ -19,7 +19,7 @@ from test_mh_matcher import (  # noqa: E402
     test_drift_to_weights, with_weights, zscores,
 )
 from adjoint_samplers.components.matcher import (  # noqa: E402
-    AdjointVEBarkerMatcher, AdjointVEMatcher, AdjointVEMHMatcher, _kmeans,
+    AdjointVEBarkerMatcher, AdjointVEMatcher, AdjointVEMHMatcher, _kmeans, _threshold_centres,
 )
 
 
@@ -198,6 +198,65 @@ def test_flux_diagnostics_point_to_underweighted_modes(n=30000):
     print(f"ok  flux diagnostics: corr(net flux, weight error) = {stats['barker/flux_err_corr']:.2f}")
 
 
+def test_threshold_centres_find_every_blob():
+    """ d = K = 24, light modes under-sampled 3x (as in the runs): leader clustering on the points denoised 5 times
+        (x <- x + ∇log p1(x), mean shift) puts exactly one centre on every mode, whatever the order. One denoising
+        step is not enough: ~1% of the points (tails, mixed responsibilities) stay far from every mode and each
+        becomes a spurious centre (45 of them at min_count = 1).
+    """
+    torch.manual_seed(8)
+    target = make_gmm(dim=24, K=24, radius=4.25)
+    w = target.weights.clone()
+    w[w <= w.quantile(0.3)] /= 3
+    x = with_weights(target, w).sample([10000])
+    pts = x
+    for _ in range(5):
+        pts = pts + target.score(pts)
+    sep = torch.cdist(target.means, target.means).fill_diagonal_(1e9).min().item()
+    for seed in range(3):
+        gen = torch.Generator().manual_seed(seed)
+        c, n = _threshold_centres(pts, radius=0.4 * sep, generator=gen)
+        d = torch.cdist(target.means, c)
+        assert len(c) == 24 and (d.min(1).values < 1.0).all() and len(set(d.argmin(1).tolist())) == 24, (len(c), d.min(1).values.max())
+    # min_count drops the sparse clusters
+    c1, _ = _threshold_centres(pts, radius=0.4 * sep, min_count=1)
+    c50, n50 = _threshold_centres(pts, radius=0.4 * sep, min_count=50)
+    assert len(c50) <= len(c1) and n50.min() >= 50
+    print(f"ok  leader clustering: 24 centres for 24 modes (radius {0.4 * sep:.2f} = 0.4 x min separation {sep:.2f}), all within 1.0 of a mode")
+
+
+def test_threshold_centres_in_the_matcher():
+    """ centre_method = threshold: the converged basin minimum of every new sample is cached in the buffer, the centres
+        are rebuilt before each batch from the cache; capacity > number of modes pads the translates with invalid ones
+    """
+    torch.manual_seed(9)
+    target = make_gmm(dim=6, K=4, radius=4.25)
+    timesteps = torch.linspace(0, 1, 50)
+    matcher = make_matcher(target, AdjointVEBarkerMatcher, n_clusters=6, stats_every=1, centre_method="threshold")
+    for _ in range(3):
+        matcher.populate_buffer(torch.zeros(256, 6), timesteps, False)
+        if _ == 0:
+            assert matcher.centres is None and {"xd", "conv", "lam"} <= set(matcher.buffer.batches)
+    assert matcher.centres is not None and 2 <= len(matcher.centres) <= 6
+    jumps, valid = matcher.buffer.batches["jumps"][2], matcher.buffer.batches["valid"][2]
+    assert jumps.shape == (256, 5, 6) and valid.shape == (256, 5), jumps.shape
+    if len(matcher.centres) < 6:
+        assert valid[:, len(matcher.centres) - 1:].sum() == 0, "padded translates are invalid"
+    data = next(iter(matcher.build_dataloader(512)))
+    (t, xt), target_ = matcher.prepare_target(data, "cpu")
+    assert torch.isfinite(target_).all()
+    stats = matcher.pop_stats()
+    for k in ("denoise/grad_evals_per_sample", "denoise/E_evals_per_sample", "denoise/steps_mean",
+              "denoise/converged_frac_new", "centres/n", "centres/radius", "centres/explained", "centres/conv_frac",
+              "barker/centre_coverage"):
+        assert k in stats, k
+    assert 0 < stats["centres/radius"] < 5 and stats["denoise/converged_frac_new"] > 0.9, stats
+    # the untrained model (epoch 0 points) is far from the modes: centres still found, never more than the capacity
+    print(f"ok  threshold centres in the matcher: {len(matcher.centres)} centres (capacity 6, 4 modes), coverage"
+          f" {stats['barker/centre_coverage']:.2f}, converged {stats['denoise/converged_frac_new']:.2f}, steps"
+          f" {stats['denoise/steps_mean']:.2f}, ∇E/sample {stats['denoise/grad_evals_per_sample']:.2f}")
+
+
 def test_buffer_to_loss():
     """ populate (no centres, then k-means on the previous buffer) -> dataloader -> target -> stats """
     torch.manual_seed(5)
@@ -231,6 +290,8 @@ if __name__ == "__main__":
     test_no_centres_or_no_valid_jump_is_finite()
     test_buffer_to_loss()
     test_oracle_centres()
+    test_threshold_centres_find_every_blob()
+    test_threshold_centres_in_the_matcher()
     test_flux_diagnostics_point_to_underweighted_modes()
     test_own_weight_goes_to_one()
     test_orbit_enumeration_is_exact()
