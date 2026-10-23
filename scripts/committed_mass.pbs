@@ -1,0 +1,60 @@
+#!/bin/bash
+#PBS -N committed_mass
+#PBS -P gs_ccds_haidang.dau
+#PBS -q gpu_as
+#PBS -l walltime=04:00:00
+#PBS -l select=1:ncpus=8:ngpus=1:mem=32gb
+#PBS -j oe
+
+# Où le contrôleur appris perd-il de la masse ? Entraîne AS, Barker-oracle (gamma 2) et Barker-threshold (gamma 2) à d = 24 et 36
+# (seed 0, 2000 epochs) en sauvegardant le contrôleur (dump_final -> controller_final.pt), puis calcule la masse engagée
+# ŵ_k(s) = E[π*(k | X_s)] le long de trajectoires simulées avec le contrôleur appris (scripts/committed_mass.py).
+# Contrôle exact : courbe plate égale à w (martingale). À lancer depuis la branche mh, après git pull.
+cd "${PBS_O_WORKDIR}" || exit 1
+mkdir -p logs results/committed_mass
+export PYTHONUNBUFFERED=1
+export OMP_NUM_THREADS=1
+export MKL_NUM_THREADS=1
+
+# --- Correctif officiel PBS/GaaS pour les identifiants GPU (inchangé) ---
+if echo "${CUDA_VISIBLE_DEVICES:-}" | grep -q "GPU-"; then
+    GPU_COUNT=$(echo "${CUDA_VISIBLE_DEVICES}" | tr ',' '\n' | wc -l)
+    CUDA_VISIBLE_DEVICES=$(seq -s, 0 $((GPU_COUNT - 1)))
+    export CUDA_VISIBLE_DEVICES
+fi
+
+module purge
+module load anaconda/2025
+eval "$(/usr/local/anaconda2025/bin/conda shell.bash hook)"
+conda activate BMS
+
+echo "Nœud : $(hostname) à $(date)"
+nvidia-smi -L
+git log --oneline -1
+
+COMMON="seed=0 num_epochs=2000 dump_final=true fast_sampling=true buffer_on_device=true fast_train=true"
+pids=()
+for DIM in 24 36; do
+  R=results/committed_mass
+  python train.py experiment=gmm_as dim=${DIM} K=${DIM} ${COMMON} exp_name=gmm${DIM}d_as_cm \
+      hydra.run.dir=${R}/d${DIM}_as > logs/cm_d${DIM}_as.log 2>&1 &
+  pids+=($!)
+  python train.py experiment=gmm_as_barker dim=${DIM} K=${DIM} ${COMMON} adjoint_matcher.gamma=2 \
+      adjoint_matcher.centre_method=oracle exp_name=gmm${DIM}d_as_barker_g2_oracle_cm \
+      hydra.run.dir=${R}/d${DIM}_oracle > logs/cm_d${DIM}_oracle.log 2>&1 &
+  pids+=($!)
+  python train.py experiment=gmm_as_barker dim=${DIM} K=${DIM} ${COMMON} adjoint_matcher.gamma=2 \
+      adjoint_matcher.centre_method=threshold exp_name=gmm${DIM}d_as_barker_g2_thr_cm \
+      hydra.run.dir=${R}/d${DIM}_thr > logs/cm_d${DIM}_thr.log 2>&1 &
+  pids+=($!)
+done
+fail=0
+for p in "${pids[@]}"; do wait "$p" || fail=1; done
+echo "Entraînements finis à $(date), statut : ${fail}"
+
+python scripts/committed_mass.py --dim 24 --K 24 --sigma-max 2.6477191442195425 --focus 12 \
+    --runs as=${R}/d24_as oracle=${R}/d24_oracle thr=${R}/d24_thr --out ${R}/curves_d24 > logs/cm_curves_d24.log 2>&1
+python scripts/committed_mass.py --dim 36 --K 36 --sigma-max 2.4509068616421237 --focus 22 \
+    --runs as=${R}/d36_as oracle=${R}/d36_oracle thr=${R}/d36_thr --out ${R}/curves_d36 > logs/cm_curves_d36.log 2>&1
+echo "Fin à $(date)"
+exit $fail

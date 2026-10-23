@@ -6,10 +6,12 @@
       bridge   u = (E_{π^u}[X1 | x] - x) / ν_{1|t}                    baseline: reproduces ŵ
       A        bridge + E_{π^u}[∇log(p1/p1^u)(X1) | x]                AS regression only (γ = 0): exact RAM minimizer
       B(γ)     A + γ E_{π^u}[h | x] / ν_{1|t}                         Barker term (AdjointVEBarkerMatcher.mh_term, true-mean centres)
-      C        u* (bridge to the TRUE target) for t < t_small, A for t_small <= t < t_stop
-                                                                       best any correction restricted to small t can do
+      C(ts)    u* (bridge to the TRUE target) for t < ts, A for ts <= t < t_stop, for ts in --t-smalls (0.07, 0.15, 0.3)
+                                                                       best any correction restricted to t < ts can do
       D        u* everywhere (masses read with the true bridge)       sanity: must recover w
     Past t_stop the arms A, B, C follow the bridge to p1^u (masses = E[P^u(k | X_{t_stop})]); D follows the true bridge.
+    NOTE: AS's own correction beyond t_stop is therefore neglected in A, B, C (reasonable: ∇log(p1 / p1^u) ≈ 0 once the
+    posterior over modes is unimodal, but an approximation).
 
     python scripts/exact_iteration.py --dim 36 --K 36 --sigma-max 2.4509 --samples K36_g2_oracle.pt --focus 22   # cluster / GPU
     python scripts/exact_iteration.py --dim 6 --K 4 --sigma-max 2.0 --N 1500 --n-mc 4                             # smoke test
@@ -86,7 +88,7 @@ class Sim:
 
     # --- one simulation ----------------------------------------------------------------------------------
     @torch.no_grad()
-    def run(self, kind, gamma=0.0):
+    def run(self, kind, gamma=0.0, t_small=0.0):
         a = self.args
         self.matcher.gamma = gamma
         gen = torch.Generator().manual_seed(6) # same Brownian increments for every arm
@@ -98,7 +100,7 @@ class Sim:
                 break
             kappa, nu1t, nu1 = kappa_nu(self.matcher, t)
             sigma2 = self.ref.diff(torch.tensor(t)).item() ** 2
-            small = t < a.t_small
+            small = t < t_small
             if kind == "D" or (kind == "C" and small):
                 u = self.bridge(self.target, x, kappa, nu1, nu1t)
             else:
@@ -128,7 +130,7 @@ def main():
     ap.add_argument("--chunk", type=int, default=100000)
     ap.add_argument("--steps", type=int, default=200)
     ap.add_argument("--t-stop", type=float, default=0.3)
-    ap.add_argument("--t-small", type=float, default=0.07)
+    ap.add_argument("--t-smalls", type=float, nargs="+", default=[0.07, 0.15, 0.3])
     ap.add_argument("--gammas", type=float, nargs="+", default=[1.0, 2.0, 3.0])
     ap.add_argument("--focus", type=int, nargs="*", default=[])
     ap.add_argument("--out", default="results/exact_iteration")
@@ -158,12 +160,14 @@ def main():
     w, w_hat = w.to(device), w_hat.to(device)
     e = w - w_hat
     print(f"d = {args.dim}, K = {K}, device {device}, N = {args.N}, n_mc = {args.n_mc}, t_stop = {args.t_stop}; frozen buffer: {src}")
+    print("note: after t_stop the arms A, B, C follow the bridge to p1^u, i.e. AS's own correction beyond t_stop is neglected")
 
-    arms = [("bridge", "bridge", 0.0), ("A", "A", 0.0)] + [(f"B{g:g}", "B", g) for g in args.gammas] + [("C", "C", 0.0), ("D", "D", 0.0)]
+    arms = ([("bridge", "bridge", 0.0, 0.0), ("A", "A", 0.0, 0.0)] + [(f"B{g:g}", "B", g, 0.0) for g in args.gammas]
+            + [(f"C{ts:g}", "C", 0.0, ts) for ts in args.t_smalls] + [("D", "D", 0.0, 0.0)])
     masses = {}
-    for name, kind, g in arms:
+    for name, kind, g, ts in arms:
         t0 = time.time()
-        masses[name] = sim.run(kind, g)
+        masses[name] = sim.run(kind, g, ts)
         print(f"  arm {name:7s} done in {time.time() - t0:6.1f} s", flush=True)
 
     base = masses["bridge"]
@@ -208,7 +212,7 @@ def main():
         import matplotlib
         matplotlib.use("Agg")
         import matplotlib.pyplot as plt
-        shown = [n for n in names if n in ("A", "C", "D") or n.startswith("B")]
+        shown = [n for n in names if n in ("A", "D") or n[0] in "BC"]
         fig, axes = plt.subplots(2, len(shown), figsize=(3.2 * len(shown), 6), squeeze=False)
         for k, n in enumerate(shown):
             r = (delta[n] / e).cpu().numpy()

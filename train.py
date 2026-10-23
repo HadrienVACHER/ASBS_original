@@ -322,6 +322,17 @@ def main(cfg):
                 "samples_final.pt",
             )
             print(f"Saved samples_final.pt: buffer {tuple(buffer_x1.shape)}, model samples {cfg.dump_n_samples}")
+            # the trained controller (and its EMA), to simulate trajectories after the run (scripts/committed_mass.py)
+            torch.save(
+                {
+                    "controller": {k: v.detach().cpu() for k, v in controller.state_dict().items()},
+                    "ema": None if ema is None else {k: v.detach().cpu() for k, v in ema.module.state_dict().items()},
+                    "epoch": cfg.num_epochs,
+                    "exp_name": cfg.exp_name,
+                },
+                "controller_final.pt",
+            )
+            print("Saved controller_final.pt")
 
     except Exception as e:
         # This way we have the full traceback in the log.  otherwise Hydra
