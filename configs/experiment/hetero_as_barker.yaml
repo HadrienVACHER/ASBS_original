@@ -1,0 +1,17 @@
+# @package _global_
+
+# Frozen Barker method (gamma = 3, threshold centres, 256 x 6 controller) on the heterogeneous GMM, with the AFFINE orbit
+# T_{k<-c}(x) = mu_k + L_k L_c^{-1} (x - mu_c) (covariances = Laplace Hessians at the basin minima), Barker weights
+# pi(Y_k | xt) |det L_k|. Switch to the translation orbit: adjoint_matcher.orbit=translation; cost: adjoint_matcher.orbit_size=4 or 8.
+
+defaults:
+  - hetero_as
+  - override /matcher@adjoint_matcher: adjoint_ve_barker
+
+exp_name: hetero${dim}d_as_barker_${adjoint_matcher.orbit}_s${adjoint_matcher.orbit_size}
+
+adjoint_matcher:
+  gamma: 3.0
+  centre_method: threshold
+  orbit: affine
+  n_clusters: ${K}

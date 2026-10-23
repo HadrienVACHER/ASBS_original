@@ -1,0 +1,47 @@
+# @package _global_
+
+# Adjoint Sampling (memoryless) on the heterogeneous GMM, frozen big controller (256 x 6), 2000 epochs.
+
+defaults:
+  - /problem: hetero_gmm
+  - /source: delta
+  - /sde@ref_sde: ve
+  - /model@controller: fouriermlp
+  - /state_cost: zero
+  - /term_cost: score_term_cost
+  - /matcher@adjoint_matcher: adjoint_ve
+
+exp_name: hetero${dim}d_as
+
+
+# === sde ===
+nfe: 200
+# 2 x the per-coordinate std of the target mixture (computed from the instance, like gmm_std for the isotropic GMM)
+sigma_max: ${hetero_std:${dim},${K},${target_seed},${radius_min},${radius_max},${scale_min},${scale_max},${weight_ratio},2}
+sigma_min: 0.001
+rescale_t: null
+
+
+# === model ===
+controller:
+  channels: 256
+  num_layers: 6
+
+
+# === training ===
+num_epochs: 2000
+max_grad_E_norm: null
+
+adjoint_matcher:
+  buffer_size: 10000
+  duplicates: 10
+  resample_size: 1000
+  num_epochs_per_stage: ${num_epochs}
+  optim:
+    lr: 1e-4
+    weight_decay: 0
+
+
+# === eval & logging ===
+use_wandb: true
+eval_freq: 50

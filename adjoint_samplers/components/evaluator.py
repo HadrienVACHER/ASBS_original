@@ -194,7 +194,7 @@ class GMMEvaluator:
         B, D = x.shape
         pi = self.dist.weights.to(x.device)
         k = self.dist.assign(x)
-        dist2 = (x - self.dist.means[k]).pow(2).sum(-1)
+        dist2 = self.dist.sq_dist_to_mode(x, k) # Euclidean for GMM, Mahalanobis for HeteroGMM (χ²_d inside a mode)
         inside = dist2 <= self.in_mode_r2
 
         counts = torch.bincount(k[inside], minlength=self.dist.K).float()

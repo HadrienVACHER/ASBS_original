@@ -678,6 +678,25 @@ def _converged_centres(energy, pts, conv, lam, radius_scale=1.0, min_count=1, ge
     return centres, counts, info
 
 
+@torch.no_grad()
+def _laplace_factors(energy, centres, h=1e-2, eps=1e-3):
+    """ Laplace covariances of the basins at `centres` (K, D): Σ_k = H_k^{-1}, H_k = ∇²E(μ_k) by central differences of
+        ∇E (2 D gradients per centre), factor L_k = V diag(λ^{-1/2}) with H = V diag(λ) V^T (so Σ_k = L_k L_k^T; any
+        factor of Σ_k defines a valid affine map between modes). Eigenvalues are clipped at `eps`.
+        Returns L (K, D, D), L^{-1}, log|det L| (K,) and the condition numbers of the Σ_k.
+    """
+    K, D = centres.shape
+    eye = torch.eye(D, device=centres.device, dtype=centres.dtype)
+    pts = torch.stack([centres[:, None, :] + h * eye, centres[:, None, :] - h * eye], dim=2)  # (K, D, 2, D)
+    g = energy.grad_E(pts.reshape(-1, D)).reshape(K, D, 2, D)
+    H = (g[:, :, 0, :] - g[:, :, 1, :]) / (2 * h)                                              # (K, D, D): H[k, j, i] = ∂_j ∂_i E
+    H = 0.5 * (H + H.transpose(-1, -2))
+    lam, V = torch.linalg.eigh(H)
+    lam = lam.clamp(min=eps)
+    L = V * lam.rsqrt().unsqueeze(-2)                                                          # V diag(λ^{-1/2})
+    return L, torch.linalg.inv(L), torch.linalg.slogdet(L)[1], lam.max(-1).values / lam.min(-1).values
+
+
 class AdjointVEMHMatcher(AdjointVEDiracMatcher):
     """ AdjointVEMatcher with a Metropolis-Hastings control variate added to the target:
 
@@ -723,12 +742,21 @@ class AdjointVEMHMatcher(AdjointVEDiracMatcher):
         denoise_tol: float = 0.05,
         radius_scale: float = 1.0,
         max_centres: int = 128,
+        orbit: str = "translation",
+        orbit_size: int | None = None,
         **kwargs,
     ):
         super().__init__(**kwargs)
         assert gamma >= 0 and n_clusters >= 2
+        assert orbit in ("translation", "affine")
+        assert orbit_size is None or orbit_size >= 2
+        self.orbit = orbit # translation: Y_k = x + m_k - m_c; affine: Y_k = μ_k + L_k L_c^{-1}(x - μ_c) (needs covariances)
+        self.orbit_size = orbit_size # None: every other cluster; s: a uniform random subset of s - 1 of them, per sample
+        self.factors = self.prec = self.logdet = None # (K, D, D), (K, D, D), (K,): L_k, L_k^{-1}, log|det L_k|
         if oracle_centres:
             centre_method = "oracle"
+        if orbit == "affine":
+            assert centre_method in ("threshold", "oracle"), "the affine orbit needs covariances: threshold or oracle centres"
         assert centre_method in ("kmeans", "threshold", "oracle")
         self.centre_method = centre_method
         self.denoise_steps = denoise_steps
@@ -753,32 +781,66 @@ class AdjointVEMHMatcher(AdjointVEDiracMatcher):
         """ number of clusters the stored translates are padded to """
         return self.max_centres if self.centre_method == "threshold" else self.n_clusters
 
-    def propose(self, x1):
-        """ jumps Y - X1 = m_k - m_c (N, J, D) from the cluster c of X1 to every other cluster k
-            (J = M - 1) or to one at random (J = 1), and valid = 1[Y in cluster k] (N, J).
-            No centres yet: no valid jump.
+    def _assign(self, x):
+        """ cluster of each point (N, D) -> (N,), the SAME rule for x1 and for every translate: nearest centre (translation
+            orbit), or the Gaussian component with the largest likelihood (affine orbit)
+        """
+        m = self.centres.to(x)
+        if self.orbit == "translation":
+            return _nearest(x, m)
+        z = torch.einsum("kde,nke->nkd", self.prec.to(x), x.unsqueeze(1) - m)
+        return (0.5 * z.pow(2).sum(-1) + self.logdet.to(x)).argmin(-1)
+
+    def _orbit(self, x1):
+        """ translates Y_k of x1 (N, D) toward other clusters: jumps Y_k - x1 (N, J, D), valid = 1[Y_k in cluster k] (N, J) and,
+            for the affine orbit, log|det L_k| - log|det L_c| (N, J). J = M - 1 (all other clusters, padded to the capacity),
+            1 (one random cluster) or orbit_size - 1 (a uniform random subset, drawn independently of the position of x1,
+            so that P(S | x) = P(S | Y_k) for k in S: the sub-orbit is exact too). No centres yet: no valid jump.
         """
         (N, D), Mmax = x1.shape, self.capacity
-        J = Mmax - 1 if self.rao_blackwell else 1
+        J = self.orbit_size - 1 if self.orbit_size else (Mmax - 1 if self.rao_blackwell else 1)
+        affine = self.orbit == "affine"
         if self.centres is None or len(self.centres) < 2:
-            return x1.new_zeros(N, J, D), x1.new_zeros(N, J)
+            return x1.new_zeros(N, J, D), x1.new_zeros(N, J), (x1.new_zeros(N, J) if affine else None)
 
         m = self.centres.to(x1)
-        M = len(m) # = n_clusters for k-means / oracle; <= n_clusters (capacity) for threshold clustering
-        c = _nearest(x1, m)
+        M = len(m) # = n_clusters for k-means / oracle; <= the capacity for threshold clustering
+        c = self._assign(x1)
         others = torch.arange(M, device=x1.device).expand(N, M)
         others = others[others != c[:, None]].view(N, M - 1)
-        if not self.rao_blackwell:
+        if self.orbit_size:
+            keep = min(self.orbit_size - 1, M - 1)
+            others = others.gather(1, torch.rand(N, M - 1, device=x1.device).argsort(1)[:, :keep])
+        elif not self.rao_blackwell:
             others = others.gather(1, torch.randint(M - 1, (N, 1), device=x1.device))
 
-        jumps = m[others] - m[c].unsqueeze(1)
-        valid = _nearest((x1.unsqueeze(1) + jumps).reshape(-1, D), m).view(N, -1) == others
-        valid = valid.to(x1)
+        if affine:
+            u = torch.einsum("nde,ne->nd", self.prec.to(x1)[c], x1 - m[c]) # whitened coordinate, the same in every cluster
+            Y = m[others] + torch.einsum("njde,ne->njd", self.factors.to(x1)[others], u)
+            jumps = Y - x1.unsqueeze(1)
+            logdet = self.logdet.to(x1)[others] - self.logdet.to(x1)[c].unsqueeze(1)
+        else:
+            jumps, logdet = m[others] - m[c].unsqueeze(1), None
+        valid = (self._assign((x1.unsqueeze(1) + jumps).reshape(-1, D)).view(N, -1) == others).to(x1)
         jumps = jumps * valid.unsqueeze(-1)
-        if self.rao_blackwell and M < Mmax: # fewer centres than the capacity: pad with invalid translates
-            jumps = torch.cat([jumps, x1.new_zeros(N, Mmax - M, D)], 1)
-            valid = torch.cat([valid, x1.new_zeros(N, Mmax - M)], 1)
+        if affine:
+            logdet = logdet * valid
+        pad = J - jumps.shape[1]
+        if pad > 0: # fewer clusters than the capacity: pad with invalid translates
+            jumps = torch.cat([jumps, x1.new_zeros(N, pad, D)], 1)
+            valid = torch.cat([valid, x1.new_zeros(N, pad)], 1)
+            if affine:
+                logdet = torch.cat([logdet, x1.new_zeros(N, pad)], 1)
+        return jumps, valid, logdet
+
+    def propose(self, x1):
+        """ jumps (N, J, D) and valid (N, J) of the orbit of x1 """
+        jumps, valid, _ = self._orbit(x1)
         return jumps, valid
+
+    def _propose_for_buffer(self, x1):
+        jumps, valid, logdet = self._orbit(x1)
+        return jumps, valid, ({} if logdet is None else {"logdet": logdet})
 
     def populate_buffer(
             self,
@@ -799,6 +861,9 @@ class AdjointVEMHMatcher(AdjointVEDiracMatcher):
             means = self.grad_term_cost.energy.dist.means
             assert len(means) == self.n_clusters, "oracle centres need n_clusters = K"
             self.centres = means.to(x1).clone()
+            if self.orbit == "affine": # the true covariances of the mixture
+                dist = self.grad_term_cost.energy.dist
+                self.factors, self.prec, self.logdet = dist.L.to(x1), dist.P.to(x1), dist.logdet.to(x1)
 
         # centres from the buffer before this batch, so they do not depend on its samples
         if len(self.buffer) > 0 and self.centre_method == "threshold":
@@ -811,7 +876,7 @@ class AdjointVEMHMatcher(AdjointVEDiracMatcher):
             points = buffer_x1 + self.denoise_step * score1
             self.centres = _kmeans(points, self.n_clusters, self.centres, self.kmeans_iters)
 
-        jumps, valid = self.propose(x1)
+        jumps, valid, extra = self._propose_for_buffer(x1)
         energy = self.grad_term_cost.energy
         with torch.no_grad():
             E1 = energy.eval(x1).reshape(-1)
@@ -830,12 +895,13 @@ class AdjointVEMHMatcher(AdjointVEDiracMatcher):
             "jumps": jumps.to("cpu"),
             "EY": EY.to("cpu"),
             "valid": valid.to("cpu"),
+            **{k: v.to("cpu") for k, v in extra.items()},
         }
         # GMM diagnostic: accepted jumps that stay in the same true mode do nothing for the weights
         dist = getattr(energy, "dist", None)
         if hasattr(dist, "assign"):
             m1 = dist.assign(x1)
-            Je = 0 if self.centres is None else (len(self.centres) - 1 if self.rao_blackwell else jumps.shape[1])
+            Je = 0 if self.centres is None else (len(self.centres) - 1 if self.rao_blackwell and not self.orbit_size else jumps.shape[1])
             mY = m1.unsqueeze(1).repeat(1, jumps.shape[1]) # padded / invalid translates: same mode, weight 0
             if Je > 0:
                 mY[:, :Je] = dist.assign(x1.unsqueeze(1) + jumps[:, :Je])
@@ -877,6 +943,10 @@ class AdjointVEMHMatcher(AdjointVEDiracMatcher):
         info["n"] = len(centres)
         if len(centres) >= 2:
             self.centres = centres
+            if self.orbit == "affine": # Laplace covariances at the basin minima (uses 2 D gradients per centre)
+                self.factors, self.prec, self.logdet, cond = _laplace_factors(self.grad_term_cost.energy, centres)
+                info["cond_median"] = float(cond.median())
+                info["cond_max"] = float(cond.max())
         self._centre_info = info
 
     def mh_term(self, t, x0, xt, x1, E1, jumps, EY, valid):
@@ -898,7 +968,8 @@ class AdjointVEMHMatcher(AdjointVEDiracMatcher):
         E1, EY = data["E1"].to(device), data["EY"].to(device)
         jumps, valid = data["jumps"].to(device), data["valid"].to(device)
 
-        term, alpha = self.mh_term(t, x0, xt, x1, E1, jumps, EY, valid)
+        extra = {"logdet": data["logdet"].to(device)} if "logdet" in data else {}
+        term, alpha = self.mh_term(t, x0, xt, x1, E1, jumps, EY, valid, **extra)
         self._step += 1
         if self._step % self.stats_every == 0:
             same = data["same_mode"].to(device) if "same_mode" in data else None
@@ -925,7 +996,7 @@ class AdjointVEMHMatcher(AdjointVEDiracMatcher):
             st[name] = st[name] + alpha.new_zeros(nb).index_add_(0, b, v.reshape(-1))
 
         # proposals among the real translates only (the columns beyond the centres are padding)
-        n_cols = alpha.shape[1] if self.centres is None or not self.rao_blackwell else min(len(self.centres) - 1, alpha.shape[1])
+        n_cols = alpha.shape[1] if (self.centres is None or not self.rao_blackwell or self.orbit_size) else min(len(self.centres) - 1, alpha.shape[1])
         st["proposals"] += alpha.shape[0] * n_cols
         st["valid"] += valid.sum()
         if same is not None:
@@ -989,14 +1060,20 @@ class AdjointVEBarkerMatcher(AdjointVEMHMatcher):
         assert rao_blackwell, "the orbit needs all M - 1 translates"
         super().__init__(gamma=gamma, rao_blackwell=True, **kwargs)
 
-    def mh_term(self, t, x0, xt, x1, E1, jumps, EY, valid):
-        """ γ h / ν_{1|t} (N, D) and the Barker weights ω_k of the translates (N, M - 1) """
+    def mh_term(self, t, x0, xt, x1, E1, jumps, EY, valid, logdet=None):
+        """ γ h / ν_{1|t} (N, D) and the Barker weights ω_k of the translates (N, J). `logdet` (affine orbit) = log|det L_k| -
+            log|det L_c|: the Jacobian of the map x -> Y_k, so that the orbit is weighted by π(Y_k) |det L_k| (the density of
+            the member k of the orbit in the common whitened coordinate)
+        """
         nut, nu1 = self._nu(t), self._nu(torch.ones_like(t))
         kappa, nu1t = nut / nu1, (nu1 - nut).clamp(min=1e-12)
 
         r = xt - (1 - kappa) * x0 - kappa * x1
         gauss = (kappa * jumps.pow(2).sum(-1) - 2 * (jumps * r.unsqueeze(1)).sum(-1)) / (2 * nu1t)
-        logr = (- (EY - E1) - gauss).masked_fill(valid < 0.5, float("-inf")) # log π(Y_k | xt) / π(x1 | xt)
+        logr = - (EY - E1) - gauss # log π(Y_k | xt) / π(x1 | xt)
+        if logdet is not None:
+            logr = logr + logdet
+        logr = logr.masked_fill(valid < 0.5, float("-inf"))
         logits = torch.cat([torch.zeros_like(logr[:, :1]), logr], 1) # own point: log-weight 0
         w = logits.softmax(-1)[:, 1:]
 

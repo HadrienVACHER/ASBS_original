@@ -188,6 +188,10 @@ class GMM(distributions.Distribution):
         resp = torch.softmax(self._component_logits(x), dim=-1)
         return resp @ self.means - x
 
+    def sq_dist_to_mode(self, x: torch.Tensor, k: torch.Tensor) -> torch.Tensor:
+        """ ||x - μ_k||², squared Mahalanobis distance of x to its mode k (χ²_d for samples of mode k) """
+        return (x - self.means[k]).pow(2).sum(-1)
+
     def assign(self, x: torch.Tensor) -> torch.Tensor:
         """ most likely mode of each sample
         """
@@ -200,6 +204,100 @@ class GMM(distributions.Distribution):
         ).reshape(shape)
         noise = torch.randn(*shape, self.dim, device=self.means.device)
         return self.means[modes] + noise
+
+
+class HeteroGMM(GMM):
+    """ Gaussian mixture with HETEROGENEOUS geometry: p(x) = Σ_k π_k N(x | μ_k, Σ_k), Σ_k = L_k L_k^T
+
+        Means: μ_k = r_k u_k, u_k a random direction, r_k ~ Uniform(radius_min, radius_max): modes at unequal distances.
+        Covariances: L_k = Q_k diag(s_k), Q_k a random rotation, s_k log-uniform in [scale_min, scale_max]: unequal widths,
+        non-axis-aligned. Weights as in GMM (loguniform, max/min <= weight_ratio).
+        Components are redrawn until every pair is separated: |μ_i - μ_j| >= min_sep (σ_i(u) + σ_j(u)), u the unit vector from
+        μ_i to μ_j and σ_k(u) = √(u^T Σ_k u), so that the modes can be told apart.
+        The target is fully determined by `seed`.
+    """
+    def __init__(
+        self,
+        dim: int,
+        K: int = 5,
+        seed: int = 0,
+        radius_min: float = 7.0,
+        radius_max: float = 11.0,
+        scale_min: float = 0.6,
+        scale_max: float = 1.6,
+        weight_ratio: float = 20.0,
+        min_sep: float = 3.5,
+        device: str = "cpu",
+    ) -> None:
+        distributions.Distribution.__init__(self, validate_args=False)
+        self.dim, self.K, self.seed = dim, K, seed
+        self.name = f"hetero{dim}d"
+
+        g = torch.Generator().manual_seed(seed)
+        means = torch.zeros(K, dim)
+        L = torch.zeros(K, dim, dim)
+
+        def draw(k):
+            v = torch.randn(dim, generator=g)
+            means[k] = v / v.norm() * (radius_min + (radius_max - radius_min) * torch.rand(1, generator=g))
+            Q, _ = torch.linalg.qr(torch.randn(dim, dim, generator=g))
+            s = torch.exp(math.log(scale_min) + (math.log(scale_max) - math.log(scale_min)) * torch.rand(dim, generator=g))
+            L[k] = Q * s # Q diag(s)
+
+        def sigma_along(k, u):
+            return (L[k].T @ u).norm()
+
+        def separated(i, j):
+            d = means[j] - means[i]
+            u = d / d.norm()
+            return d.norm() >= min_sep * (sigma_along(i, u) + sigma_along(j, u))
+
+        for k in range(K):
+            for _ in range(10000):
+                draw(k)
+                if all(separated(i, k) for i in range(k)):
+                    break
+            else:
+                raise RuntimeError(f"cannot separate {K} modes in d = {dim} with these radii / scales")
+        self.means, self.L = means, L
+        U = torch.exp(-math.log(weight_ratio) * torch.rand(K, generator=g))
+        self.weights = U / U.sum()
+        self.to(device)
+
+    def to(self, device) -> distributions.Distribution:
+        self.means, self.weights, self.L = self.means.to(device), self.weights.to(device), self.L.to(device)
+        self.P = torch.linalg.inv(self.L)                                    # L^{-1}, (K, d, d)
+        self.logdet = torch.linalg.slogdet(self.L)[1]                        # log |det L_k|, (K,)
+        return self
+
+    def _whiten(self, x):
+        # z_k = L_k^{-1} (x - μ_k): (..., K, d)
+        return torch.einsum("kde,...ke->...kd", self.P, x.unsqueeze(-2) - self.means)
+
+    def _component_logits(self, x: torch.Tensor) -> torch.Tensor:
+        z = self._whiten(x)
+        return self.weights.log() - 0.5 * z.pow(2).sum(-1) - self.logdet - 0.5 * self.dim * math.log(2 * math.pi)
+
+    def score(self, x: torch.Tensor) -> torch.Tensor:
+        """ ∇log p(x) = - Σ_k r_k(x) Σ_k^{-1} (x - μ_k) """
+        r = torch.softmax(self._component_logits(x), dim=-1)
+        z = self._whiten(x)
+        return - torch.einsum("...k,kde,...kd->...e", r, self.P, z)
+
+    def sq_dist_to_mode(self, x: torch.Tensor, k: torch.Tensor) -> torch.Tensor:
+        return torch.einsum("nde,ne->nd", self.P[k], x - self.means[k]).pow(2).sum(-1)
+
+    def sample(self, shape: tuple) -> torch.Tensor:
+        shape = torch.Size(shape)
+        modes = torch.multinomial(self.weights, shape.numel(), replacement=True).reshape(shape)
+        z = torch.randn(*shape, self.dim, device=self.means.device, dtype=self.means.dtype)
+        return self.means[modes] + torch.einsum("...de,...e->...d", self.L[modes], z)
+
+    def coord_std(self) -> float:
+        """ √ (mean coordinate variance of the mixture), the scale of the VE noise """
+        mbar = (self.weights[:, None] * self.means).sum(0)
+        var = (self.weights * ((self.means - mbar).pow(2).sum(-1) + (self.L ** 2).sum((-1, -2)))).sum() / self.dim
+        return float(var.sqrt())
 
 
 ########################################

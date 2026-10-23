@@ -23,6 +23,14 @@ from omegaconf import OmegaConf
 OmegaConf.register_new_resolver(
     "gmm_std", lambda dim, factor=1, radius=None: factor * GMM.coord_std(dim, radius), replace=True,
 )
+def _hetero_std(dim, K, seed, radius_min, radius_max, scale_min, scale_max, weight_ratio, mult):
+    from adjoint_samplers.utils.dist_utils import HeteroGMM
+    g = HeteroGMM(dim=dim, K=K, seed=seed, radius_min=radius_min, radius_max=radius_max, scale_min=scale_min,
+                  scale_max=scale_max, weight_ratio=weight_ratio)
+    return mult * g.coord_std()
+
+
+OmegaConf.register_new_resolver("hetero_std", _hetero_std, replace=True)
 OmegaConf.register_new_resolver("mul", lambda a, b: a * b, replace=True)
 
 

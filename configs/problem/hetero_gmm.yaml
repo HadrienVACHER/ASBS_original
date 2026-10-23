@@ -1,0 +1,35 @@
+# @package _global_
+
+# GMM with HETEROGENEOUS geometry: unequal, non-axis-aligned covariances (L_k = Q_k diag(s_k), s_k log-uniform in
+# [scale_min, scale_max]) and modes at unequal distances (|mu_k| ~ Uniform(radius_min, radius_max)), in K components.
+# Components are redrawn until they are separated (see HeteroGMM). The target is fixed by `target_seed`.
+dim: 24
+K: 24
+target_seed: 0
+radius_min: 7.0
+radius_max: 11.0
+scale_min: 0.6
+scale_max: 1.6
+weight_ratio: 20
+min_sep: 3.5
+
+energy:
+  _target_: adjoint_samplers.energies.dist_energy.DistEnergy
+  dist:
+    _target_: adjoint_samplers.utils.dist_utils.HeteroGMM
+    dim: ${dim}
+    K: ${K}
+    seed: ${target_seed}
+    radius_min: ${radius_min}
+    radius_max: ${radius_max}
+    scale_min: ${scale_min}
+    scale_max: ${scale_max}
+    weight_ratio: ${weight_ratio}
+    min_sep: ${min_sep}
+
+evaluator:
+  _target_: adjoint_samplers.components.evaluator.GMMEvaluator
+  w2_samples: 2000
+  cover_ratio: 0.1 # a mode is covered if it gets >= 10% of its weight
+
+num_eval_samples: 10000

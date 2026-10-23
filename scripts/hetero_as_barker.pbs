@@ -1,0 +1,60 @@
+#!/bin/bash
+#PBS -N hetero_as_barker
+#PBS -P gs_ccds_haidang.dau
+#PBS -q gpu_as
+#PBS -l walltime=10:00:00
+#PBS -l select=1:ncpus=15:ngpus=1:mem=64gb
+#PBS -j oe
+
+# GMM hétérogène (covariances inégales, modes non équidistants) d = K = 24 (À lancer depuis la branche mh), graines 0 à 2,
+# 2000 epochs, dump_final. Méthode gelée (gamma = 3, centres seuil, réseau 256x6) :
+#   AS                                  (hetero_as)
+#   Barker, orbite de TRANSLATION       (équidistance supposée : référence)
+#   Barker, orbite AFFINE               (T_{k<-c}(x) = mu_k + L_k L_c^{-1}(x - mu_c), poids de Barker x |det L_k|)
+#   Barker, orbite AFFINE, orbit_size 8 et 4  (coût : s - 1 appels d'énergie par échantillon au lieu de K - 1)
+# 5 cellules x 3 graines = 15 runs. Analyse : plot du rapport R_j contre log w_j, |log R|, quart léger, min R, energy_w2, appels d'énergie.
+SEEDS=(0 1 2)
+DIM=24
+COMMON="dim=${DIM} K=${DIM} num_epochs=2000 dump_final=true fast_sampling=true buffer_on_device=true fast_train=true"
+NPROC=15
+THREADS=1
+
+cd "${PBS_O_WORKDIR}" || exit 1
+mkdir -p logs
+export PYTHONUNBUFFERED=1
+export OMP_NUM_THREADS=${THREADS}
+export MKL_NUM_THREADS=${THREADS}
+
+# --- Correctif officiel PBS/GaaS pour les identifiants GPU (inchangé) ---
+if echo "${CUDA_VISIBLE_DEVICES:-}" | grep -q "GPU-"; then
+    GPU_COUNT=$(echo "${CUDA_VISIBLE_DEVICES}" | tr ',' '\n' | wc -l)
+    CUDA_VISIBLE_DEVICES=$(seq -s, 0 $((GPU_COUNT - 1)))
+    export CUDA_VISIBLE_DEVICES
+fi
+
+module purge
+module load anaconda/2025
+eval "$(/usr/local/anaconda2025/bin/conda shell.bash hook)"
+conda activate BMS
+
+echo "Nœud : $(hostname) à $(date)"
+nvidia-smi -L
+git log --oneline -1
+
+run() { # name experiment extra-args seed
+  python train.py experiment=$2 ${COMMON} seed=$4 $3 exp_name=$1 hydra.run.dir=results/hetero_as_barker/$1_seed$4 \
+      > logs/hetero_$1_seed$4.log 2>&1 &
+  pids+=($!)
+}
+pids=()
+for SEED in "${SEEDS[@]}"; do
+  run hetero24d_as              hetero_as        ""                                                              ${SEED}
+  run hetero24d_barker_transl   hetero_as_barker "adjoint_matcher.orbit=translation"                             ${SEED}
+  run hetero24d_barker_affine   hetero_as_barker "adjoint_matcher.orbit=affine"                                  ${SEED}
+  run hetero24d_barker_aff_s8   hetero_as_barker "adjoint_matcher.orbit=affine adjoint_matcher.orbit_size=8"     ${SEED}
+  run hetero24d_barker_aff_s4   hetero_as_barker "adjoint_matcher.orbit=affine adjoint_matcher.orbit_size=4"     ${SEED}
+done
+fail=0
+for p in "${pids[@]}"; do wait "$p" || fail=1; done
+echo "Fin à $(date), statut : ${fail}"
+exit $fail
