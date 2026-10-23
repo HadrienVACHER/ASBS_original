@@ -35,11 +35,11 @@ git log --oneline -1
 
 COMMON="--N 20000 --n-mc 8"
 G=results/gmm_as_barker_gamma
-python scripts/exact_iteration.py --dim 36 --K 36 --sigma-max 2.4509068616421237 ${COMMON} --focus 22 \
+python scripts/exact_iteration.py --dim 36 --K 36 --sigma-max 2.4509068616421237 ${COMMON} --focus 2 6 22 \
     --samples ${G}/K36_g2_oracle_seed0/samples_final.pt --out results/exact_iteration/K36_oracle_g2 \
     > logs/exact_iteration_K36_oracle.log 2>&1 &
 p1=$!
-python scripts/exact_iteration.py --dim 36 --K 36 --sigma-max 2.4509068616421237 ${COMMON} --focus 22 \
+python scripts/exact_iteration.py --dim 36 --K 36 --sigma-max 2.4509068616421237 ${COMMON} --focus 2 6 22 \
     --samples ${G}/K36_g2_km_seed0/samples_final.pt --out results/exact_iteration/K36_km_g2 \
     > logs/exact_iteration_K36_km.log 2>&1 &
 p2=$!

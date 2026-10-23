@@ -64,9 +64,10 @@ def main():
     ap.add_argument("--which", default="controller", choices=["controller", "ema"])
     ap.add_argument("--focus", type=int, nargs="*", default=[])
     ap.add_argument("--out", default="results/committed_mass/curves")
+    ap.add_argument("--device", default=None, help="default: cuda if available, else cpu")
     args = ap.parse_args()
 
-    device = "cuda" if torch.cuda.is_available() else "cpu"
+    device = args.device or ("cuda" if torch.cuda.is_available() else "cpu")
     K = args.K or args.dim
     target = GMM(dim=args.dim, K=K, seed=0, layout="spread", weight_law="loguniform", weight_ratio=args.weight_ratio, radius=args.radius)
     target.K = K

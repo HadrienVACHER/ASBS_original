@@ -135,9 +135,10 @@ def main():
     ap.add_argument("--focus", type=int, nargs="*", default=[])
     ap.add_argument("--out", default="results/exact_iteration")
     ap.add_argument("--seed", type=int, default=5)
+    ap.add_argument("--device", default=None, help="default: cuda if available, else cpu")
     args = ap.parse_args()
 
-    device = "cuda" if torch.cuda.is_available() else "cpu"
+    device = args.device or ("cuda" if torch.cuda.is_available() else "cpu")
     torch.manual_seed(args.seed)
     K = args.K or args.dim
     target = GMM(dim=args.dim, K=K, seed=0, layout="spread", weight_law="loguniform", weight_ratio=args.weight_ratio, radius=args.radius)
@@ -152,10 +153,15 @@ def main():
         w_hat = w * torch.exp(args.imbalance * torch.randn(K))
         w_hat = w_hat / w_hat.sum()
         src = f"synthetic: ŵ ∝ w exp({args.imbalance} N(0, 1))"
+    # make_matcher wraps the target in DistEnergy(target), which moves it to the CPU (device="cpu" default): build the matcher
+    # first, then move the target (the same object the matcher's energy holds) and copy the model from it
+    matcher = make_matcher(target, AdjointVEBarkerMatcher, sigma_max=args.sigma_max, gamma=1.0, n_clusters=K)
     target.to(device)
     model = with_weights(target, w_hat.to(device))
-    matcher = make_matcher(target, AdjointVEBarkerMatcher, sigma_max=args.sigma_max, gamma=1.0, n_clusters=K)
     matcher.centres = target.means.clone()
+    for name_, t_ in (("target.means", target.means), ("target.weights", target.weights), ("model.means", model.means),
+                      ("model.weights", model.weights), ("centres", matcher.centres)):
+        assert t_.device.type == torch.device(device).type, f"{name_} is on {t_.device}, expected {device}"
     sim = Sim(target, model, matcher, args, device)
     w, w_hat = w.to(device), w_hat.to(device)
     e = w - w_hat
