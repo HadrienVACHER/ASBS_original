@@ -1,0 +1,53 @@
+#!/bin/bash
+#PBS -N exact_iteration
+#PBS -P gs_ccds_haidang.dau
+#PBS -q gpu_as
+#PBS -l walltime=03:00:00
+#PBS -l select=1:ncpus=6:ngpus=1:mem=32gb
+#PBS -j oe
+
+# Itération exacte depuis un buffer GELÉ (les masses de modes des vrais buffers sauvegardés par le balayage de gamma),
+# régression résolue exactement, 5 bras : bridge (référence), A (AS seul), B (Barker, gamma 1, 2, 3), C (u* exact pour
+# t < 0.07 puis AS), D (u* exact partout, doit retrouver les vrais poids). Rapport de transfert par mode Δŵ_j / e_j.
+# À lancer depuis la branche mh, après git pull. Les fichiers samples_final.pt viennent de scripts/gmm_as_barker_gamma.pbs.
+#   d = 36, buffer de l'oracle gamma=2 (cas du mode 22) ; d = 36, buffer k-means gamma=2 ; d = 24, buffer de l'oracle (mode 12)
+cd "${PBS_O_WORKDIR}" || exit 1
+mkdir -p logs results/exact_iteration
+export PYTHONUNBUFFERED=1
+export OMP_NUM_THREADS=2
+export MKL_NUM_THREADS=2
+
+# --- Correctif officiel PBS/GaaS pour les identifiants GPU (inchangé) ---
+if echo "${CUDA_VISIBLE_DEVICES:-}" | grep -q "GPU-"; then
+    GPU_COUNT=$(echo "${CUDA_VISIBLE_DEVICES}" | tr ',' '\n' | wc -l)
+    CUDA_VISIBLE_DEVICES=$(seq -s, 0 $((GPU_COUNT - 1)))
+    export CUDA_VISIBLE_DEVICES
+fi
+
+module purge
+module load anaconda/2025
+eval "$(/usr/local/anaconda2025/bin/conda shell.bash hook)"
+conda activate BMS
+
+echo "Nœud : $(hostname) à $(date)"
+nvidia-smi -L
+git log --oneline -1
+
+COMMON="--N 20000 --n-mc 8"
+G=results/gmm_as_barker_gamma
+python scripts/exact_iteration.py --dim 36 --K 36 --sigma-max 2.4509068616421237 ${COMMON} --focus 22 \
+    --samples ${G}/K36_g2_oracle_seed0/samples_final.pt --out results/exact_iteration/K36_oracle_g2 \
+    > logs/exact_iteration_K36_oracle.log 2>&1 &
+p1=$!
+python scripts/exact_iteration.py --dim 36 --K 36 --sigma-max 2.4509068616421237 ${COMMON} --focus 22 \
+    --samples ${G}/K36_g2_km_seed0/samples_final.pt --out results/exact_iteration/K36_km_g2 \
+    > logs/exact_iteration_K36_km.log 2>&1 &
+p2=$!
+python scripts/exact_iteration.py --dim 24 --K 24 --sigma-max 2.6477191442195425 ${COMMON} --focus 12 \
+    --samples ${G}/K24_g1_oracle_seed0/samples_final.pt --out results/exact_iteration/K24_oracle_g1 \
+    > logs/exact_iteration_K24_oracle.log 2>&1 &
+p3=$!
+fail=0
+for p in $p1 $p2 $p3; do wait "$p" || fail=1; done
+echo "Fin à $(date), statut : ${fail}"
+exit $fail
