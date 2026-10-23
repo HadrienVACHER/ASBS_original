@@ -1,0 +1,13 @@
+# @package _global_
+
+# gmm_as with the Barker orbit control variate in the regression target (AdjointVEBarkerMatcher).
+# M = K clusters (K = number of modes), all M - 1 translates per sample.
+
+defaults:
+  - gmm_as
+  - override /matcher@adjoint_matcher: adjoint_ve_barker
+
+exp_name: gmm${dim}d_as_barker_g${adjoint_matcher.gamma}_M${adjoint_matcher.n_clusters}
+
+adjoint_matcher:
+  n_clusters: ${K}

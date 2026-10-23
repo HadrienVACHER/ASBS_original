@@ -1,0 +1,18 @@
+_target_: adjoint_samplers.components.matcher.AdjointVEBarkerMatcher
+
+# target = - ∇g + γ h / ν_{1|t}, h the Barker-resampled displacement over the translation orbit of the
+# k-means clusters. All M - 1 translates are stored (M - 1 energy evaluations per sample).
+gamma: 1.0 # the flux scale at small t (flux = weight error e); the exact-iteration test gives the calibration
+n_clusters: 2 # M = K (modes), no sub-clusters: M = 2K breaks the mode-level exactness
+kmeans_iters: 20
+denoise_step: 1.0 # k-means on x1 + s ∇log p1(x1) (the mode centre for unit-variance modes); 0: raw x1
+stats_every: 10 # mh/* and barker/* diagnostics every n steps
+t_focus: 0.0
+t_focus_max: 0.15
+
+grad_state_cost:
+  _target_: adjoint_samplers.components.state_cost.ZeroGradStateCost
+
+buffer:
+  _target_: adjoint_samplers.components.buffer.BatchBuffer
+  buffer_size: ${adjoint_matcher.buffer_size}

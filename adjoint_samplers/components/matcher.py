@@ -734,6 +734,72 @@ class AdjointVEMHMatcher(AdjointVEDiracMatcher):
         return out
 
 
+class AdjointVEBarkerMatcher(AdjointVEMHMatcher):
+    """ AdjointVEMHMatcher where the M - 1 translates of X1 are aggregated by Barker resampling over the
+        whole translation orbit instead of M - 1 Metropolis acceptances:
+
+            target = - ∇g(X1) + γ h / ν_{1|t},   h = Σ_{k ≠ c} ω_k (Y_k - X1),   ω = softmax over the orbit
+
+        {X1, Y_1, .., Y_{M-1}} of log π(. | Xt), so ω_own = π(X1 | Xt) / Σ_orbit π, ω_k = π(Y_k | Xt) / Σ_orbit π
+        (same log-ratio as the MH term, with the own point at log-weight 0, invalid translates at -inf).
+
+        Zero mean: the orbit O = {X1 + m_j - m_c : Y_j in cluster j} is the same set seen from any of its
+        members (same centres, same nearest-centre rule on raw points), so E_π[h | O] = Σ_x p_O(x) Σ_y p_O(y)
+        (y - x) = 0 exactly, for any centres (also M = 2K or random centres): u* stays the fixed point.
+
+        Mode level (small t, equal-shape separated modes, M = K, centres = means): ω_k = w_k, the chain moves
+        X1 to an independent draw of the mode, transition matrix 1 w^T, and E_{p1^u}[h] = Σ_k (w_k - ŵ_k) m_k:
+        the flux is the weight error e, with a flat spectrum (MH: - G^T e, eigenvalues spread, wider with K).
+        γ = 1 is the flux scale, not the scale of the final weights (the term only acts at small t).
+
+        All M - 1 translates and their energies are stored per sample (rao_blackwell is always true): M - 1 energy
+        evaluations per sample, against < 1 for MH with one jump.
+    """
+    def __init__(self, gamma: float = 1.0, rao_blackwell: bool = True, **kwargs):
+        assert rao_blackwell, "the orbit needs all M - 1 translates"
+        super().__init__(gamma=gamma, rao_blackwell=True, **kwargs)
+
+    def mh_term(self, t, x0, xt, x1, E1, jumps, EY, valid):
+        """ γ h / ν_{1|t} (N, D) and the Barker weights ω_k of the translates (N, M - 1) """
+        nut, nu1 = self._nu(t), self._nu(torch.ones_like(t))
+        kappa, nu1t = nut / nu1, (nu1 - nut).clamp(min=1e-12)
+
+        r = xt - (1 - kappa) * x0 - kappa * x1
+        gauss = (kappa * jumps.pow(2).sum(-1) - 2 * (jumps * r.unsqueeze(1)).sum(-1)) / (2 * nu1t)
+        logr = (- (EY - E1) - gauss).masked_fill(valid < 0.5, float("-inf")) # log π(Y_k | xt) / π(x1 | xt)
+        logits = torch.cat([torch.zeros_like(logr[:, :1]), logr], 1) # own point: log-weight 0
+        w = logits.softmax(-1)[:, 1:]
+
+        h = (w.unsqueeze(-1) * jumps).sum(1)
+        return self.gamma * h / nu1t, w
+
+    @torch.no_grad()
+    def _update_stats(self, t, jumps, valid, alpha, term, adjoint1, same):
+        super()._update_stats(t, jumps, valid, alpha, term, adjoint1, same) # alpha = ω here
+        st = self._stats
+        nb = len(self.T_EDGES) - 1
+        b = torch.bucketize(t.squeeze(-1), t.new_tensor(self.T_EDGES[1:-1]), right=True)
+        own = 1 - alpha.sum(-1)
+        ess = 1 / (own ** 2 + alpha.pow(2).sum(-1)) # over the whole orbit, own point included
+        for name, v in (("n", torch.ones_like(own)), ("own", own), ("ess", ess)):
+            st[f"barker_{name}"] = st[f"barker_{name}"] + alpha.new_zeros(nb).index_add_(0, b, v)
+
+    def pop_stats(self):
+        st = self._stats
+        out = super().pop_stats()
+        # the MH "acceptance" keys hold ω here: rename, and drop the equal-energy prediction
+        out = {k.replace("mh/acc/", "barker/translate_weight/"): v
+               for k, v in out.items() if not k.startswith("mh/acc_pred/")}
+        if torch.is_tensor(st["barker_n"]):
+            n, own, ess = (st[f"barker_{k}"].tolist() for k in ("n", "own", "ess"))
+            for i in range(len(n)):
+                if n[i] > 0:
+                    bucket = f"t{self.T_EDGES[i]:g}-{self.T_EDGES[i + 1]:g}"
+                    out[f"barker/own_weight/{bucket}"] = own[i] / n[i]
+                    out[f"barker/orbit_ess/{bucket}"] = ess[i] / n[i]
+        return out
+
+
 class CorrectorMatcher(Matcher):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)

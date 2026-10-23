@@ -254,7 +254,7 @@ def test_buffer_to_loss():
           + ", ".join(f"{k} {v:.3g}" for k, v in stats.items() if "/acc" not in k))
 
 
-def test_drift_to_weights(N=40000, n_mc=16, gamma=0.5, t_stop=0.3):
+def test_drift_to_weights(N=40000, n_mc=16, gamma=0.5, t_stop=0.3, matcher_cls=AdjointVEMHMatcher):
     """ One outer iteration from a frozen buffer p1^u (wrong weights), with the inner regression solved
         exactly: drift σ²(t) [u_bridge + γ E_{π^u}[h | x] / ν_{1|t}], u_bridge = (E_{π^u}[X1 | x] - x) / ν_{1|t}
         the bridge to p1^u. Its change of terminal mode masses vs the bridge alone (same noise) is compared
@@ -271,7 +271,7 @@ def test_drift_to_weights(N=40000, n_mc=16, gamma=0.5, t_stop=0.3):
         target = make_gmm(dim, K, radius=4.25)
         target.means, target.weights = target.means.double(), target.weights.double()
         model = with_weights(target, target.weights * torch.exp(0.4 * torch.randn(K)))
-        matcher = make_matcher(target, gamma=gamma, n_clusters=K, rao_blackwell=True, sigma_max=2 * GMM.coord_std(dim, 4.25))
+        matcher = make_matcher(target, matcher_cls, gamma=gamma, n_clusters=K, rao_blackwell=True, sigma_max=2 * GMM.coord_std(dim, 4.25))
         matcher.centres = target.means.clone()
         ref = matcher.sde.ref_sde
         timesteps = torch.linspace(0, 1, 201)
