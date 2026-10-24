@@ -53,7 +53,7 @@ def main():
         light = np.argsort(w)[:D // 4]
         rows = {}
         for r in runs:
-            m = re.match(rf"^hetero24d_geom{name}_as_K{D}_s(\d)$", r.name)   # AS seul
+            m = re.match(rf"^hetero24d_geom{name}_as_K{D}_s(\d)(?:_random|_simplex)?$", r.name)   # AS seul (le Writer ajoute le layout au nom)
             if m and r.state == "finished" and int(m.group(1)) not in rows:
                 keys = ["modes_covered"] + [f"mode_ratio/{j}" for j in range(D)]
                 h = r.history(keys=keys, samples=6000, pandas=True, x_axis="_step").dropna(subset=["modes_covered"])

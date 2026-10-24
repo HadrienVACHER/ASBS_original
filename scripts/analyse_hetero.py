@@ -84,7 +84,7 @@ def main():
             continue
         seeds = {}
         for r in runs:
-            m = re.match(rf"^{re.escape(args.prefix)}_{suffix}_K{D}_s(\d)$", r.name)
+            m = re.match(rf"^{re.escape(args.prefix)}_{suffix}_K{D}_s(\d)(?:_random|_simplex)?$", r.name)
             if m and r.state == "finished" and int(m.group(1)) not in seeds:
                 seeds[int(m.group(1))] = r
         if not seeds:
