@@ -3,27 +3,31 @@
 #PBS -P gs_ccds_haidang.dau
 #PBS -q gpu_as
 #PBS -l walltime=10:00:00
-#PBS -l select=1:ncpus=15:ngpus=1:mem=64gb
+#PBS -l select=1:ncpus=16:ngpus=1:mem=64gb
 #PBS -j oe
 
-# GMM hétérogène (covariances inégales, modes non équidistants) d = K = 24 (À lancer depuis la branche mh), graines 0 à 2,
-# 2000 epochs, dump_final. Méthode gelée (gamma = 3, centres seuil, réseau 256x6) :
-#   AS                                  (hetero_as)
-#   Barker, orbite de TRANSLATION       (équidistance supposée : référence)
-#   Barker, orbite AFFINE               (T_{k<-c}(x) = mu_k + L_k L_c^{-1}(x - mu_c), poids de Barker x |det L_k|)
-#   Barker, orbite AFFINE, orbit_size 8 et 4  (coût : s - 1 appels d'énergie par échantillon au lieu de K - 1)
-# 5 cellules x 3 graines = 15 runs. Analyse : plot du rapport R_j contre log w_j, |log R|, quart léger, min R, energy_w2, appels d'énergie.
-SEEDS=(0 1 2)
+# GMM hétérogène (covariances inégales, modes non équidistants) d = K = 24 (À lancer depuis la branche mh) : VERSION 2.
+# La première version (rayons 7-11) a été invalidée : AS s'effondrait (2-3 modes sur 24), les résultats Barker de cette version ne sont
+# PAS utilisés. La géométrie est choisie sur AS seul par scripts/hetero_geometry_rule.py : remplir GEOM_OVERRIDES avec la géométrie
+# retenue (ex. "radius_min=4.5 radius_max=6.5 weight_ratio=20 scale_min=0.6 scale_max=1.4 min_sep=2.5"), PUIS soumettre.
+# Méthode gelée (gamma = 3, centres seuil, réseau 256x6). Graines 0 à 2, 2000 epochs, dump_final :
+#   AS | Barker orbite de TRANSLATION | Barker orbite AFFINE | AFFINE orbit_size 8 | AFFINE orbit_size 4   (5 cellules x 3 graines)
+#   + UNE cellule oracle (orbite affine avec les vrais mu_k, L_k, graine 0) pour séparer les erreurs de clustering / Laplace de la méthode
+# = 16 runs. Analyse : python scripts/analyse_hetero.py --geom "<la même chaîne>".
+GEOM_OVERRIDES="__A_REMPLIR_APRES_hetero_geometry_rule__"
+if [[ "${GEOM_OVERRIDES}" == __* ]]; then
+  echo "GEOM_OVERRIDES n'est pas rempli : choisir la géométrie sur AS seul (hetero_geometry_rule.py) puis éditer ce script." >&2
+  exit 1
+fi
+PREFIX=hetero24d_v2
 DIM=24
-COMMON="dim=${DIM} K=${DIM} num_epochs=2000 dump_final=true fast_sampling=true buffer_on_device=true fast_train=true"
-NPROC=15
-THREADS=1
+COMMON="dim=${DIM} K=${DIM} num_epochs=2000 dump_final=true fast_sampling=true buffer_on_device=true fast_train=true ${GEOM_OVERRIDES}"
 
 cd "${PBS_O_WORKDIR}" || exit 1
 mkdir -p logs
 export PYTHONUNBUFFERED=1
-export OMP_NUM_THREADS=${THREADS}
-export MKL_NUM_THREADS=${THREADS}
+export OMP_NUM_THREADS=1
+export MKL_NUM_THREADS=1
 
 # --- Correctif officiel PBS/GaaS pour les identifiants GPU (inchangé) ---
 if echo "${CUDA_VISIBLE_DEVICES:-}" | grep -q "GPU-"; then
@@ -40,20 +44,22 @@ conda activate BMS
 echo "Nœud : $(hostname) à $(date)"
 nvidia-smi -L
 git log --oneline -1
+echo "géométrie : ${GEOM_OVERRIDES}"
 
-run() { # name experiment extra-args seed
-  python train.py experiment=$2 ${COMMON} seed=$4 $3 exp_name=$1 hydra.run.dir=results/hetero_as_barker/$1_seed$4 \
-      > logs/hetero_$1_seed$4.log 2>&1 &
+run() { # suffixe experiment arguments-supplémentaires graine
+  python train.py experiment=$2 ${COMMON} seed=$4 $3 exp_name=${PREFIX}_$1 hydra.run.dir=results/hetero_as_barker_v2/$1_seed$4 \
+      > logs/hetero_v2_$1_seed$4.log 2>&1 &
   pids+=($!)
 }
 pids=()
-for SEED in "${SEEDS[@]}"; do
-  run hetero24d_as              hetero_as        ""                                                              ${SEED}
-  run hetero24d_barker_transl   hetero_as_barker "adjoint_matcher.orbit=translation"                             ${SEED}
-  run hetero24d_barker_affine   hetero_as_barker "adjoint_matcher.orbit=affine"                                  ${SEED}
-  run hetero24d_barker_aff_s8   hetero_as_barker "adjoint_matcher.orbit=affine adjoint_matcher.orbit_size=8"     ${SEED}
-  run hetero24d_barker_aff_s4   hetero_as_barker "adjoint_matcher.orbit=affine adjoint_matcher.orbit_size=4"     ${SEED}
+for SEED in 0 1 2; do
+  run as              hetero_as        ""                                                              ${SEED}
+  run barker_transl   hetero_as_barker "adjoint_matcher.orbit=translation"                             ${SEED}
+  run barker_affine   hetero_as_barker "adjoint_matcher.orbit=affine"                                  ${SEED}
+  run barker_aff_s8   hetero_as_barker "adjoint_matcher.orbit=affine adjoint_matcher.orbit_size=8"     ${SEED}
+  run barker_aff_s4   hetero_as_barker "adjoint_matcher.orbit=affine adjoint_matcher.orbit_size=4"     ${SEED}
 done
+run barker_affine_oracle hetero_as_barker "adjoint_matcher.orbit=affine adjoint_matcher.centre_method=oracle" 0
 fail=0
 for p in "${pids[@]}"; do wait "$p" || fail=1; done
 echo "Fin à $(date), statut : ${fail}"
