@@ -6,6 +6,7 @@ gamma: 1.0 # the flux scale at small t (flux = weight error e); the exact-iterat
 n_clusters: 2 # M = K (modes), no sub-clusters: M = 2K breaks the mode-level exactness
 kmeans_iters: 20
 denoise_step: 1.0 # k-means on x1 + s ∇log p1(x1) (the mode centre for unit-variance modes); 0: raw x1
+gamma_anneal_frac: 0.0 # 0.2: gamma decays linearly to 0 over the last 20% of the epochs (zero mean at the fixed point: no bias)
 stats_every: 10 # mh/* and barker/* diagnostics every n steps
 # centres: kmeans (M = n_clusters, on the points denoised once with the stored gradient) | oracle (GMM only: the true means,
 # needs n_clusters = K) | threshold: leader clustering of the basin minima of the buffer samples (per-point

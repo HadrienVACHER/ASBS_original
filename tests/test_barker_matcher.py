@@ -316,6 +316,37 @@ def test_threshold_centres_in_the_matcher():
           f" {stats['denoise/steps_mean']:.2f}, ∇E/sample {stats['denoise/grad_evals_per_sample']:.2f}")
 
 
+def test_gamma_annealing_schedule():
+    """ gamma_anneal_frac = 0.2: γ_eff = γ for the first 80% of the epochs, then a linear decay to 0; at 0 the target is AS's """
+    target = make_gmm(dim=6, K=4, radius=4.25)
+    m = make_matcher(target, AdjointVEBarkerMatcher, gamma=3.0, n_clusters=4, gamma_anneal_frac=0.2)
+    got = {}
+    for e in (0, 1000, 1600, 1700, 1800, 1900, 2000):
+        m.set_progress(e, 2000)
+        got[e] = m.gamma_eff
+    assert got[0] == got[1000] == 3.0 and abs(got[1600] - 3.0) < 1e-9
+    assert abs(got[1700] - 2.25) < 1e-9 and abs(got[1800] - 1.5) < 1e-9 and abs(got[1900] - 0.75) < 1e-9 and got[2000] == 0.0
+    plain = make_matcher(target, AdjointVEBarkerMatcher, gamma=3.0, n_clusters=4)
+    plain.set_progress(1999, 2000)
+    assert plain.gamma_eff == 3.0, "no annealing by default"
+    # γ_eff = 0: the Barker target is AS's target
+    as_m = make_matcher(target, AdjointVEMatcher)
+    m.centres = target.means.clone()
+    m.set_progress(2000, 2000)
+    x1 = target.sample([64])
+    data = {"x0": torch.zeros(64, 6), "x1": x1, "adjoint1": as_m.grad_term_cost(x1)}
+    data.update({k: v for k, v in mh_inputs(m, 0.1, torch.zeros(6), x1).items() if k in ("E1", "jumps", "EY", "valid")})
+    targets = []
+    for mm in (as_m, m):
+        torch.manual_seed(3)
+        targets.append(mm.prepare_target(data, "cpu")[1])
+    assert torch.equal(*targets)
+    m.set_progress(0, 2000)
+    torch.manual_seed(3)
+    assert not torch.equal(targets[0], m.prepare_target(data, "cpu")[1]), "γ_eff = 3 changes the target"
+    print("ok  gamma annealing: " + ", ".join(f"epoch {e}: {v:.2f}" for e, v in got.items()) + "; γ_eff = 0 gives AS's target")
+
+
 def test_buffer_to_loss():
     """ populate (no centres, then k-means on the previous buffer) -> dataloader -> target -> stats """
     torch.manual_seed(5)
@@ -348,6 +379,7 @@ if __name__ == "__main__":
     test_gamma_zero_recovers_adjoint_ve_matcher()
     test_no_centres_or_no_valid_jump_is_finite()
     test_buffer_to_loss()
+    test_gamma_annealing_schedule()
     test_oracle_centres()
     test_threshold_centres_find_every_blob()
     test_threshold_centres_in_the_matcher()

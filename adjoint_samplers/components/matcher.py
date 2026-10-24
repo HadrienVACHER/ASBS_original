@@ -744,10 +744,14 @@ class AdjointVEMHMatcher(AdjointVEDiracMatcher):
         max_centres: int = 128,
         orbit: str = "translation",
         orbit_size: int | None = None,
+        gamma_anneal_frac: float = 0.0,
         **kwargs,
     ):
         super().__init__(**kwargs)
         assert gamma >= 0 and n_clusters >= 2
+        assert 0.0 <= gamma_anneal_frac <= 1.0
+        self.gamma_anneal_frac = gamma_anneal_frac # γ decays linearly to 0 over the last `frac` of the epochs (the term has zero mean at the fixed point)
+        self.gamma_scale = 1.0
         assert orbit in ("translation", "affine")
         assert orbit_size is None or orbit_size >= 2
         self.orbit = orbit # translation: Y_k = x + m_k - m_c; affine: Y_k = μ_k + L_k L_c^{-1}(x - μ_c) (needs covariances)
@@ -775,6 +779,15 @@ class AdjointVEMHMatcher(AdjointVEDiracMatcher):
         self.centres = None
         self._stats = defaultdict(float)
         self._step = 0
+
+    def set_progress(self, epoch: int, num_epochs: int) -> None:
+        """ called by train.py at every epoch: γ_eff = γ x clip((1 - epoch / num_epochs) / gamma_anneal_frac, 0, 1) """
+        f = self.gamma_anneal_frac
+        self.gamma_scale = 1.0 if f <= 0 else float(min(max((1.0 - epoch / num_epochs) / f, 0.0), 1.0))
+
+    @property
+    def gamma_eff(self) -> float:
+        return self.gamma * self.gamma_scale
 
     @property
     def capacity(self):
@@ -959,7 +972,7 @@ class AdjointVEMHMatcher(AdjointVEDiracMatcher):
         alpha = (- (EY - E1) - gauss).clamp(max=0).exp() * valid
 
         h = (alpha.unsqueeze(-1) * jumps).mean(1)
-        return self.gamma * h / nu1t, alpha
+        return self.gamma_eff * h / nu1t, alpha
 
     def prepare_target(self, data, device):
         (t, xt), target = super().prepare_target(data, device)
@@ -1032,6 +1045,7 @@ class AdjointVEMHMatcher(AdjointVEDiracMatcher):
             out["denoise/converged_frac_new"] = float(st["dn_conv"] / st["dn_n"])
         for k, v in self._centre_info.items():
             out[f"centres/{k}"] = v
+        out["barker/gamma_eff"] = self.gamma_eff
         return out
 
 
@@ -1078,7 +1092,7 @@ class AdjointVEBarkerMatcher(AdjointVEMHMatcher):
         w = logits.softmax(-1)[:, 1:]
 
         h = (w.unsqueeze(-1) * jumps).sum(1)
-        return self.gamma * h / nu1t, w
+        return self.gamma_eff * h / nu1t, w
 
     @torch.no_grad()
     def _update_stats(self, t, jumps, valid, alpha, term, adjoint1, same):

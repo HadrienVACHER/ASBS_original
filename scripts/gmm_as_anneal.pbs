@@ -1,0 +1,47 @@
+#!/bin/bash
+#PBS -N gmm_as_anneal
+#PBS -P gs_ccds_haidang.dau
+#PBS -q gpu_as
+#PBS -l walltime=04:00:00
+#PBS -l select=1:ncpus=3:ngpus=1:mem=24gb
+#PBS -j oe
+
+# Recuit de gamma (À lancer depuis la branche mh) : la méthode gelée (Barker gamma = 3, centres seuil, réseau 256x6) avec gamma qui
+# décroît linéairement de 3 à 0 sur les derniers 20 % des epochs (adjoint_matcher.gamma_anneal_frac=0.2). Le terme a une moyenne nulle
+# au point fixe : le retirer en fin d'entraînement n'introduit pas de biais ; il doit réduire la variance (points hors mode, energy_w2).
+# d = 36, graines 0 à 2, 2000 epochs, dump_final : 3 runs. Comparaison avec Barker gelé (gmm36d_as_barker_g3_thr_big) et AS gros
+# (gmm36d_as_big_cap) : python scripts/analyse_anneal.py
+cd "${PBS_O_WORKDIR}" || exit 1
+mkdir -p logs
+export PYTHONUNBUFFERED=1
+export OMP_NUM_THREADS=1
+export MKL_NUM_THREADS=1
+
+# --- Correctif officiel PBS/GaaS pour les identifiants GPU (inchangé) ---
+if echo "${CUDA_VISIBLE_DEVICES:-}" | grep -q "GPU-"; then
+    GPU_COUNT=$(echo "${CUDA_VISIBLE_DEVICES}" | tr ',' '\n' | wc -l)
+    CUDA_VISIBLE_DEVICES=$(seq -s, 0 $((GPU_COUNT - 1)))
+    export CUDA_VISIBLE_DEVICES
+fi
+
+module purge
+module load anaconda/2025
+eval "$(/usr/local/anaconda2025/bin/conda shell.bash hook)"
+conda activate BMS
+
+echo "Nœud : $(hostname) à $(date)"
+nvidia-smi -L
+git log --oneline -1
+
+COMMON="num_epochs=2000 dump_final=true fast_sampling=true buffer_on_device=true fast_train=true"
+pids=()
+for SEED in 0 1 2; do
+  python train.py experiment=gmm_as_barker_final dim=36 K=36 seed=${SEED} ${COMMON} adjoint_matcher.gamma_anneal_frac=0.2 \
+      exp_name=gmm36d_as_barker_g3_thr_big_anneal hydra.run.dir=results/gmm_as_anneal/seed${SEED} \
+      > logs/anneal_d36_seed${SEED}.log 2>&1 &
+  pids+=($!)
+done
+fail=0
+for p in "${pids[@]}"; do wait "$p" || fail=1; done
+echo "Fin à $(date), statut : ${fail}"
+exit $fail

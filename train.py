@@ -196,6 +196,9 @@ def main(cfg):
                 "corrector": (corrector_matcher, train_models["corrector"]),
             }.get(stage)
 
+            if hasattr(matcher, "set_progress"):
+                matcher.set_progress(epoch, cfg.num_epochs) # γ annealing of the Barker / MH term
+
             loss = train_one_epoch(
                 matcher,
                 model,
