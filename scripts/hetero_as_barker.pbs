@@ -3,7 +3,7 @@
 #PBS -P gs_ccds_haidang.dau
 #PBS -q gpu_as
 #PBS -l walltime=10:00:00
-#PBS -l select=1:ncpus=16:ngpus=1:mem=64gb
+#PBS -l select=1:ncpus=12:ngpus=1:mem=48gb
 #PBS -j oe
 
 # GMM hétérogène (covariances inégales, modes non équidistants) d = K = 24 (À lancer depuis la branche mh) : VERSION 2.
@@ -11,9 +11,8 @@
 # PAS utilisés. La géométrie est choisie sur AS seul par scripts/hetero_geometry_rule.py : remplir GEOM_OVERRIDES avec la géométrie
 # retenue (ex. "radius_min=4.5 radius_max=6.5 weight_ratio=20 scale_min=0.6 scale_max=1.4 min_sep=2.5"), PUIS soumettre.
 # Méthode gelée (gamma = 3, centres seuil, réseau 256x6). Graines 0 à 2, 2000 epochs, dump_final :
-#   AS | Barker orbite de TRANSLATION | Barker orbite AFFINE | AFFINE orbit_size 8 | AFFINE orbit_size 4   (5 cellules x 3 graines)
-#   + UNE cellule oracle (orbite affine avec les vrais mu_k, L_k, graine 0) pour séparer les erreurs de clustering / Laplace de la méthode
-# = 16 runs. Analyse : python scripts/analyse_hetero.py --geom "<la même chaîne>".
+#   AS | Barker orbite AFFINE (complète) | AFFINE orbit_size 8 | AFFINE orbit_size 4   (4 cellules x 3 graines = 12 runs)
+# (cellules translation et oracle abandonnées : réduction de périmètre.) Analyse : python scripts/analyse_hetero.py --geom "<la même chaîne>".
 GEOM_OVERRIDES="__A_REMPLIR_APRES_hetero_geometry_rule__"
 if [[ "${GEOM_OVERRIDES}" == __* ]]; then
   echo "GEOM_OVERRIDES n'est pas rempli : choisir la géométrie sur AS seul (hetero_geometry_rule.py) puis éditer ce script." >&2
@@ -54,12 +53,10 @@ run() { # suffixe experiment arguments-supplémentaires graine
 pids=()
 for SEED in 0 1 2; do
   run as              hetero_as        ""                                                              ${SEED}
-  run barker_transl   hetero_as_barker "adjoint_matcher.orbit=translation"                             ${SEED}
   run barker_affine   hetero_as_barker "adjoint_matcher.orbit=affine"                                  ${SEED}
   run barker_aff_s8   hetero_as_barker "adjoint_matcher.orbit=affine adjoint_matcher.orbit_size=8"     ${SEED}
   run barker_aff_s4   hetero_as_barker "adjoint_matcher.orbit=affine adjoint_matcher.orbit_size=4"     ${SEED}
 done
-run barker_affine_oracle hetero_as_barker "adjoint_matcher.orbit=affine adjoint_matcher.centre_method=oracle" 0
 fail=0
 for p in "${pids[@]}"; do wait "$p" || fail=1; done
 echo "Fin à $(date), statut : ${fail}"
