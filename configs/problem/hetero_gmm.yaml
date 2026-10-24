@@ -12,6 +12,8 @@ scale_min: 0.6
 scale_max: 1.6
 weight_ratio: 20
 min_sep: 3.5
+layout: random # random: modes at random radii with a separation check | simplex: the isotropic simplex positions and weights (radius simplex_radius), only the covariances differ
+simplex_radius: 4.25
 
 energy:
   _target_: adjoint_samplers.energies.dist_energy.DistEnergy
@@ -26,6 +28,8 @@ energy:
     scale_max: ${scale_max}
     weight_ratio: ${weight_ratio}
     min_sep: ${min_sep}
+    layout: ${layout}
+    simplex_radius: ${simplex_radius}
 
 evaluator:
   _target_: adjoint_samplers.components.evaluator.GMMEvaluator

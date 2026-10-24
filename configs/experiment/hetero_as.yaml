@@ -17,7 +17,7 @@ exp_name: hetero${dim}d_as
 # === sde ===
 nfe: 200
 # 2 x the per-coordinate std of the target mixture (computed from the instance, like gmm_std for the isotropic GMM)
-sigma_max: ${hetero_std:${dim},${K},${target_seed},${radius_min},${radius_max},${scale_min},${scale_max},${weight_ratio},2}
+sigma_max: ${hetero_std:${dim},${K},${target_seed},${radius_min},${radius_max},${scale_min},${scale_max},${weight_ratio},2,${min_sep},${layout},${simplex_radius}}
 sigma_min: 0.001
 rescale_t: null
 

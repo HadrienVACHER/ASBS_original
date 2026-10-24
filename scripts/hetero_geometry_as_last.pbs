@@ -1,0 +1,52 @@
+#!/bin/bash
+#PBS -N hetero_geom_last
+#PBS -P gs_ccds_haidang.dau
+#PBS -q gpu_as
+#PBS -l walltime=02:00:00
+#PBS -l select=1:ncpus=3:ngpus=1:mem=16gb
+#PBS -j oe
+
+# DERNIER CANDIDAT DE GÉOMÉTRIE (À lancer depuis la branche mh, SEULEMENT si E1-E4 ont échoué), toujours sur AS SEUL : aucun run Barker.
+# F1 : positions ET poids du GMM isotrope (simplexe régulier de rayon 4.25 où AS trouve tous les modes), covariances hétérogènes seules
+# (échelles 1.0-1.4, orientations aléatoires ; séparation normalisée <= 3.05). AS réseau 256x6, d = K = 24, graines 0 à 2 : 3 runs.
+# Même règle (scripts/hetero_geometry_rule.py). Règle d'arrêt : si F1 échoue aussi, on abandonne le GMM hétérogène (Many-Well asymétrique).
+DIM=24
+COMMON="dim=${DIM} K=${DIM} num_epochs=2000 dump_final=true fast_sampling=true buffer_on_device=true fast_train=true scale_min=1.0 scale_max=1.4"
+declare -A GEOM=(
+  [F1]="layout=simplex simplex_radius=4.25 weight_ratio=20"
+)
+
+cd "${PBS_O_WORKDIR}" || exit 1
+mkdir -p logs
+export PYTHONUNBUFFERED=1
+export OMP_NUM_THREADS=1
+export MKL_NUM_THREADS=1
+
+# --- Correctif officiel PBS/GaaS pour les identifiants GPU (inchangé) ---
+if echo "${CUDA_VISIBLE_DEVICES:-}" | grep -q "GPU-"; then
+    GPU_COUNT=$(echo "${CUDA_VISIBLE_DEVICES}" | tr ',' '\n' | wc -l)
+    CUDA_VISIBLE_DEVICES=$(seq -s, 0 $((GPU_COUNT - 1)))
+    export CUDA_VISIBLE_DEVICES
+fi
+
+module purge
+module load anaconda/2025
+eval "$(/usr/local/anaconda2025/bin/conda shell.bash hook)"
+conda activate BMS
+
+echo "Nœud : $(hostname) à $(date)"
+nvidia-smi -L
+git log --oneline -1
+
+pids=()
+for G in F1; do
+  for SEED in 0 1 2; do
+    python train.py experiment=hetero_as ${COMMON} ${GEOM[$G]} seed=${SEED} exp_name=hetero24d_geom${G}_as \
+        hydra.run.dir=results/hetero_geometry_last/${G}_as_seed${SEED} > logs/hetero_geomlast_${G}_as_seed${SEED}.log 2>&1 &
+    pids+=($!)
+  done
+done
+fail=0
+for p in "${pids[@]}"; do wait "$p" || fail=1; done
+echo "Fin à $(date), statut : ${fail}"
+exit $fail

@@ -227,15 +227,34 @@ class HeteroGMM(GMM):
         scale_max: float = 1.6,
         weight_ratio: float = 20.0,
         min_sep: float = 3.5,
+        layout: str = "random",
+        simplex_radius: float = 4.25,
         device: str = "cpu",
     ) -> None:
         distributions.Distribution.__init__(self, validate_args=False)
         self.dim, self.K, self.seed = dim, K, seed
         self.name = f"hetero{dim}d"
+        assert layout in ("random", "simplex")
 
         g = torch.Generator().manual_seed(seed)
         means = torch.zeros(K, dim)
         L = torch.zeros(K, dim, dim)
+        if layout == "simplex":
+            # the mode POSITIONS and WEIGHTS of the isotropic GMM (layout="spread", radius = simplex_radius, loguniform weights, same seed:
+            # same generator draws), only the covariances are heterogeneous. No separation check (the normalised separation
+            # 6.1 / (σ_i + σ_j) is <= 3.05 for widths >= 1: the modes overlap more than in the isotropic benchmark).
+            v = torch.randn(K, dim, generator=g)
+            u = GMM.spread_directions(v / v.norm(dim=1, keepdim=True))
+            self.means = u * simplex_radius
+            U = torch.exp(-math.log(weight_ratio) * torch.rand(K, generator=g))
+            self.weights = U / U.sum()
+            for k in range(K):
+                Q, _ = torch.linalg.qr(torch.randn(dim, dim, generator=g))
+                s = torch.exp(math.log(scale_min) + (math.log(scale_max) - math.log(scale_min)) * torch.rand(dim, generator=g))
+                L[k] = Q * s
+            self.L = L
+            self.to(device)
+            return
 
         def draw(k):
             v = torch.randn(dim, generator=g)

@@ -3,7 +3,7 @@
       python scripts/hetero_geometry_rule.py
 
     Lit uniquement les runs W&B `hetero24d_geom{G}_as_K24_s{seed}` (AS, réseau 256x6, 3 graines). Aucun run Barker n'est ouvert.
-    Géométries dans l'ordre G1, G2, G3, G4 (scripts/hetero_geometry_as.pbs) puis E1, E2, E3, E4 (hetero_geometry_as_ext.pbs). Une géométrie est retenue (la première de
+    Géométries dans l'ordre G1, G2, G3, G4 (scripts/hetero_geometry_as.pbs) puis E1, E2, E3, E4 (hetero_geometry_as_ext.pbs), puis F1 (hetero_geometry_as_last.pbs). Une géométrie est retenue (la première de
     l'ordre) si, sur les 3 graines (ratios moyennés sur les 30 dernières évaluations) :
         quart léger moyen < 0.6     (AS a un vrai déficit sur les modes légers)
         modes_covered moyen >= 0.9  (AS trouve les modes : sinon c'est un effondrement, pas un déficit de poids)
@@ -35,6 +35,10 @@ GEOMS.update({  # identique à GEOM dans hetero_geometry_as_ext.pbs
     "E3": dict(radius_min=3.8, radius_max=5.0, weight_ratio=20, **COMMON_E),
     "E4": dict(radius_min=3.8, radius_max=5.0, weight_ratio=100, **COMMON_E),
 })
+# DERNIER CANDIDAT, fixé d'avance (règle d'arrêt : si E1-E4 échouent, F1 est le seul essai restant ; s'il échoue aussi, la cible hétérogène est
+# abandonnée pour le Many-Well asymétrique). Positions ET poids du GMM isotrope (simplexe de rayon 4.25, où AS trouve tous les modes), seules les
+# covariances sont hétérogènes (échelles 1.0-1.4, orientations aléatoires) : séparation normalisée <= 3.05.
+GEOMS["F1"] = dict(layout="simplex", simplex_radius=4.25, radius_min=4.25, radius_max=4.25, scale_min=1.0, scale_max=1.4, weight_ratio=20, min_sep=0.0)
 LIGHT_MAX, COVER_MIN = 0.6, 0.9
 
 

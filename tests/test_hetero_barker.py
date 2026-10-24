@@ -245,8 +245,30 @@ def test_orbit_size_bounds_the_energy_calls():
     print("ok  orbit_size: energy evaluations per sample " + ", ".join(f"{'all' if k is None else k}: {v:.2f}" for k, v in evals.items()))
 
 
+def test_simplex_layout_keeps_the_isotropic_positions_and_weights():
+    """ layout = "simplex": the mode positions and weights of the isotropic GMM (same seed, spread, radius 4.25), covariances heterogeneous """
+    from adjoint_samplers.utils.dist_utils import GMM
+    iso = GMM(dim=12, K=12, seed=0, layout="spread", weight_law="loguniform", weight_ratio=20, radius=4.25)
+    g = HeteroGMM(dim=12, K=12, seed=0, layout="simplex", simplex_radius=4.25, scale_min=1.0, scale_max=1.4, weight_ratio=20)
+    assert torch.allclose(g.means, iso.means, atol=1e-5) and torch.allclose(g.weights, iso.weights, atol=1e-6)
+    sv = torch.linalg.svdvals(g.L)
+    assert sv.min() >= 0.99 and sv.max() <= 1.41
+    r = []
+    for i in range(12):
+        for j in range(i + 1, 12):
+            u = g.means[j] - g.means[i]
+            d = u.norm()
+            u = u / d
+            r.append((d / ((g.L[i].T @ u).norm() + (g.L[j].T @ u).norm())).item())
+    assert max(r) <= 3.06, max(r)
+    acc = torch.stack([(g.assign(g.means[k] + torch.einsum("de,ne->nd", g.L[k], torch.randn(2000, 12))) == k).float().mean() for k in range(12)])
+    print(f"ok  simplex layout: positions and weights of the isotropic GMM, widths {sv.min():.2f}..{sv.max():.2f}, normalised separation "
+          f"<= {max(r):.2f} (isotropic: 3.05), exact assignment accuracy {acc.mean():.3f} (worst {acc.min():.3f})")
+
+
 if __name__ == "__main__":
     test_hetero_gmm_basics()
+    test_simplex_layout_keeps_the_isotropic_positions_and_weights()
     test_affine_map_and_group_property()
     test_affine_orbit_enumeration_is_exact()
     test_zero_mean_under_target_posterior_incl_orbit_size()

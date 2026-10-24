@@ -31,7 +31,14 @@ CELLS = [  # (suffix, label, colour, linestyle, laplace covariances every epoch)
 
 
 def parse_geom(s):
-    return {k: (int(v) if k == "weight_ratio" and float(v).is_integer() else float(v)) for k, v in (kv.split("=") for kv in s.split())}
+    out = {}
+    for kv in s.split():
+        k, v = kv.split("=")
+        try:
+            out[k] = int(v) if k == "weight_ratio" and float(v).is_integer() else float(v)
+        except ValueError:
+            out[k] = v # layout=simplex
+    return out
 
 
 def load(run):
