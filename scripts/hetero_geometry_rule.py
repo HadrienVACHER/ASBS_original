@@ -3,7 +3,7 @@
       python scripts/hetero_geometry_rule.py
 
     Lit uniquement les runs W&B `hetero24d_geom{G}_as_K24_s{seed}` (AS, réseau 256x6, 3 graines). Aucun run Barker n'est ouvert.
-    Géométries dans l'ordre G1, G2, G3, G4 (voir scripts/hetero_geometry_as.pbs). Une géométrie est retenue (la première de
+    Géométries dans l'ordre G1, G2, G3, G4 (scripts/hetero_geometry_as.pbs) puis E1, E2, E3, E4 (hetero_geometry_as_ext.pbs). Une géométrie est retenue (la première de
     l'ordre) si, sur les 3 graines (ratios moyennés sur les 30 dernières évaluations) :
         quart léger moyen < 0.6     (AS a un vrai déficit sur les modes légers)
         modes_covered moyen >= 0.9  (AS trouve les modes : sinon c'est un effondrement, pas un déficit de poids)
@@ -25,6 +25,16 @@ GEOMS = {  # identique à GEOM dans hetero_geometry_as.pbs
     "G3": dict(radius_min=5.5, radius_max=8.0, weight_ratio=20, **COMMON),
     "G4": dict(radius_min=5.5, radius_max=8.0, weight_ratio=100, **COMMON),
 }
+# EXTENSION (décidée après l'échec de G1-G4 : AS ne trouve que 8-18 % des modes, séparation normalisée médiane 3.9 à 6.6 contre 3.05 dans
+# le GMM isotrope où AS trouve tous les modes). Géométries plus serrées, séparation normalisée médiane 3.45 (rayons 3.2-4.2) et 3.75
+# (rayons 3.8-5.0), minimum 3.0 ; construites sans aucun résultat Barker. Parcourues APRÈS G1-G4, dans l'ordre E1, E2, E3, E4.
+COMMON_E = dict(scale_min=0.6, scale_max=1.1, min_sep=3.0)
+GEOMS.update({  # identique à GEOM dans hetero_geometry_as_ext.pbs
+    "E1": dict(radius_min=3.2, radius_max=4.2, weight_ratio=20, **COMMON_E),
+    "E2": dict(radius_min=3.2, radius_max=4.2, weight_ratio=100, **COMMON_E),
+    "E3": dict(radius_min=3.8, radius_max=5.0, weight_ratio=20, **COMMON_E),
+    "E4": dict(radius_min=3.8, radius_max=5.0, weight_ratio=100, **COMMON_E),
+})
 LIGHT_MAX, COVER_MIN = 0.6, 0.9
 
 

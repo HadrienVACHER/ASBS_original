@@ -1,0 +1,58 @@
+#!/bin/bash
+#PBS -N hetero_geom_ext
+#PBS -P gs_ccds_haidang.dau
+#PBS -q gpu_as
+#PBS -l walltime=03:00:00
+#PBS -l select=1:ncpus=12:ngpus=1:mem=48gb
+#PBS -j oe
+
+# EXTENSION DE LA LISTE DE GÉOMÉTRIES (À lancer depuis la branche mh), toujours sur AS SEUL : aucun run Barker n'est lancé ni lu.
+# G1-G4 ont échoué à la règle (AS ne trouve que 8-18 % des modes). Diagnostic : séparation normalisée médiane (distance / somme des largeurs
+# le long de la droite entre deux modes) de 3.9 (G1) à 6.6 (G3) contre 3.05 dans le GMM isotrope où AS trouve tous les modes.
+# Quatre géométries plus serrées (séparation normalisée médiane 3.45 et 3.75, minimum 3.0), AS réseau 256x6, d = K = 24, graines 0 à 2 : 12 runs.
+# Même règle (scripts/hetero_geometry_rule.py) : première de l'ordre E1, E2, E3, E4 avec quart léger < 0.6 ET modes_covered >= 0.9.
+#   E1 rayons 3.2-4.2, rapport de poids 20 | E2 idem, rapport 100 | E3 rayons 3.8-5.0, rapport 20 | E4 idem, rapport 100
+#   (échelles 0.6-1.1, min_sep 3.0 pour toutes)
+DIM=24
+COMMON="dim=${DIM} K=${DIM} num_epochs=2000 dump_final=true fast_sampling=true buffer_on_device=true fast_train=true scale_min=0.6 scale_max=1.1 min_sep=3.0"
+declare -A GEOM=(
+  [E1]="radius_min=3.2 radius_max=4.2 weight_ratio=20"
+  [E2]="radius_min=3.2 radius_max=4.2 weight_ratio=100"
+  [E3]="radius_min=3.8 radius_max=5.0 weight_ratio=20"
+  [E4]="radius_min=3.8 radius_max=5.0 weight_ratio=100"
+)
+
+cd "${PBS_O_WORKDIR}" || exit 1
+mkdir -p logs
+export PYTHONUNBUFFERED=1
+export OMP_NUM_THREADS=1
+export MKL_NUM_THREADS=1
+
+# --- Correctif officiel PBS/GaaS pour les identifiants GPU (inchangé) ---
+if echo "${CUDA_VISIBLE_DEVICES:-}" | grep -q "GPU-"; then
+    GPU_COUNT=$(echo "${CUDA_VISIBLE_DEVICES}" | tr ',' '\n' | wc -l)
+    CUDA_VISIBLE_DEVICES=$(seq -s, 0 $((GPU_COUNT - 1)))
+    export CUDA_VISIBLE_DEVICES
+fi
+
+module purge
+module load anaconda/2025
+eval "$(/usr/local/anaconda2025/bin/conda shell.bash hook)"
+conda activate BMS
+
+echo "Nœud : $(hostname) à $(date)"
+nvidia-smi -L
+git log --oneline -1
+
+pids=()
+for G in E1 E2 E3 E4; do
+  for SEED in 0 1 2; do
+    python train.py experiment=hetero_as ${COMMON} ${GEOM[$G]} seed=${SEED} exp_name=hetero24d_geom${G}_as \
+        hydra.run.dir=results/hetero_geometry_ext/${G}_as_seed${SEED} > logs/hetero_geomext_${G}_as_seed${SEED}.log 2>&1 &
+    pids+=($!)
+  done
+done
+fail=0
+for p in "${pids[@]}"; do wait "$p" || fail=1; done
+echo "Fin à $(date), statut : ${fail}"
+exit $fail
