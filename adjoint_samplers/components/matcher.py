@@ -625,6 +625,40 @@ def _bb_denoise(energy, x, E0, s0, max_steps=8, tol=0.05, back=6):
 
 
 @torch.no_grad()
+def _denoise_separable(energy, x, max_steps=12, tol=0.05, h=1e-2, cap=1.0, fallback=0.3):
+    """ Per-coordinate Newton descent for a PRODUCT-structured energy E(x) = Σ_j e_j(x_j): the coordinates decouple, so each is denoised on its own
+        in 1D (a 32-d Barzilai-Borwein step with quartic curvature ~24 next to Gaussian curvature 1 is ill-conditioned). ∂_j E depends on x_j only, hence
+        one gradient at x + h (all coordinates shifted) gives every H_jj = (∂_jE(x + h) - ∂_jE(x)) / h. Newton step -∂_jE / H_jj when H_jj > 0 (capped at
+        `cap` per coordinate), else a downhill step of size `fallback` (between the wells H < 0). A point has converged when every |dx_j| sqrt(H_jj) < tol.
+        Returns the iterates, converged (N,), the mean curvature (N,) as the BB version does, steps taken, gradient evaluations and 0 (no E evaluation).
+    """
+    N, D = x.shape
+    xc = x.clone()
+    sc = energy.grad_E(xc)
+    active = torch.ones(N, dtype=torch.bool, device=x.device)
+    conv = torch.zeros_like(active)
+    lam_out = torch.ones(N, device=x.device, dtype=x.dtype)
+    steps = torch.zeros(N, device=x.device)
+    n_grad = N
+    for _ in range(max_steps):
+        a = active.nonzero().flatten()
+        if len(a) == 0:
+            break
+        H = (energy.grad_E(xc[a] + h) - sc[a]) / h
+        ok = H > 1e-2
+        dx = torch.where(ok, -sc[a] / H.clamp(min=1e-2), -fallback * sc[a].sign()).clamp(-cap, cap)
+        xc[a] = xc[a] + dx
+        sc[a] = energy.grad_E(xc[a])
+        n_grad += 2 * len(a)
+        steps[a] += 1
+        lam_out[a] = torch.where(ok, H, torch.ones_like(H)).mean(-1)
+        done = (ok & (dx.abs() * H.clamp(min=0).sqrt() < tol)).all(-1)
+        conv[a[done]] = True
+        active[a[done]] = False
+    return xc, conv, lam_out, steps, n_grad, 0
+
+
+@torch.no_grad()
 def _barrier_merge(energy, centres, counts, radius, factor=8.0, n_seg=9, tol=0.1):
     """ Candidate centres that are not separated by an energy barrier belong to the same basin: along the segment
         between two centres closer than factor x radius, a barrier is max E(segment) - max(E(a), E(b)) > tol. If
@@ -1035,7 +1069,10 @@ class AdjointVEMHMatcher(AdjointVEDiracMatcher):
             # ∇E(x1) is stored with the sample (adjoint1 = ∇E + ∇log p^base_1), so the first gradient is free
             assert not is_asbs_init_stage
             s0 = adjoint1 - self.grad_term_cost.base_score(x1)
-            xd, conv, lam, steps, n_grad, n_E = _bb_denoise(energy, x1, E1, s0, self.denoise_steps, self.denoise_tol)
+            if self.centre_method == "wells":
+                xd, conv, lam, steps, n_grad, n_E = _denoise_separable(energy, x1, self.denoise_steps, self.denoise_tol)
+            else:
+                xd, conv, lam, steps, n_grad, n_E = _bb_denoise(energy, x1, E1, s0, self.denoise_steps, self.denoise_tol)
             data.update({"xd": xd.to("cpu"), "conv": conv.to("cpu"), "lam": lam.to("cpu")})
             st = self._stats
             st["dn_n"] += x1.shape[0]

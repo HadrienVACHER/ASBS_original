@@ -15,7 +15,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from test_mh_matcher import kappa_nu, make_matcher, t_at_kappa, zscores  # noqa: E402
-from adjoint_samplers.components.matcher import AdjointVEBarkerMatcher, _bb_denoise, _product_wells  # noqa: E402
+from adjoint_samplers.components.matcher import AdjointVEBarkerMatcher, _bb_denoise, _denoise_separable, _product_wells  # noqa: E402
 from adjoint_samplers.energies.dist_energy import DistEnergy  # noqa: E402
 from adjoint_samplers.utils.dist_utils import ManyWell  # noqa: E402
 
@@ -116,7 +116,7 @@ def test_orbit_enumeration_is_exact():
           + ", ".join(f"s = {s}: max|Σ p_O h| = {w:.1e} ({n} orbits)" for s, (w, n) in res.items()))
 
 
-def posterior_sample(g_post, kappa, nu1, xt, n):
+def posterior_sample(g_post, kappa, nu1, xt, n, R=None):
     """ x1 ~ π(x1 | xt) for the product target: independent 1D problems, p1_j(x) exp(-(xt_j - κ x)^2 / (2 v)), by inverse CDF on a grid """
     v = nu1 * kappa * (1 - kappa)
     D = g_post.dim
@@ -128,6 +128,8 @@ def posterior_sample(g_post, kappa, nu1, xt, n):
         else:
             lp = -0.5 * grid ** 2
         lp = lp - 0.5 * (xt[j] - kappa * grid) ** 2 / v
+        if R is not None and j % 2 == 0:                                 # model: the light well (x < barrier top) weighted by R_j
+            lp = lp + torch.log(torch.where(grid < g_post.well_split, R[j // 2], 1.0))
         p = torch.exp(lp - lp.max())
         cdfs.append(torch.cumsum(p, 0) / p.sum())
     cdf = torch.stack(cdfs)                                              # (D, G)
@@ -170,6 +172,95 @@ def test_zero_mean_under_the_exact_posterior_with_random_subsets(n=60000):
     print("ok  zero mean under the exact posterior with random subsets S (independent of the position), not under wrong well weights")
 
 
+def fitted_wells(g, n=4000):
+    """ wells as the run fits them: per-coordinate denoising of exact target samples, then _product_wells """
+    energy = DistEnergy(g)
+    xd, conv, lam, *_ = _denoise_separable(energy, g.sample([n]))
+    wells, k = _product_wells(energy, xd, conv, lam)
+    assert k == g.dim // 2
+    return {key: v.double() if v.is_floating_point() else v for key, v in wells.items()}
+
+
+def test_separable_denoising_converges():
+    """ per-coordinate Newton denoising: converged fraction on target samples and on broad (untrained) samples """
+    torch.manual_seed(0)
+    g = ManyWell(dim=32)
+    energy = DistEnergy(g)
+    out = []
+    for name, x in (("target", g.sample([2000])), ("Brownian 1.41", 1.41 * torch.randn(2000, 32)), ("Brownian 2.81", 2.81 * torch.randn(2000, 32))):
+        xd, conv, lam, steps, _, _ = _denoise_separable(energy, x)
+        wells, k = _product_wells(energy, xd, conv, lam)
+        assert conv.float().mean() > 0.95 and k == 16, (name, float(conv.float().mean()), k)
+        out.append(f"{name}: conv_frac {float(conv.float().mean()):.3f}, {float(steps.mean()):.1f} steps, {k} double wells")
+    print("ok  separable denoising (was conv_frac 0.13 with the 32-d BB): " + "; ".join(out))
+
+
+def test_zero_mean_with_the_runs_parameters(n=40000):
+    """ ManyWell-32, wells fitted as in the run (s = 3 of 16 coordinates), exact per-coordinate posterior: E[term_j | xt] = 0 for EVERY coordinate """
+    torch.manual_seed(4)
+    torch.set_default_dtype(torch.float64)
+    try:
+        g = ManyWell(dim=32)
+        m = product_matcher(g, 3, fitted_wells(g))
+        for kappa in (0.05, 0.3):
+            t = t_at_kappa(m, kappa)
+            nu1 = kappa_nu(m, t)[2]
+            xt = kappa * g.sample([1])[0].double() + (nu1 * kappa * (1 - kappa)) ** 0.5 * torch.randn(32, dtype=torch.float64)
+            x1 = posterior_sample(g, kappa, nu1, xt, n)
+            jumps, valid, ld = m._orbit_product(x1)
+            energy = m.grad_term_cost.energy
+            EY = torch.zeros_like(valid)
+            mask = valid.bool()
+            EY[mask] = energy.eval((x1.unsqueeze(1) + jumps)[mask]).reshape(-1)
+            tv = torch.full((n, 1), t, dtype=torch.float64)
+            term, _ = m.mh_term(tv, torch.zeros_like(x1), xt.expand(n, -1), x1, energy.eval(x1).reshape(-1, 1), jumps, EY, valid, logdet=ld)
+            z = zscores(term * kappa_nu(m, t)[1])
+            assert torch.nan_to_num(z).abs().max() < 4.5, f"κ={kappa}: max|z_j| = {z.abs().max():.1f} at coordinate {int(z.abs().argmax())}"
+            print(f"    κ={kappa}: max over the 32 coordinates of |z_j| = {torch.nan_to_num(z).abs().max():.2f}; valid fraction {float(valid.mean()):.2f}")
+    finally:
+        torch.set_default_dtype(torch.float32)
+    print("ok  zero mean per coordinate under the exact posterior with the run's fitted wells (ManyWell-32, s = 3)")
+
+
+def test_mode_level_flux_points_to_the_underweighted_well(n=60000):
+    """ model = target with the AS run's light-well masses R_i; E_model[term_j | xt] must have the sign of (1 - R_j) toward the right... precisely:
+        R_j > 1 (light well over-filled) -> mean term_j > 0 (mass pushed out of the light well, to the right); R_j < 1 -> < 0; R_j = 1 -> 0 """
+    torch.manual_seed(5)
+    torch.set_default_dtype(torch.float64)
+    try:
+        g = ManyWell(dim=32)
+        m = product_matcher(g, 3, fitted_wells(g))
+        # light-well mass ratios of the seed-0 AS run (R = 0: the light well is never visited -> use 0.05 for the model), coordinates 0..15
+        R = torch.tensor([0.05, 1.04, 0.45, 2.40, 1.63, 2.77, 0.05, 1.08, 0.05, 1.75, 0.05, 0.05, 0.05, 0.05, 0.05, 2.03], dtype=torch.float64)
+        for kappa in (0.05, 0.3):
+            t = t_at_kappa(m, kappa)
+            nu1 = kappa_nu(m, t)[2]
+            xt = kappa * g.sample([1])[0].double() + (nu1 * kappa * (1 - kappa)) ** 0.5 * torch.randn(32, dtype=torch.float64)
+            x1 = posterior_sample(g, kappa, nu1, xt, n, R=R)
+            jumps, valid, ld = m._orbit_product(x1)
+            energy = m.grad_term_cost.energy
+            EY = torch.zeros_like(valid)
+            mask = valid.bool()
+            EY[mask] = energy.eval((x1.unsqueeze(1) + jumps)[mask]).reshape(-1)
+            tv = torch.full((n, 1), t, dtype=torch.float64)
+            term, _ = m.mh_term(tv, torch.zeros_like(x1), xt.expand(n, -1), x1, energy.eval(x1).reshape(-1, 1), jumps, EY, valid, logdet=ld)
+            term = term * kappa_nu(m, t)[1]
+            mean = term.mean(0)[0::2]
+            z = (term.mean(0) / (term.std(0) / n ** 0.5).clamp(min=1e-30))[0::2]
+            print(f"    κ={kappa}  coordinate: R_j -> mean term_j (z)")
+            print("    " + "  ".join(f"{j}:{float(R[j]):.2f}->{float(mean[j]):+.3f}({float(z[j]):+.0f})" for j in range(16)))
+            for j in range(16):
+                if abs(float(R[j]) - 1) > 0.3 and t_is_informative(kappa):
+                    assert (mean[j] > 0) == (R[j] > 1) and abs(z[j]) > 3, (kappa, j, float(R[j]), float(mean[j]), float(z[j]))
+    finally:
+        torch.set_default_dtype(torch.float32)
+    print("ok  mode-level flux of the term under the model has the sign of (R_j - 1)")
+
+
+def t_is_informative(kappa):
+    return True
+
+
 def test_product_orbit_in_the_matcher():
     """ populate with wells in place, stored translates and logdet, finite target, stats; energy calls <= 2^s - 1.
         (The wells are fitted on exact target samples, as the early samples of an untrained controller are too broad to denoise in a test.) """
@@ -198,4 +289,7 @@ if __name__ == "__main__":
     test_orbit_enumeration_is_exact()
     test_zero_mean_under_the_exact_posterior_with_random_subsets()
     test_product_orbit_in_the_matcher()
+    test_separable_denoising_converges()
+    test_zero_mean_with_the_runs_parameters()
+    test_mode_level_flux_points_to_the_underweighted_well()
     print("all passed")
