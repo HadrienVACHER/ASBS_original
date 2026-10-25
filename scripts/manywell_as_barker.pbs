@@ -6,8 +6,8 @@
 #PBS -l select=1:ncpus=3:ngpus=1:mem=16gb
 #PBS -j oe
 
-# ManyWell-32 (FAB), BARKER (orbite de sous-groupe, s = 3, gamma = 3, réseau 256x6), graines 0 à 2 : 3 runs.
-# À SOUMETTRE SEULEMENT si la règle AS seul (scripts/manywell_rule.py) dit "informative". Comparaison avec les runs manywell_as (mêmes graines).
+# ManyWell-32 (FAB), BARKER (orbite de sous-groupe, s = 3, gamma = 3, réseau 256x6), UN SEUL RUN, graine 0 (décision : pas de graines 1-2 tant que non décidé).
+# Comparaison avec le run AS graine 0 (commit c4345ea) via scripts/analyse_manywell.py (métrique sur les 8 coordonnées gelées).
 cd "${PBS_O_WORKDIR}" || exit 1
 mkdir -p logs
 export PYTHONUNBUFFERED=1
@@ -32,7 +32,7 @@ git log --oneline -1
 
 COMMON="num_epochs=2000 dump_final=true fast_sampling=true buffer_on_device=true fast_train=true"
 pids=()
-for SEED in 0 1 2; do
+for SEED in 0; do
   python train.py experiment=manywell_as_barker seed=${SEED} ${COMMON} hydra.run.dir=results/manywell_as_barker/seed${SEED} \
       > logs/manywell_as_barker_seed${SEED}.log 2>&1 &
   pids+=($!)
