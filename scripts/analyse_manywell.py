@@ -35,8 +35,9 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--as-commit", required=True)
     ap.add_argument("--barker-commit", required=True)
+    ap.add_argument("--barker-name", default="manywell_as_barker")
     a = ap.parse_args()
-    runs = {"AS": run_stats(a.as_commit, "manywell_as"), "Barker": run_stats(a.barker_commit, "manywell_as_barker")}
+    runs = {"AS": run_stats(a.as_commit, "manywell_as"), "Barker": run_stats(a.barker_commit, a.barker_name)}
     for k, v in runs.items():
         if v is None:
             print(f"run {k} (graine 0) introuvable ou non terminé")
