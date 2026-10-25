@@ -1,13 +1,14 @@
 #!/bin/bash
-#PBS -N manywell_barker_g1
+#PBS -N manywell_barker_persist
 #PBS -P gs_ccds_haidang.dau
 #PBS -q gpu_as
 #PBS -l walltime=06:00:00
 #PBS -l select=1:ncpus=3:ngpus=1:mem=16gb
 #PBS -j oe
 
-# ManyWell-32 (FAB), BARKER (orbite de sous-groupe, s = 3, gamma = 3, réseau 256x6), UN SEUL RUN, graine 0 (décision : pas de graines 1-2 tant que non décidé).
-# DÉCLARÉ POST HOC (après le run gamma = 3 de d6aac91 : dépassement bang-bang au début, R_i à 0 / 6.42 en 50 epochs) : gamma = 1, débruitage 1D (b4450d7).
+# ManyWell-32 (FAB), BARKER (orbite de sous-groupe, s = 3, gamma = 3, banc persistant, réseau 256x6), UN SEUL RUN, graine 0 (décision : pas de graines 1-2 tant que non décidé).
+# MÉTHODE GELÉE (gamma = 3) + débruitage 1D (b4450d7) + BANC DE PUITS PERSISTANT (un puits découvert n'est jamais supprimé quand il se vide) : les runs gamma = 3 (d6aac91) et
+# gamma = 1 (ae74379) ont fini avec des coordonnées absorbantes (R = 0 ou 6.42 pour toujours, n_active = nombre de coordonnées à deux puits).
 # Comparaison avec le run AS graine 0 (commit c4345ea) via scripts/analyse_manywell.py (métrique sur les 8 coordonnées gelées).
 cd "${PBS_O_WORKDIR}" || exit 1
 mkdir -p logs
@@ -34,8 +35,8 @@ git log --oneline -1
 COMMON="num_epochs=2000 dump_final=true fast_sampling=true buffer_on_device=true fast_train=true"
 pids=()
 for SEED in 0; do
-  python train.py experiment=manywell_as_barker adjoint_matcher.gamma=1.0 exp_name=manywell_as_barker_g1 seed=${SEED} ${COMMON} hydra.run.dir=results/manywell_as_barker_g1/seed${SEED} \
-      > logs/manywell_as_barker_g1_seed${SEED}.log 2>&1 &
+  python train.py experiment=manywell_as_barker exp_name=manywell_as_barker_persist seed=${SEED} ${COMMON} hydra.run.dir=results/manywell_as_barker_persist/seed${SEED} \
+      > logs/manywell_as_barker_persist_seed${SEED}.log 2>&1 &
   pids+=($!)
 done
 fail=0

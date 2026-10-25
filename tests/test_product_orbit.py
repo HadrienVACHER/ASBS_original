@@ -15,7 +15,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from test_mh_matcher import kappa_nu, make_matcher, t_at_kappa, zscores  # noqa: E402
-from adjoint_samplers.components.matcher import AdjointVEBarkerMatcher, _bb_denoise, _denoise_separable, _product_wells  # noqa: E402
+from adjoint_samplers.components.matcher import AdjointVEBarkerMatcher, _bb_denoise, _denoise_separable, _merge_wells, _product_wells  # noqa: E402
 from adjoint_samplers.energies.dist_energy import DistEnergy  # noqa: E402
 from adjoint_samplers.utils.dist_utils import ManyWell  # noqa: E402
 
@@ -261,6 +261,19 @@ def t_is_informative(kappa):
     return True
 
 
+def test_persistent_well_bank():
+    """ a coordinate whose light well emptied (one cluster in the buffer) keeps its bank entry; refitted coordinates are updated """
+    g = ManyWell(dim=8)
+    w = fitted_wells(g)
+    bank = {k: v.float().clone() if v.is_floating_point() else v.clone() for k, v in w.items()}
+    new = {k: v[[0, 2]].clone() for k, v in bank.items()}                  # only coordinates idx 0 and 4 are fitted now
+    new["mu"] = new["mu"] + 0.01
+    merged = _merge_wells(bank, new)
+    assert merged["idx"].tolist() == [0, 2, 4, 6] and torch.allclose(merged["mu"][[0, 2]], bank["mu"][[0, 2]] + 0.01) and torch.equal(merged["mu"][[1, 3]], bank["mu"][[1, 3]])
+    assert _merge_wells(None, new) is new
+    print("ok  persistent bank: unfitted coordinates keep their wells, fitted ones are updated")
+
+
 def test_product_orbit_in_the_matcher():
     """ populate with wells in place, stored translates and logdet, finite target, stats; energy calls <= 2^s - 1.
         (The wells are fitted on exact target samples, as the early samples of an untrained controller are too broad to denoise in a test.) """
@@ -290,6 +303,7 @@ if __name__ == "__main__":
     test_zero_mean_under_the_exact_posterior_with_random_subsets()
     test_product_orbit_in_the_matcher()
     test_separable_denoising_converges()
+    test_persistent_well_bank()
     test_zero_mean_with_the_runs_parameters()
     test_mode_level_flux_points_to_the_underweighted_well()
     print("all passed")

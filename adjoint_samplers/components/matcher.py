@@ -787,6 +787,18 @@ def _product_wells(energy, xd, conv, lam, radius_scale=1.0, h=1e-2, n_seg=33, to
     return out, int(sel.numel())
 
 
+def _merge_wells(bank, new):
+    """ PERSISTENT well bank for product-structured targets: coordinates fitted in `new` replace their entry, coordinates absent from `new` (e.g. a well
+        that emptied, so the buffer no longer shows two clusters) keep the entry of `bank`: a discovered well is never deleted, so the translates into
+        it stay available and the coordinate cannot become absorbing. The bank depends on past samples only: the zero mean stays exact. """
+    if bank is None or len(bank["idx"]) == 0:
+        return new
+    keep = torch.tensor([int(j) not in set(new["idx"].tolist()) for j in bank["idx"]], dtype=torch.bool, device=bank["idx"].device)
+    cat = {k: torch.cat([new[k].to(bank[k]), bank[k][keep]]) for k in ("idx", "mu", "sigma", "split")}
+    order = cat["idx"].argsort()
+    return {k: v[order] for k, v in cat.items()}
+
+
 class AdjointVEMHMatcher(AdjointVEDiracMatcher):
     """ AdjointVEMatcher with a Metropolis-Hastings control variate added to the target:
 
@@ -1091,9 +1103,11 @@ class AdjointVEMHMatcher(AdjointVEDiracMatcher):
         wells, n_active = _product_wells(self.grad_term_cost.energy, xd, conv, lam, self.radius_scale)
         self._centre_info = {"n_active": n_active, "conv_frac": float(conv.float().mean())}
         if n_active > 0:
-            self.wells = wells
-            self._centre_info["sigma_min"] = float(wells["sigma"].min())
-            self._centre_info["sigma_max"] = float(wells["sigma"].max())
+            self.wells = _merge_wells(self.wells, wells)
+            self._centre_info["n_fit"] = n_active
+            self._centre_info["n_active"] = len(self.wells["idx"])           # the persistent bank
+            self._centre_info["sigma_min"] = float(self.wells["sigma"].min())
+            self._centre_info["sigma_max"] = float(self.wells["sigma"].max())
 
     def _refit_threshold_centres(self, like):
         """ centres from the cached converged points of the buffer, before the new batch is inserted """
