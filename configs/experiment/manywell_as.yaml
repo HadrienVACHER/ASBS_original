@@ -16,8 +16,9 @@ exp_name: manywell_as
 
 # === sde ===
 nfe: 200
-# 2 x sqrt(mean_j E[x_j^2]) of the target (second moment about the Dirac source): same convention as gmm_std
-sigma_max: ${manywell_std:${dim},2}
+# MATCHED to the target: 1 x sqrt(mean_j E[x_j^2]) = 1.41 (ManyWell is confined to |x_j| < 2.5). The 2x convention (2.81) sent the initial VE noise into the
+# quartic tails: the regression target diverged (loss 5e4 -> 1e16 -> NaN, runs at a67ed56)
+sigma_max: ${manywell_std:${dim},1}
 sigma_min: 0.001
 rescale_t: null
 
@@ -39,7 +40,7 @@ adjoint_matcher:
   resample_size: 1000
   num_epochs_per_stage: ${num_epochs}
   optim:
-    lr: 3e-5   # 1e-4 with clip 100 diverged in a 60-epoch smoke test (loss 3e2 -> 2e5); 3e-5 stayed flat
+    lr: 1e-4
     weight_decay: 0
 
 
