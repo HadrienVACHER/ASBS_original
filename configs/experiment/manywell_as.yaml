@@ -30,7 +30,8 @@ controller:
 
 # === training ===
 num_epochs: 2000
-max_grad_E_norm: null
+# clipped as in the official dw4/lj13 configs: the quartic force is unbounded in the tails and the unclipped regression target diverged (loss 5e4 -> 1e16 -> NaN)
+max_grad_E_norm: 100
 
 adjoint_matcher:
   buffer_size: 10000
@@ -38,7 +39,7 @@ adjoint_matcher:
   resample_size: 1000
   num_epochs_per_stage: ${num_epochs}
   optim:
-    lr: 1e-4
+    lr: 3e-5   # 1e-4 with clip 100 diverged in a 60-epoch smoke test (loss 3e2 -> 2e5); 3e-5 stayed flat
     weight_decay: 0
 
 
