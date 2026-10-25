@@ -20,6 +20,7 @@ radius_scale: 1.0
 # orbit: translation (Y_k = x + m_k - m_c, equal-shape modes) | affine (Y_k = mu_k + L_k L_c^{-1}(x - mu_c), weights x |det L_k|; needs
 # covariances: Laplace Hessians at the threshold centres, or the true ones with oracle centres)
 orbit: translation
+product_subset: 3 # orbit: product (centre_method: wells), product-structured targets (ManyWell): s double-well coordinates toggled per sample, 2^s - 1 translates
 orbit_size: null # null: every other cluster; s: a uniform random subset of s - 1 of them per sample (cost: s - 1 energy calls)
 t_focus: 0.0
 t_focus_max: 0.15

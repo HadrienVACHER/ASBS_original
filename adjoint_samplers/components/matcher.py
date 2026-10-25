@@ -697,6 +697,62 @@ def _laplace_factors(energy, centres, h=1e-2, eps=1e-3):
     return L, torch.linalg.inv(L), torch.linalg.slogdet(L)[1], lam.max(-1).values / lam.min(-1).values
 
 
+@torch.no_grad()
+def _product_wells(energy, xd, conv, lam, radius_scale=1.0, h=1e-2, n_seg=33, tol=0.1, eps=1e-3):
+    """ Wells of a PRODUCT-structured target, one coordinate at a time. From the converged basin minima `xd` (N, D) of the buffer samples, each
+        coordinate j is clustered in 1D (leader clustering, radius = radius_scale x median width); a coordinate with exactly two clusters
+        separated by an energy barrier along j (all the other coordinates at a converged point, the target being a product) is a double well:
+        centres μ_L < μ_R, split = the top of the barrier, Laplace widths σ = H_jj^{-1/2} at the centres (central differences of ∂_j E).
+        Returns idx (J,), mu (J, 2), sigma (J, 2), split (J,) and the number of coordinates with one cluster / with none separated.
+    """
+    N, D = xd.shape
+    out = dict(idx=xd.new_zeros(0, dtype=torch.long), mu=xd.new_zeros(0, 2), sigma=xd.new_zeros(0, 2), split=xd.new_zeros(0))
+    if conv.sum() == 0:
+        return out, 0
+    pc = xd[conv]
+    width = (1.0 / lam[conv].clamp(min=1e-12).sqrt()).median()
+    radius = float(radius_scale * width)
+    base = pc[0].clone()
+    cand, cents = [], []
+    for j in range(D):
+        c, _ = _threshold_centres(pc[:, j:j + 1], radius, min_count=1)
+        if len(c) > 2:
+            # converged points can sit on a saddle (zero gradient, barrier top): keep the centres with positive curvature along j
+            q = base.expand(len(c), 2, D).clone()
+            q[:, 0, j] = c.reshape(-1) + h
+            q[:, 1, j] = c.reshape(-1) - h
+            gq = energy.grad_E(q.reshape(-1, D)).reshape(len(c), 2, D)[:, :, j]
+            c = c[((gq[:, 0] - gq[:, 1]) / (2 * h)) > eps]
+        if len(c) == 2:
+            cand.append(j)
+            cents.append(c.reshape(-1).sort().values)
+    if not cand:
+        return out, 0
+    cents = torch.stack(cents)                                            # (C, 2)
+    C = len(cand)
+    t = torch.linspace(0, 1, n_seg, device=xd.device, dtype=xd.dtype)
+    path = cents[:, :1] + t * (cents[:, 1:] - cents[:, :1])               # (C, n_seg) coordinate values between the two centres
+    pts = base.expand(C, n_seg, D).clone()
+    jj = torch.tensor(cand, device=xd.device)
+    pts[torch.arange(C), :, jj] = path
+    E = energy.eval(pts.reshape(-1, D)).reshape(C, n_seg)
+    barrier = E.max(1).values - torch.maximum(E[:, 0], E[:, -1])
+    keep = barrier > tol
+    if not keep.any():
+        return out, 0
+    split = path[torch.arange(C), E.argmax(1)]
+    pts_h = base.expand(C, 2, 2, D).clone()                                # (C, well, +-, D)
+    for sgn, k in ((1.0, 0), (-1.0, 1)):
+        pts_h[torch.arange(C), :, k, jj] = cents + sgn * h
+    g = energy.grad_E(pts_h.reshape(-1, D)).reshape(C, 2, 2, D)
+    gj = g[torch.arange(C), :, :, jj]                                      # (C, well, +-)
+    H = (gj[:, :, 0] - gj[:, :, 1]) / (2 * h)
+    sigma = H.clamp(min=eps).rsqrt()
+    sel = keep.nonzero().flatten()
+    out = dict(idx=jj[sel], mu=cents[sel], sigma=sigma[sel], split=split[sel])
+    return out, int(sel.numel())
+
+
 class AdjointVEMHMatcher(AdjointVEDiracMatcher):
     """ AdjointVEMatcher with a Metropolis-Hastings control variate added to the target:
 
@@ -745,6 +801,7 @@ class AdjointVEMHMatcher(AdjointVEDiracMatcher):
         orbit: str = "translation",
         orbit_size: int | None = None,
         gamma_anneal_frac: float = 0.0,
+        product_subset: int = 3,
         **kwargs,
     ):
         super().__init__(**kwargs)
@@ -752,7 +809,9 @@ class AdjointVEMHMatcher(AdjointVEDiracMatcher):
         assert 0.0 <= gamma_anneal_frac <= 1.0
         self.gamma_anneal_frac = gamma_anneal_frac # γ decays linearly to 0 over the last `frac` of the epochs (the term has zero mean at the fixed point)
         self.gamma_scale = 1.0
-        assert orbit in ("translation", "affine")
+        assert orbit in ("translation", "affine", "product")
+        self.product_subset = product_subset # product orbit: number of double-well coordinates toggled per sample (2^s - 1 translates)
+        self.wells = None # product orbit: dict(idx (J,), mu (J, 2), sigma (J, 2), split (J,)), refit from the cached basin minima
         assert orbit_size is None or orbit_size >= 2
         self.orbit = orbit # translation: Y_k = x + m_k - m_c; affine: Y_k = μ_k + L_k L_c^{-1}(x - μ_c) (needs covariances)
         self.orbit_size = orbit_size # None: every other cluster; s: a uniform random subset of s - 1 of them, per sample
@@ -761,7 +820,8 @@ class AdjointVEMHMatcher(AdjointVEDiracMatcher):
             centre_method = "oracle"
         if orbit == "affine":
             assert centre_method in ("threshold", "oracle"), "the affine orbit needs covariances: threshold or oracle centres"
-        assert centre_method in ("kmeans", "threshold", "oracle")
+        assert centre_method in ("kmeans", "threshold", "oracle", "wells")
+        assert (orbit == "product") == (centre_method == "wells"), "the product orbit goes with centre_method = wells (and only it)"
         self.centre_method = centre_method
         self.denoise_steps = denoise_steps
         self.max_centres = max_centres # threshold clustering: capacity (padded translates are invalid: no energy call)
@@ -810,6 +870,8 @@ class AdjointVEMHMatcher(AdjointVEDiracMatcher):
             1 (one random cluster) or orbit_size - 1 (a uniform random subset, drawn independently of the position of x1,
             so that P(S | x) = P(S | Y_k) for k in S: the sub-orbit is exact too). No centres yet: no valid jump.
         """
+        if self.orbit == "product":
+            return self._orbit_product(x1)
         (N, D), Mmax = x1.shape, self.capacity
         J = self.orbit_size - 1 if self.orbit_size else (Mmax - 1 if self.rao_blackwell else 1)
         affine = self.orbit == "affine"
@@ -844,6 +906,49 @@ class AdjointVEMHMatcher(AdjointVEDiracMatcher):
             valid = torch.cat([valid, x1.new_zeros(N, pad)], 1)
             if affine:
                 logdet = torch.cat([logdet, x1.new_zeros(N, pad)], 1)
+        return jumps, valid, logdet
+
+    def _orbit_product(self, x1, subset=None):
+        """ ORBIT OF THE SUBGROUP Z_2^S for a product-structured target. Per sample, a subset S of s double-well coordinates is drawn uniformly
+            and INDEPENDENTLY of the position of x1; the orbit is the 2^s well combinations on S. Coordinate j in S has two wells (L, R), each with
+            a Laplace centre μ and width σ; with u = (x_j - μ_w) / σ_w the whitened coordinate, the toggle sends x_j to μ_w' + σ_w' u (w' the other
+            well), with Jacobian σ_w' / σ_w. These maps form a group Z_2 per coordinate: the orbit is the same set from every member, whatever
+            the centres, widths and split, so E_π[h | Xt] = 0 stays exact; the Barker weights are π(Y) Π_{j in S} σ_{w'_j} (logdet stored).
+            Returns the 2^s - 1 translates as jumps (N, 2^s - 1, D), valid (N, 2^s - 1) and logdet (N, 2^s - 1). `subset` (N, s) fixes S (tests).
+        """
+        N, D = x1.shape
+        s = self.product_subset
+        ncomb = 2 ** s - 1
+        w = self.wells
+        if w is None or len(w["idx"]) == 0:
+            return x1.new_zeros(N, ncomb, D), x1.new_zeros(N, ncomb), x1.new_zeros(N, ncomb)
+        J = len(w["idx"])
+        se = min(s, J)
+        if subset is None:
+            subset = torch.rand(N, J, device=x1.device).argsort(1)[:, :se]       # indices into the J double-well coordinates, uniform
+        se = subset.shape[1]
+        idx = w["idx"].to(x1.device)[subset]                                    # (N, se) coordinates
+        mu, sigma, split = w["mu"].to(x1)[subset], w["sigma"].to(x1)[subset], w["split"].to(x1)[subset]   # (N, se, 2), (N, se, 2), (N, se)
+        xs = x1.gather(1, idx)
+        side = (xs >= split).long()                                             # current well of every coordinate of S
+        mu_own, sig_own = mu.gather(2, side[..., None]).squeeze(-1), sigma.gather(2, side[..., None]).squeeze(-1)
+        u = (xs - mu_own) / sig_own
+        bits = ((torch.arange(1, 2 ** se, device=x1.device)[:, None] >> torch.arange(se, device=x1.device)) & 1).bool()   # (2^se - 1, se) toggled?
+        side_new = side[:, None, :] ^ bits[None].long()                         # (N, 2^se - 1, se)
+        mu_new = torch.where(side_new.bool(), mu[:, None, :, 1], mu[:, None, :, 0])
+        sig_new = torch.where(side_new.bool(), sigma[:, None, :, 1], sigma[:, None, :, 0])
+        xnew = mu_new + sig_new * u[:, None, :]
+        valid = ((xnew >= split[:, None, :]) == side_new.bool()).all(-1)
+        Y = x1[:, None, :].repeat(1, 2 ** se - 1, 1)
+        Y.scatter_(2, idx[:, None, :].expand(N, 2 ** se - 1, se), xnew)
+        logdet = (torch.log(sig_new) - torch.log(sig_own)[:, None, :]).sum(-1)
+        valid = valid.to(x1)
+        jumps, logdet = (Y - x1[:, None, :]) * valid[..., None], logdet * valid
+        pad = ncomb - jumps.shape[1]
+        if pad > 0: # fewer double-well coordinates than s
+            jumps = torch.cat([jumps, x1.new_zeros(N, pad, D)], 1)
+            valid = torch.cat([valid, x1.new_zeros(N, pad)], 1)
+            logdet = torch.cat([logdet, x1.new_zeros(N, pad)], 1)
         return jumps, valid, logdet
 
     def propose(self, x1):
@@ -881,6 +986,8 @@ class AdjointVEMHMatcher(AdjointVEDiracMatcher):
         # centres from the buffer before this batch, so they do not depend on its samples
         if len(self.buffer) > 0 and self.centre_method == "threshold":
             self._refit_threshold_centres(x1)
+        if len(self.buffer) > 0 and self.centre_method == "wells":
+            self._refit_wells(x1)
         if len(self.buffer) > 0 and self.centre_method == "kmeans":
             n = self.buffer.buffer_size
             buffer_x1 = torch.cat(self.buffer.batches["x1"])[-n:].to(x1)
@@ -923,7 +1030,7 @@ class AdjointVEMHMatcher(AdjointVEDiracMatcher):
             # true mode of x1 and of every translate, for the per-mode flux diagnostics of the Barker matcher
             data["mode1"] = m1.to("cpu")
             data["modeY"] = mY.to("cpu")
-        if self.centre_method == "threshold":
+        if self.centre_method in ("threshold", "wells"):
             # basin minimum of each new sample, computed once: it depends only on x and E, never on the model.
             # ∇E(x1) is stored with the sample (adjoint1 = ∇E + ∇log p^base_1), so the first gradient is free
             assert not is_asbs_init_stage
@@ -937,6 +1044,19 @@ class AdjointVEMHMatcher(AdjointVEDiracMatcher):
             st["dn_steps"] += steps.sum()
             st["dn_conv"] += conv.sum()
         self.buffer.add(data)
+
+    def _refit_wells(self, like):
+        """ per-coordinate double wells from the cached converged basin minima of the buffer (product-structured target) """
+        n = self.buffer.buffer_size
+        xd = torch.cat(self.buffer.batches["xd"])[-n:].to(like)
+        conv = torch.cat(self.buffer.batches["conv"])[-n:].to(like.device)
+        lam = torch.cat(self.buffer.batches["lam"])[-n:].to(like)
+        wells, n_active = _product_wells(self.grad_term_cost.energy, xd, conv, lam, self.radius_scale)
+        self._centre_info = {"n_active": n_active, "conv_frac": float(conv.float().mean())}
+        if n_active > 0:
+            self.wells = wells
+            self._centre_info["sigma_min"] = float(wells["sigma"].min())
+            self._centre_info["sigma_max"] = float(wells["sigma"].max())
 
     def _refit_threshold_centres(self, like):
         """ centres from the cached converged points of the buffer, before the new batch is inserted """

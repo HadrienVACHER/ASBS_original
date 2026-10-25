@@ -1,0 +1,20 @@
+# @package _global_
+
+# ManyWell-32 (FAB) with the Barker SUBGROUP orbit: per sample a subset S of s = 3 of the 16 double-well coordinates (drawn independently of
+# the position); the orbit is the 2^3 well combinations on S, each coordinate with its 1D affine map between its two wells (Laplace centre and
+# width per well, from per-coordinate 1D threshold clustering of the basin minima), Jacobian in the weights. 7 energy calls per sample.
+# Same big controller (256 x 6) and budget as manywell_as. Run ONLY if the AS-only rule (scripts/manywell_rule.py) says the target is informative.
+
+defaults:
+  - manywell_as
+  - override /matcher@adjoint_matcher: adjoint_ve_barker
+
+exp_name: manywell_as_barker
+
+adjoint_matcher:
+  gamma: 3.0
+  centre_method: wells
+  orbit: product
+  product_subset: 3
+  radius_scale: 1.0
+  denoise_steps: 12
