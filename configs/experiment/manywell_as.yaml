@@ -1,0 +1,47 @@
+# @package _global_
+
+# Adjoint Sampling (memoryless) on ManyWell-32 (FAB), frozen big controller (256 x 6), 2000 epochs, from a Dirac at the origin.
+
+defaults:
+  - /problem: manywell
+  - /source: delta
+  - /sde@ref_sde: ve
+  - /model@controller: fouriermlp
+  - /state_cost: zero
+  - /term_cost: score_term_cost
+  - /matcher@adjoint_matcher: adjoint_ve
+
+exp_name: manywell_as
+
+
+# === sde ===
+nfe: 200
+# 2 x sqrt(mean_j E[x_j^2]) of the target (second moment about the Dirac source): same convention as gmm_std
+sigma_max: ${manywell_std:${dim},2}
+sigma_min: 0.001
+rescale_t: null
+
+
+# === model ===
+controller:
+  channels: 256
+  num_layers: 6
+
+
+# === training ===
+num_epochs: 2000
+max_grad_E_norm: null
+
+adjoint_matcher:
+  buffer_size: 10000
+  duplicates: 10
+  resample_size: 1000
+  num_epochs_per_stage: ${num_epochs}
+  optim:
+    lr: 1e-4
+    weight_decay: 0
+
+
+# === eval & logging ===
+use_wandb: true
+eval_freq: 50

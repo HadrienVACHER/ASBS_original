@@ -258,3 +258,58 @@ class GMMEvaluator:
             **mode_metrics,
             **mode_floors,
         }
+
+
+class ManyWellEvaluator:
+    """ ManyWell (FAB): per-coordinate mass of the LIGHT well. For each of the n_wells double-well coordinates x_{2i-1}, the share of samples
+        in the left well (x < well_split) divided by the exact share p_left = 0.1557:
+
+          well_ratio/<i>        R_i = left share / p_left       (1: right proportion, 0: the light well is never visited)
+          well_ratio_mean       mean_i R_i
+          well_logratio_mean    mean_i |log max(R_i, 1e-3)|
+          wells_visited_frac    share of coordinates visiting BOTH wells (left share >= cover_ratio p_left and right share >= cover_ratio p_right)
+          energy_w2             1D W2 between the energies of the samples and of exact samples
+        and each aggregate also as `<name>_floor` for exact samples of the same size.
+    """
+    def __init__(self, energy, cover_ratio: float = 0.1, n_floor_draws: int = 5) -> None:
+        from adjoint_samplers.energies.dist_energy import DistEnergy
+        from adjoint_samplers.utils.dist_utils import ManyWell
+        assert isinstance(energy, DistEnergy) and isinstance(energy.dist, ManyWell)
+        self.energy, self.dist = energy, energy.dist
+        self.cover_ratio, self.n_floor_draws = cover_ratio, n_floor_draws
+        self.p_left = self.dist.light_mass
+        self._floors = {}
+
+    def well_metrics(self, x: torch.Tensor, per_coord: bool = False) -> Dict:
+        left = (x[:, 0::2] < self.dist.well_split).float().mean(0)     # (n_wells,)
+        R = left / self.p_left
+        visited = (left >= self.cover_ratio * self.p_left) & ((1 - left) >= self.cover_ratio * (1 - self.p_left))
+        out = {
+            "well_ratio_mean": R.mean().item(),
+            "well_logratio_mean": R.clamp(min=1e-3).log().abs().mean().item(),
+            "wells_visited_frac": visited.float().mean().item(),
+        }
+        if per_coord:
+            out.update({f"well_ratio/{i}": r for i, r in enumerate(R.tolist())})
+        return out
+
+    def well_floors(self, B: int, device) -> Dict:
+        if B not in self._floors:
+            devices = [device] if torch.device(device).type == "cuda" else []
+            with torch.random.fork_rng(devices=devices):
+                draws = [self.well_metrics(self.dist.sample([B,]).to(device)) for _ in range(self.n_floor_draws)]
+            self._floors[B] = {f"{k}_floor": float(np.mean([d[k] for d in draws])) for k in draws[0]}
+        return self._floors[B]
+
+    def __call__(self, samples: torch.Tensor) -> Dict:
+        B, D = samples.shape
+        assert D == self.dist.dim
+        ref = self.dist.sample([B,]).to(samples.device)
+        gen_energy, ref_energy = self.energy.eval(samples), self.energy.eval(ref)
+        energy_w2 = pot.emd2_1d(ref_energy.cpu().numpy(), gen_energy.cpu().numpy())**0.5
+        return {
+            "energy_w2": energy_w2,
+            **self.well_metrics(samples, per_coord=True),
+            **self.well_floors(B, samples.device),
+        }
+

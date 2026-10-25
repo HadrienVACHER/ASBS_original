@@ -32,6 +32,14 @@ def _hetero_std(dim, K, seed, radius_min, radius_max, scale_min, scale_max, weig
 
 
 OmegaConf.register_new_resolver("hetero_std", _hetero_std, replace=True)
+
+
+def _manywell_std(dim, mult):
+    from adjoint_samplers.utils.dist_utils import ManyWell
+    return mult * ManyWell(dim=dim).coord_std()
+
+
+OmegaConf.register_new_resolver("manywell_std", _manywell_std, replace=True)
 OmegaConf.register_new_resolver("mul", lambda a, b: a * b, replace=True)
 
 

@@ -1,0 +1,17 @@
+# @package _global_
+
+# ManyWell of FAB (Midgley et al. 2023), dim = 2 n_wells (32: 16 double wells paired with 16 Gaussian coordinates):
+#   log p~(x) = sum_i [ -x_{2i-1}^4 + 6 x_{2i-1}^2 + 0.5 x_{2i-1} - 0.5 x_{2i}^2 ]; the light (left) well holds 0.1557 of the mass of each pair.
+dim: 32
+
+energy:
+  _target_: adjoint_samplers.energies.dist_energy.DistEnergy
+  dist:
+    _target_: adjoint_samplers.utils.dist_utils.ManyWell
+    dim: ${dim}
+
+evaluator:
+  _target_: adjoint_samplers.components.evaluator.ManyWellEvaluator
+  cover_ratio: 0.1 # a well is visited if it holds >= 10% of its exact share
+
+num_eval_samples: 10000

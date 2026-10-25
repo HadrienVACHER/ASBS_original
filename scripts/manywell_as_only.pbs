@@ -1,0 +1,44 @@
+#!/bin/bash
+#PBS -N manywell_as_only
+#PBS -P gs_ccds_haidang.dau
+#PBS -q gpu_as
+#PBS -l walltime=03:00:00
+#PBS -l select=1:ncpus=3:ngpus=1:mem=16gb
+#PBS -j oe
+
+# ManyWell-32 (FAB), AS SEUL (À lancer depuis la branche mh) : réseau 256x6, graines 0 à 2, 2000 epochs, dump_final : 3 runs.
+# Règle pré-enregistrée (scripts/manywell_rule.py) : cible informative si le rapport moyen du puits léger < 0.6 ET si chaque coordonnée visite
+# les deux puits. Sinon : benchmarks du papier AS (DW-4, LJ-13), sans autre recherche de cible. AUCUN run Barker n'est lancé avant.
+cd "${PBS_O_WORKDIR}" || exit 1
+mkdir -p logs
+export PYTHONUNBUFFERED=1
+export OMP_NUM_THREADS=1
+export MKL_NUM_THREADS=1
+
+# --- Correctif officiel PBS/GaaS pour les identifiants GPU (inchangé) ---
+if echo "${CUDA_VISIBLE_DEVICES:-}" | grep -q "GPU-"; then
+    GPU_COUNT=$(echo "${CUDA_VISIBLE_DEVICES}" | tr ',' '\n' | wc -l)
+    CUDA_VISIBLE_DEVICES=$(seq -s, 0 $((GPU_COUNT - 1)))
+    export CUDA_VISIBLE_DEVICES
+fi
+
+module purge
+module load anaconda/2025
+eval "$(/usr/local/anaconda2025/bin/conda shell.bash hook)"
+conda activate BMS
+
+echo "Nœud : $(hostname) à $(date)"
+nvidia-smi -L
+git log --oneline -1
+
+COMMON="num_epochs=2000 dump_final=true fast_sampling=true buffer_on_device=true fast_train=true"
+pids=()
+for SEED in 0 1 2; do
+  python train.py experiment=manywell_as seed=${SEED} ${COMMON} hydra.run.dir=results/manywell_as/seed${SEED} \
+      > logs/manywell_as_seed${SEED}.log 2>&1 &
+  pids+=($!)
+done
+fail=0
+for p in "${pids[@]}"; do wait "$p" || fail=1; done
+echo "Fin à $(date), statut : ${fail}"
+exit $fail

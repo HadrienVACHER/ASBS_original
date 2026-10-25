@@ -206,6 +206,65 @@ class GMM(distributions.Distribution):
         return self.means[modes] + noise
 
 
+class ManyWell(distributions.Distribution):
+    """ ManyWell of FAB (Midgley et al. 2023, fab-torch `ManyWellEnergy` / `DoubleWellEnergy`), dim = 2 n_wells, product of n_wells pairs:
+
+            log p~(x) = Σ_i [ - (a x_{2i-1} + b x_{2i-1}^2 + c x_{2i-1}^4) - x_{2i}^2 / 2 ],   a = -0.5, b = -6, c = 1
+                      = Σ_i [ - x_{2i-1}^4 + 6 x_{2i-1}^2 + 0.5 x_{2i-1} - 0.5 x_{2i}^2 ]
+
+        The first coordinate of each pair is a double well (wells near -1.7 (light, mass 0.1557) and +1.7), the second a standard Gaussian.
+        Exact sampling: the first coordinate by inverse CDF on a fine grid (FAB uses rejection sampling), the second N(0, 1).
+        The energy is unnormalised, as in FAB (normalised = False).
+    """
+    def __init__(self, dim: int = 32, a: float = -0.5, b: float = -6.0, c: float = 1.0, device: str = "cpu") -> None:
+        super().__init__(validate_args=False)
+        assert dim % 2 == 0
+        self.dim, self.n_wells, self.a, self.b, self.c = dim, dim // 2, a, b, c
+        self.name = f"manywell{dim}d"
+        x = torch.linspace(-6.0, 6.0, 200001, dtype=torch.float64)
+        p = torch.exp(-(a * x + b * x ** 2 + c * x ** 4) + (a * x + b * x ** 2 + c * x ** 4).min())
+        self._grid, self._cdf = x, torch.cumsum(p, 0) / p.sum()
+        inner = (x > -1.0) & (x < 1.0)
+        self.well_split = float(x[inner][torch.argmin(p[inner])]) # the barrier top, ≈ -0.0417
+        self.light_mass = float(p[x < self.well_split].sum() / p.sum()) # ≈ 0.15569
+        dx = float(x[1] - x[0])
+        self._m2_first = float((x ** 2 * p).sum() / p.sum())     # E[x_1^2] about the origin
+        self.to(device)
+
+    def to(self, device) -> distributions.Distribution:
+        self._dev = device
+        self._grid_d, self._cdf_d = self._grid.to(device), self._cdf.to(device)
+        return self
+
+    def coord_std(self) -> float:
+        """ √(mean over the coordinates of E[x_j^2]): the scale of the VE noise from a Dirac at the origin """
+        return math.sqrt((self._m2_first + 1.0) / 2)
+
+    def _pairs(self, x):
+        z = x.reshape(*x.shape[:-1], self.n_wells, 2)
+        return z[..., 0], z[..., 1]
+
+    def log_prob(self, x: torch.Tensor) -> torch.Tensor:
+        x1, x2 = self._pairs(x)
+        return (- (self.a * x1 + self.b * x1 ** 2 + self.c * x1 ** 4) - 0.5 * x2 ** 2).sum(-1)
+
+    def score(self, x: torch.Tensor) -> torch.Tensor:
+        x1, x2 = self._pairs(x)
+        g1 = - (self.a + 2 * self.b * x1 + 4 * self.c * x1 ** 3)
+        return torch.stack([g1, - x2], dim=-1).reshape(x.shape)
+
+    def sample(self, shape: tuple) -> torch.Tensor:
+        shape = torch.Size(shape)
+        n = shape.numel()
+        u = torch.rand(n, self.n_wells, device=self._dev, dtype=torch.float64)
+        idx = torch.searchsorted(self._cdf_d, u).clamp(1, len(self._cdf_d) - 1)
+        c0, c1 = self._cdf_d[idx - 1], self._cdf_d[idx]
+        t = ((u - c0) / (c1 - c0).clamp(min=1e-300)).clamp(0, 1)
+        x1 = self._grid_d[idx - 1] + t * (self._grid_d[idx] - self._grid_d[idx - 1])
+        x2 = torch.randn(n, self.n_wells, device=self._dev, dtype=torch.float64)
+        return torch.stack([x1, x2], dim=-1).reshape(*shape, self.dim).float()
+
+
 class HeteroGMM(GMM):
     """ Gaussian mixture with HETEROGENEOUS geometry: p(x) = Σ_k π_k N(x | μ_k, Σ_k), Σ_k = L_k L_k^T
 
