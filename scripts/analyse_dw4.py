@@ -64,6 +64,15 @@ def main():
     print(f"{'intervalle':>14}{'modèle':>9}{'référence':>11}")
     for k in range(len(bins) - 1):
         print(f"{bins[k]:>7.1f}-{bins[k + 1]:<6.1f}{cm[k]:9.4f}{cr[k]:11.4f}")
+    fine = torch.arange(3.0, 5.01, 0.1)
+    fm = torch.bucketize(dm, fine[1:-1]).bincount(minlength=len(fine) - 1).double() / len(dm)
+    fr_ = torch.bucketize(dr, fine[1:-1]).bincount(minlength=len(fine) - 1).double() / len(dr)
+    print("\nHISTOGRAMME FIN autour du seuil d = 4 (pas 0.1 ; les extrémités contiennent tout ce qui est en dehors de [3, 5]) :")
+    print(f"{'intervalle':>12}{'modèle':>9}{'référence':>11}{'rapport':>9}")
+    for k in range(len(fine) - 1):
+        print(f"{fine[k]:>6.1f}-{fine[k + 1]:<5.1f}{fm[k]:9.4f}{fr_[k]:11.4f}{(fm[k] / fr_[k] if fr_[k] > 0 else float('nan')):9.2f}")
+    near_m, near_r = float(((dm > 3.75) & (dm < 4.25)).float().mean()), float(((dr > 3.75) & (dr < 4.25)).float().mean())
+    print(f"part des distances dans [3.75, 4.25] (proches du seuil) : modèle {near_m:.4f}, référence {near_r:.4f}")
     sf_m, sf_r = float((dm < D0).float().mean()), float((dr < D0).float().mean())
     print(f"fraction de distances courtes (d < {D0:g}) : modèle {sf_m:.4f}, référence {sf_r:.4f}")
 

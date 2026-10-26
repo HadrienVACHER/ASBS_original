@@ -34,12 +34,13 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--sigma-max", type=float, default=2.0)
     ap.add_argument("--n", type=int, default=4096)
+    ap.add_argument("--nfe", type=int, default=200)
     a = ap.parse_args()
     if not torch.cuda.is_available():
         print("pas de GPU : contrôle non effectué")
         sys.exit(2)
     with initialize_config_dir(config_dir=str(Path(__file__).resolve().parents[1] / "configs"), version_base=None):
-        cfg = compose(config_name="train", overrides=["experiment=dw4_as_states", f"sigma_max={a.sigma_max}"])
+        cfg = compose(config_name="train", overrides=["experiment=dw4_as_states", f"sigma_max={a.sigma_max}", f"nfe={a.nfe}"])
     device = "cuda"
     torch.manual_seed(0)
     ref_sde = hydra.utils.instantiate(cfg.ref_sde).to(device)

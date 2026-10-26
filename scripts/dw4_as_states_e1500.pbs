@@ -1,0 +1,46 @@
+#!/bin/bash
+#PBS -N dw4_e1500
+#PBS -P gs_ccds_haidang.dau
+#PBS -q gpu_as
+#PBS -l walltime=04:00:00
+#PBS -l select=1:ncpus=3:ngpus=1:mem=16gb
+#PBS -j oe
+
+# DW-4, AS SEUL, graine 0, sigma_max = 1.5 (script de l'article, scripts/dw4.sh), accéléré (buffer_on_device, fast_train vérifié au démarrage, fast_sampling si scripts/check_fast_dw4.py passe).
+# ÉCARTS À LA CONFIG OFFICIELLE, décidés par l'utilisateur : num_epochs = 1500 (au lieu de 5000), nfe = 100 (au lieu de 200), évaluation toutes les 50 epochs (fenêtre de plateau =
+# 20 % derniers = epochs 1200-1500). Règle pré-enregistrée inchangée (scripts/analyse_dw4.py) + robustesse par trempe (scripts/analyse_dw4_quench.py). Projet W&B : CCDS_NTU/as.
+cd "${PBS_O_WORKDIR}" || exit 1
+mkdir -p logs data
+export PYTHONUNBUFFERED=1
+export OMP_NUM_THREADS=1
+export MKL_NUM_THREADS=1
+
+# --- Correctif officiel PBS/GaaS pour les identifiants GPU (inchangé) ---
+if echo "${CUDA_VISIBLE_DEVICES:-}" | grep -q "GPU-"; then
+    GPU_COUNT=$(echo "${CUDA_VISIBLE_DEVICES}" | tr ',' '\n' | wc -l)
+    CUDA_VISIBLE_DEVICES=$(seq -s, 0 $((GPU_COUNT - 1)))
+    export CUDA_VISIBLE_DEVICES
+fi
+
+module purge
+module load anaconda/2025
+eval "$(/usr/local/anaconda2025/bin/conda shell.bash hook)"
+conda activate BMS
+
+echo "Nœud : $(hostname) à $(date)"
+nvidia-smi -L
+git log --oneline -1
+
+if [ ! -f data/test_split_DW4.npy ]; then bash scripts/download.sh; fi
+ls -la data/test_split_DW4.npy || exit 1
+# accélérations : buffer_on_device (sans risque) ; fast_train (Adam fusionné + torch.compile de l'EGNN, vérifié par train.py au démarrage : repli sur eager si le résultat diffère) ;
+# fast_sampling (graphe CUDA, GraphVESDE avec bruit sur GPU) seulement si scripts/check_fast_dw4.py passe, sinon sampling classique
+if python scripts/check_fast_dw4.py --sigma-max 1.5 --nfe 100 > logs/check_fast_dw4.log 2>&1; then SAMPLING="fast_sampling=true"; else SAMPLING="fast_sampling=false"; fi
+cat logs/check_fast_dw4.log | tail -8
+echo "sampling: ${SAMPLING}"
+python train.py experiment=dw4_as_states seed=0 sigma_max=1.5 num_epochs=1500 nfe=100 eval_freq=50 exp_name=dw4_as_states_e1500 project=as dump_final=true buffer_on_device=true fast_train=true ${SAMPLING} hydra.run.dir=results/dw4_as_states_e1500/seed0 > logs/dw4_as_states_e1500_seed0.log 2>&1
+fail=$?
+python scripts/analyse_dw4.py --samples results/dw4_as_states_e1500/seed0/samples_final.pt --commit $(git rev-parse --short HEAD) --project CCDS_NTU/as --name dw4_as_states_e1500 || fail=1
+python scripts/analyse_dw4_quench.py --samples results/dw4_as_states_e1500/seed0/samples_final.pt || fail=1
+echo "Fin à $(date), statut : ${fail}"
+exit $fail
