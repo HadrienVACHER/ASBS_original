@@ -1,0 +1,11 @@
+# @package _global_
+
+# V1 (a = 6, b = 0.3) with a gentler start: linear lr warm-up from 1e-5 to 1e-4 over the first 200 epochs, then 1e-4. Everything else as manywell_v1_as (205efcd).
+
+defaults:
+  - manywell_v1_as
+
+exp_name: manywell_v1w_as
+
+lr_warmup_epochs: 200
+lr_warmup_start: 1e-5

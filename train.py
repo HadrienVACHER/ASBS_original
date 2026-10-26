@@ -134,6 +134,13 @@ def main(cfg):
                 controller.parameters(), **cfg.adjoint_matcher.optim, fused=fast_train,
             )
 
+        if cfg.get("lr_warmup_epochs"):
+            # linear lr warm-up from lr_warmup_start to the configured lr over lr_warmup_epochs epochs, stepped per iteration; then constant
+            assert corrector is None  # checkpoint resume is disabled here (start_epoch = 0), so the schedule starts at step 0
+            n_warm = int(cfg.lr_warmup_epochs) * cfg.train_itr_per_epoch
+            f0 = float(cfg.lr_warmup_start) / float(cfg.adjoint_matcher.optim.lr)
+            lr_schedule = torch.optim.lr_scheduler.LambdaLR(optimizer, lambda i: f0 + (1.0 - f0) * min(1.0, i / n_warm))
+
         # compiled wrappers share the parameters; sampling keeps using the eager modules
         train_models = {"adjoint": controller, "corrector": corrector}
         if fast_train:
