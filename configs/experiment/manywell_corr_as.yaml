@@ -12,5 +12,5 @@ well_a: 6.0
 well_b: 0.5
 sigma_max: ${manywell_std:${dim},1,${well_a},0.0}
 
-init_controller: results/manywell_pretrain/seed0/controller_final.pt
-init_buffer: results/manywell_pretrain/seed0/samples_final.pt
+init_controller: results/manywell_pretrain_tf/seed0/controller_final.pt
+init_buffer: results/manywell_pretrain_tf/seed0/samples_final.pt

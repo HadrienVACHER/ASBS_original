@@ -1,0 +1,42 @@
+#!/bin/bash
+#PBS -N manywell_pretrain_tf
+#PBS -P gs_ccds_haidang.dau
+#PBS -q gpu_as
+#PBS -l walltime=03:00:00
+#PBS -l select=1:ncpus=3:ngpus=1:mem=16gb
+#PBS -j oe
+
+# PHASE 1 : pré-entraînement sur q = ManyWell symétrique (b = 0, puits léger 0.5), régression AS sur un buffer FIXE de 10k échantillons exacts de q, graine 0,
+# 256x6, lr 1e-4, clip 100, sigma_max apparié à q, 2000 epochs ; puis la porte de validité (scripts/manywell_pretrain_gate.py). UN run.
+cd "${PBS_O_WORKDIR}" || exit 1
+mkdir -p logs
+export PYTHONUNBUFFERED=1
+export OMP_NUM_THREADS=1
+export MKL_NUM_THREADS=1
+
+# --- Correctif officiel PBS/GaaS pour les identifiants GPU (inchangé) ---
+if echo "${CUDA_VISIBLE_DEVICES:-}" | grep -q "GPU-"; then
+    GPU_COUNT=$(echo "${CUDA_VISIBLE_DEVICES}" | tr ',' '\n' | wc -l)
+    CUDA_VISIBLE_DEVICES=$(seq -s, 0 $((GPU_COUNT - 1)))
+    export CUDA_VISIBLE_DEVICES
+fi
+
+module purge
+module load anaconda/2025
+eval "$(/usr/local/anaconda2025/bin/conda shell.bash hook)"
+conda activate BMS
+
+echo "Nœud : $(hostname) à $(date)"
+nvidia-smi -L
+git log --oneline -1
+
+COMMON="num_epochs=2000 dump_final=true fast_sampling=true buffer_on_device=true fast_train=true"
+pids=()
+python train.py experiment=manywell_pretrain_tf seed=0 ${COMMON} hydra.run.dir=results/manywell_pretrain_tf/seed0 \
+    > logs/manywell_pretrain_tf_seed0.log 2>&1 &
+pids+=($!)
+fail=0
+for p in "${pids[@]}"; do wait "$p" || fail=1; done
+echo "Fin à $(date), statut : ${fail}"
+python scripts/manywell_pretrain_gate.py --samples results/manywell_pretrain_tf/seed0/samples_final.pt || fail=1
+exit $fail

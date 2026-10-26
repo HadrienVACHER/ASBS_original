@@ -45,7 +45,7 @@ def main():
     a = ap.parse_args()
     runs = list(wandb.Api(timeout=120).runs("CCDS_NTU/adjoint_sampler_cv", per_page=200, order="-created_at"))
     if a.gate:
-        got, state = load(runs, "manywell_pretrain", a.commit)
+        got, state = load(runs, "manywell_pretrain_tf", a.commit)
         if got is None or state != "finished":
             print("pré-entraînement introuvable ou non terminé")
             return

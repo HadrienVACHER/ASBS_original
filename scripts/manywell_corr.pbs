@@ -9,7 +9,7 @@
 # PHASE 2 : correction vers la vraie cible p (ManyWell standard) à partir du MÊME contrôleur pré-entraîné et du MÊME buffer initial : AS et Barker (gamma = 3, orbite s = 3,
 # débruitage Newton 1D, banc de puits initialisé sur le buffer initial), graine 0, 2000 epochs, 2 runs en parallèle. Refuse de tourner sans la porte de la phase 1.
 cd "${PBS_O_WORKDIR}" || exit 1
-if [ ! -f results/manywell_pretrain/seed0/gate_ok ]; then echo "porte de la phase 1 non franchie (results/manywell_pretrain/seed0/gate_ok absent) : ARRÊT"; exit 2; fi
+if [ ! -f results/manywell_pretrain_tf/seed0/gate_ok ]; then echo "porte de la phase 1 non franchie (results/manywell_pretrain_tf/seed0/gate_ok absent) : ARRÊT"; exit 2; fi
 mkdir -p logs
 export PYTHONUNBUFFERED=1
 export OMP_NUM_THREADS=1

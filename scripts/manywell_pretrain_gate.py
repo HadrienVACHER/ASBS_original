@@ -1,6 +1,6 @@
 """ Porte de validité de la phase 1 (pré-entraînement sur q = ManyWell symétrique, b = 0) :
 
-      python scripts/manywell_pretrain_gate.py [--samples results/manywell_pretrain/seed0/samples_final.pt]
+      python scripts/manywell_pretrain_gate.py [--samples results/manywell_pretrain_tf/seed0/samples_final.pt]
 
     Les 10k échantillons du modèle doivent avoir les DEUX puits sur les 16 coordonnées avec une fraction de puits léger dans [0.4, 0.6] sur CHAQUE coordonnée.
     Sinon : corriger le pré-entraînement, ne PAS lancer la phase 2. Écrit `gate_ok` à côté du fichier si la porte est franchie (le job de la phase 2 le vérifie).
@@ -20,7 +20,7 @@ LO, HI = 0.4, 0.6
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--samples", default="results/manywell_pretrain/seed0/samples_final.pt")
+    ap.add_argument("--samples", default="results/manywell_pretrain_tf/seed0/samples_final.pt")
     a = ap.parse_args()
     x = torch.load(a.samples, map_location="cpu", weights_only=False)["model_samples"]
     q = ManyWell(dim=x.shape[1], a=0.0, b=-6.0)

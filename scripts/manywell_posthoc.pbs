@@ -34,7 +34,7 @@ git log --oneline -1
 R=results
 python scripts/manywell_model_quality.py --experiment manywell_corr_as --controller ${R}/manywell_corr_as/seed0/controller_final.pt --label AS || exit 1
 python scripts/manywell_model_quality.py --experiment manywell_corr_barker --controller ${R}/manywell_corr_barker/seed0/controller_final.pt --label Barker || exit 1
-python scripts/manywell_posthoc.py --init ${R}/manywell_pretrain/seed0/samples_final.pt --as-samples ${R}/manywell_corr_as/seed0/samples_final.pt \
+python scripts/manywell_posthoc.py --init ${R}/manywell_pretrain_tf/seed0/samples_final.pt --as-samples ${R}/manywell_corr_as/seed0/samples_final.pt \
     --barker-samples ${R}/manywell_corr_barker/seed0/samples_final.pt --barker-commit ${COMMIT} || exit 1
 fail=0
 echo "Fin à $(date), statut : ${fail}"

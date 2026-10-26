@@ -1,0 +1,14 @@
+# @package _global_
+
+# PHASE 1, version 2: manywell_pretrain (fixed buffer of 10k exact q samples) + a regression-time focus. The diagnostic of the first pre-training (scripts/manywell_pretrain_diag.py)
+# showed the model leaves the optimal process at t in [0.05, 0.3] (share of samples with a double-well coordinate at |x| > 3: 4.5 % at t = 0.05, 53 % at t = 0.3, 0 % for the
+# optimal process), i.e. where the wells are chosen. 70 % of the regression times are drawn in [0, 0.3]; the minimiser of the regression (the fixed point) does not depend on the law of t.
+
+defaults:
+  - manywell_pretrain
+
+exp_name: manywell_pretrain_tf
+
+adjoint_matcher:
+  t_focus: 0.7
+  t_focus_max: 0.3
