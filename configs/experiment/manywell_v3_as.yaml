@@ -1,0 +1,11 @@
+# @package _global_
+
+# ManyWell variant V3 (AS only): per pair -x^4 + 6 x^2 + 0.2 x, light well 33.7 %; everything else as manywell_v1_as / manywell_v2_as (205efcd setup, no warm-up).
+
+defaults:
+  - manywell_as
+
+exp_name: manywell_v3_as
+
+well_a: 6.0
+well_b: 0.2
