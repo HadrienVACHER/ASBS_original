@@ -1,6 +1,6 @@
 """ TEST 3 (décisif, après la fin du run dw4_as_states) : le noyau de réflexions à t = 0 appliqué aux échantillons de AS.
 
-      python scripts/dw4_reflection_test3.py --samples results/dw4_as_states_s2/seed0/samples_final.pt [--variant]
+      python scripts/dw4_reflection_test3.py --samples results/dw4_as_states_s2/seed0/samples_final.pt [--line-only]
 
     Applique 1, 5 et 20 pas du noyau (r uniforme, T_r x accepté avec probabilité π(T_r x) / (π(x) + π(T_r x))) aux 5000 premiers échantillons de AS, et rapporte : fréquences
     d'états contre la référence (classes du graphe des paires courtes, comme analyse_dw4.py), TV des états après chaque nombre de pas, plancher (deux sous-échantillons
@@ -24,8 +24,10 @@ N, REPEATS, STEPS = 5000, 25, (1, 5, 20)
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--samples", required=True)
-    ap.add_argument("--variant", action="store_true", help="add the 12 point reflections (R = 24)")
+    ap.add_argument("--line-only", action="store_true", help="12 line reflections only (default: 24 maps, line + point reflections)")
+    a_ = None
     a = ap.parse_args()
+    a.variant = not a.line_only
     root = Path(__file__).resolve().parents[1]
     ref = torch.tensor(np.load(root / "data" / "test_split_DW4.npy", allow_pickle=True)).double()
     model = torch.load(a.samples, map_location="cpu", weights_only=False)["model_samples"].double()[:N]

@@ -171,10 +171,35 @@ def test_invariance_on_reference(n_steps=(1, 5, 20), repeats=25):
     return C
 
 
+def test_rao_blackwell_matches_the_kernel(draws=300):
+    """ the RB statistic D_b equals the expected one-step change of the class frequencies of the sampled kernel; on the reference it is compatible with 0 """
+    from adjoint_samplers.utils.dw4_states import state_ids as sid
+    root = Path(__file__).resolve().parents[1]
+    ref = torch.tensor(np.load(root / "data" / "test_split_DW4.npy", allow_pickle=True)).double()[:2000]
+    label = lambda z: sid(z.float())
+    D, Fl, lab_x, K = R.rb_terms(ref, label, n_classes=len(KEYS))
+    g = torch.Generator().manual_seed(5)
+    acc = torch.zeros(len(KEYS), dtype=torch.float64)
+    lab0 = torch.nn.functional.one_hot(lab_x, len(KEYS)).double()
+    for _ in range(draws):
+        new, _r = R.kernel_step(ref, True, g)
+        acc += (torch.nn.functional.one_hot(label(new), len(KEYS)).double() - lab0).mean(0)
+    emp = acc / draws
+    rb = D.mean(0)
+    se = D.std(0) / np.sqrt(len(D))
+    sel = se > 0
+    assert (torch.abs(emp - rb)[sel] < 4 * (se[sel] / 1 + 1e-4)).all(), (emp, rb)
+    z = (rb[sel] / se[sel]).abs()
+    assert float(z.max()) < 3, z
+    assert abs(float(D.sum(1).abs().max())) < 1e-12
+    print(f"ok  RB statistic = expected one-step change of the sampled kernel ({draws} draws; max |emp - RB| {float((emp - rb).abs().max()):.1e}); on the reference |Delta_b|/SE <= {float(z.max()):.1f} (< 3)")
+
+
 if __name__ == "__main__":
     test_involution_and_energy()
     test_volume()
     test_equivariance()
     test_zero_mean_identity()
     test_invariance_on_reference()
+    test_rao_blackwell_matches_the_kernel()
     print("all passed")
