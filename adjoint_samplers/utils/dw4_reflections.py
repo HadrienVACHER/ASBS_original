@@ -69,7 +69,14 @@ def barker_logit(x1, xt, kappa, v, variant=True):
     """ log π~(T_r x1 | x_t) - log π~(x1 | x_t) = -(E(Tx) - E(x)) - (|x_t - κ Tx|^2 - |x_t - κ x|^2) / (2 v), (N, R), with the recentred x1 and its images (N, R, 8) """
     z = recentre(x1.reshape(-1, 4, 2)).reshape(-1, 8)
     imgs, dE = images(z, variant)
-    gauss = -(((xt[:, None, :] - kappa * imgs) ** 2).sum(-1) - ((xt - kappa * z) ** 2).sum(-1)[:, None]) / (2 * v)
+    k, vv = torch.as_tensor(kappa, dtype=z.dtype, device=z.device), torch.as_tensor(v, dtype=z.dtype, device=z.device)
+    k3, v2 = (k.reshape(-1, 1, 1), vv.reshape(-1, 1)) if k.dim() > 0 else (k, vv)         # per-sample kappa_t, v_t (N, 1) or scalars
+    k2 = k.reshape(-1, 1) if k.dim() > 0 else k
+    # |x_t - κ y|^2 - |x_t - κ x|^2 = κ^2 |Δ|^2 - 2 κ <Δ, r>, Δ = y - x, r = x_t - κ x: no cancellation between two large numbers (float32)
+    delta = imgs - z[:, None, :]
+    r = xt - k2 * z
+    kk = k3.reshape(-1, 1) if k3.dim() > 0 else k3
+    gauss = -(kk ** 2 * (delta ** 2).sum(-1) - 2 * kk * (delta * r[:, None, :]).sum(-1)) / (2 * v2)
     return -dE + gauss, z, imgs
 
 

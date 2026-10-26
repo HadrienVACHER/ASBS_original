@@ -1,0 +1,14 @@
+# @package _global_
+
+# DW-4, AS + the symmetry-compatible Barker control variate (24 reflections, gamma = 3 frozen), seed 0. EXACTLY the config of dw4_as_states (sigma_max 2, EGNN, lr 1e-4, clip 100,
+# 5000 epochs by default, 1500 / nfe 100 in the e1500 job); only the matcher changes. Pre-registered criteria: scripts/dw4_barker_rule.py.
+
+defaults:
+  - dw4_as_states
+  - override /matcher@adjoint_matcher: adjoint_ve_dw4_barker
+
+exp_name: dw4_as_barker_states
+
+adjoint_matcher:
+  gamma: 3.0
+  variant: true

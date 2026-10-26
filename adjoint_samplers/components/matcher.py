@@ -815,6 +815,74 @@ def _merge_wells(bank, new):
     return {k: v[order] for k, v in cat.items()}
 
 
+class AdjointVEDW4BarkerMatcher(AdjointVEMatcher):
+    """ AS on DW-4 with the symmetry-compatible Barker control variate in the regression target (adjoint_samplers/utils/dw4_reflections.py):
+
+            target = - (∇E + ∇log p^base_1)(X1) + γ h / ν_{1|t},   h = (1/R) Σ_r ω_r (T_r X1 - X1),   R = 24 (12 line + 12 point reflections),
+            ω_r = π~(T_r X1 | Xt) / (π~(X1 | Xt) + π~(T_r X1 | Xt)),   π~(y | Xt) ∝ exp(-E(y)) N(Xt; κ_t y, v_t),   κ_t = ν_t / ν_1,  v_t = ν_1 κ_t (1 - κ_t).
+
+        No clustering, no centres, nothing stored in the buffer: the energy change of a map is a closed form in the single changed distance, so the weights are computed on the fly in
+        prepare_target. Every T_r is an involution preserving the volume of the zero-CoM subspace and R does not depend on the position, hence E_π[h | Xt] = 0 exactly (detailed balance
+        of each r): the fixed point of the regression is unchanged. Under the model posterior h is the net flux between the short-pair states, from over- to under-weighted ones.
+    """
+    def __init__(self, gamma: float = 3.0, variant: bool = True, stats_every: int = 10, **kwargs):
+        super().__init__(**kwargs)
+        from adjoint_samplers.energies.double_well_energy import DoubleWellEnergy
+        energy = self.grad_term_cost.energy
+        mdw = getattr(energy, "multi_double_well", None)
+        assert isinstance(energy, DoubleWellEnergy) and energy.n_particles == 4 and energy.n_spatial_dim == 2
+        assert (mdw._a, mdw._b, mdw._c, mdw._offset) == (0.9, -4, 0, 4), "the closed-form energy change assumes the benchmark's DW-4 potential"
+        self.gamma, self.variant, self.stats_every = gamma, variant, stats_every
+        self.gamma_scale, self._step = 1.0, 0
+        self._stats = {}
+
+    def set_progress(self, epoch: int, num_epochs: int) -> None:
+        self.gamma_scale = 1.0
+
+    @property
+    def gamma_eff(self) -> float:
+        return self.gamma * self.gamma_scale
+
+    def _nu(self, t):
+        return self.sde.ref_sde._pt_gauss_param(t, torch.zeros_like(t))[1]
+
+    def barker_term(self, t, x0, xt, x1):
+        """ γ_eff h / ν_{1|t} (N, 8) and the weights ω (N, R) for the posterior x_t | x_1 ~ N((1 - κ) x_0 + κ x_1, v) in the zero-CoM subspace """
+        from adjoint_samplers.utils import dw4_reflections as dwr
+        nut, nu1 = self._nu(t), self._nu(torch.ones_like(t))
+        kappa, nu1t = nut / nu1, (nu1 - nut).clamp(min=1e-12)
+        v = nu1 * kappa * (1 - kappa)
+        h, omega = dwr.barker_h(x1, xt - (1 - kappa) * x0, kappa, v.clamp(min=1e-12), self.variant)
+        return self.gamma_eff * h / nu1t, omega
+
+    def prepare_target(self, data, device):
+        (t, xt), target = super().prepare_target(data, device)
+        x0, x1 = data["x0"].to(device), data["x1"].to(device)
+        term, omega = self.barker_term(t, x0, xt, x1)
+        self._step += 1
+        if self._step % self.stats_every == 0:
+            self._update_stats(t, omega, term, target)
+        self._check_target_shape(t, xt, term)
+        return (t, xt), target + term
+
+    @torch.no_grad()
+    def _update_stats(self, t, omega, term, target):
+        st = self._stats
+        for name, sel in (("t<0.1", t.squeeze(-1) < 0.1), ("t>=0.1", t.squeeze(-1) >= 0.1)):
+            if not bool(sel.any()):
+                continue
+            tn, gn = term[sel].norm(dim=-1), target[sel].norm(dim=-1)
+            for key, val in ((f"barker/omega_mean_{name}", omega[sel].mean()), (f"barker/term_norm_{name}", tn.mean()), (f"barker/term_vs_grad_{name}", (tn / gn.clamp(min=1e-12)).mean())):
+                a, n = st.get(key, (0.0, 0))
+                st[key] = (a + float(val), n + 1)
+
+    def pop_stats(self):
+        out = {k: a / n for k, (a, n) in self._stats.items()}
+        out["barker/gamma_eff"] = self.gamma_eff
+        self._stats = {}
+        return out
+
+
 class AdjointVEMHMatcher(AdjointVEDiracMatcher):
     """ AdjointVEMatcher with a Metropolis-Hastings control variate added to the target:
 

@@ -1,0 +1,12 @@
+_target_: adjoint_samplers.components.matcher.AdjointVEDW4BarkerMatcher
+
+gamma: 3.0 # frozen, as in the GMM / ManyWell study
+variant: true # 24 maps: 12 line reflections + 12 point reflections
+stats_every: 10
+
+grad_state_cost:
+  _target_: adjoint_samplers.components.state_cost.ZeroGradStateCost
+
+buffer:
+  _target_: adjoint_samplers.components.buffer.BatchBuffer
+  buffer_size: ${adjoint_matcher.buffer_size}

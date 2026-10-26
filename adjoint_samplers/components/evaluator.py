@@ -157,6 +157,8 @@ class DW4Evaluator(SyntheticEenergyEvaluator):
         super().__init__(ref_samples_path, energy)
         from adjoint_samplers.utils.dw4_states import state_freq, state_ids
         self._ref_freq = state_freq(state_ids(self.ref_samples))
+        from adjoint_samplers.utils.dw4_quench import quench
+        self._ref_basin_freq = state_freq(state_ids(quench(self.ref_samples)[0]))        # states read on the quenched basins (true mode weights)
         # the point-cloud (equivariant) W2 is the costly metric: computed every `eq_w2_every` epochs and at the last evaluation only (0 = at every evaluation);
         # energy W2, distance W2 and all the state metrics are computed at every evaluation. train.py sets `epoch` and `is_last` before the call.
         self.eq_w2_every, self.epoch, self.is_last = eq_w2_every, 0, True
@@ -169,6 +171,10 @@ class DW4Evaluator(SyntheticEenergyEvaluator):
         out["short_frac"] = float((pair_distances(samples.cpu()) < 4.0).float().mean())
         out["state_tv"] = state_tv(freq, self._ref_freq)
         out.update({f"state/{k}": float(v) for k, v in enumerate(freq)})
+        from adjoint_samplers.utils.dw4_quench import quench
+        bfreq = state_freq(state_ids(quench(samples.cpu())[0]))
+        out["basin_tv"] = state_tv(bfreq, self._ref_basin_freq)
+        out.update({f"basin/{k}": float(v) for k, v in enumerate(bfreq)})
         return out
 
 
