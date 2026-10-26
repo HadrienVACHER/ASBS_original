@@ -1,0 +1,12 @@
+# @package _global_
+
+# ManyWell variant V1 (AS only): per pair -x^4 + 6.0 x^2 + 0.3 x, light well 26.6 %; everything else as manywell_as (stable run c4345ea).
+# sigma_max is matched to the variant (manywell_std with the variant's coefficients).
+
+defaults:
+  - manywell_as
+
+exp_name: manywell_v1_as
+
+well_a: 6.0
+well_b: 0.3

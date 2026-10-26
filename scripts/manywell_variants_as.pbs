@@ -1,0 +1,44 @@
+#!/bin/bash
+#PBS -N manywell_variants_as
+#PBS -P gs_ccds_haidang.dau
+#PBS -q gpu_as
+#PBS -l walltime=03:00:00
+#PBS -l select=1:ncpus=3:ngpus=1:mem=16gb
+#PBS -j oe
+
+# ManyWell-32, variantes V1 (-x^4 + 6x^2 + 0.3x, puits léger 26.6 %) et V2 (-x^4 + 5x^2 + 0.5x, 17.9 %) : AS SEUL, graine 0, réglages du run stable c4345ea
+# (256x6, lr 1e-4, clip 100, sigma_max apparié à la variante, 2000 epochs). 2 runs en parallèle. AUCUN run Barker.
+# Règle : scripts/manywell_variants_rule.py --commit <hash>
+cd "${PBS_O_WORKDIR}" || exit 1
+mkdir -p logs
+export PYTHONUNBUFFERED=1
+export OMP_NUM_THREADS=1
+export MKL_NUM_THREADS=1
+
+# --- Correctif officiel PBS/GaaS pour les identifiants GPU (inchangé) ---
+if echo "${CUDA_VISIBLE_DEVICES:-}" | grep -q "GPU-"; then
+    GPU_COUNT=$(echo "${CUDA_VISIBLE_DEVICES}" | tr ',' '\n' | wc -l)
+    CUDA_VISIBLE_DEVICES=$(seq -s, 0 $((GPU_COUNT - 1)))
+    export CUDA_VISIBLE_DEVICES
+fi
+
+module purge
+module load anaconda/2025
+eval "$(/usr/local/anaconda2025/bin/conda shell.bash hook)"
+conda activate BMS
+
+echo "Nœud : $(hostname) à $(date)"
+nvidia-smi -L
+git log --oneline -1
+
+COMMON="num_epochs=2000 dump_final=true fast_sampling=true buffer_on_device=true fast_train=true"
+pids=()
+for V in v1 v2; do
+  python train.py experiment=manywell_${V}_as seed=0 ${COMMON} hydra.run.dir=results/manywell_${V}_as/seed0 \
+      > logs/manywell_${V}_as_seed0.log 2>&1 &
+  pids+=($!)
+done
+fail=0
+for p in "${pids[@]}"; do wait "$p" || fail=1; done
+echo "Fin à $(date), statut : ${fail}"
+exit $fail

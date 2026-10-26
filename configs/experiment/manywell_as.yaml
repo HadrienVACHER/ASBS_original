@@ -18,7 +18,7 @@ exp_name: manywell_as
 nfe: 200
 # MATCHED to the target: 1 x sqrt(mean_j E[x_j^2]) = 1.41 (ManyWell is confined to |x_j| < 2.5). The 2x convention (2.81) sent the initial VE noise into the
 # quartic tails: the regression target diverged (loss 5e4 -> 1e16 -> NaN, runs at a67ed56)
-sigma_max: ${manywell_std:${dim},1}
+sigma_max: ${manywell_std:${dim},1,${well_a},${well_b}}
 sigma_min: 0.001
 rescale_t: null
 
