@@ -861,20 +861,41 @@ class AdjointVEDW4BarkerMatcher(AdjointVEMatcher):
         term, omega = self.barker_term(t, x0, xt, x1)
         self._step += 1
         if self._step % self.stats_every == 0:
-            self._update_stats(t, omega, term, target)
+            self._update_stats(t, omega, term, x1)
         self._check_target_shape(t, xt, term)
         return (t, xt), target + term
 
+    KAPPA_BINS = (0.0, 0.1, 0.7, 1.0 + 1e-6)
+
     @torch.no_grad()
-    def _update_stats(self, t, omega, term, target):
+    def _update_stats(self, t, omega, term, x1):
+        """ per κ_t bin [0, 0.1), [0.1, 0.7), [0.7, 1]: fraction of the sampled t, mean Barker weight, mean ||γ h / ν_{1|t}||, and the same norm restricted to INTER-STATE moves (the
+            maps whose image has another short-pair state, i.e. the moves that carry weight between states). At κ ~ 0, E[h | x_t] = 0 by symmetry for any weights (pure variance);
+            the weight signal lives at intermediate κ. """
+        from adjoint_samplers.utils import dw4_reflections as dwr
+        from adjoint_samplers.utils.dw4_states import state_ids
+        nut, nu1 = self._nu(t), self._nu(torch.ones_like(t))
+        kappa = (nut / nu1).squeeze(-1)
+        nu1t = (nu1 - nut).clamp(min=1e-12)
+        imgs, _ = dwr.images(x1, self.variant)
+        z = dwr.recentre(x1.reshape(-1, 4, 2)).reshape(-1, 8)
+        s0 = state_ids(z).to(z.device)
+        s1 = state_ids(imgs.reshape(-1, 8)).reshape(len(z), -1).to(z.device)
+        inter = (s1 != s0[:, None]).to(omega.dtype)
+        h_inter = ((omega * inter)[:, :, None] * (imgs - z[:, None, :])).mean(1)
+        term_inter = self.gamma_eff * h_inter / nu1t
         st = self._stats
-        for name, sel in (("t<0.1", t.squeeze(-1) < 0.1), ("t>=0.1", t.squeeze(-1) >= 0.1)):
-            if not bool(sel.any()):
-                continue
-            tn, gn = term[sel].norm(dim=-1), target[sel].norm(dim=-1)
-            for key, val in ((f"barker/omega_mean_{name}", omega[sel].mean()), (f"barker/term_norm_{name}", tn.mean()), (f"barker/term_vs_grad_{name}", (tn / gn.clamp(min=1e-12)).mean())):
-                a, n = st.get(key, (0.0, 0))
-                st[key] = (a + float(val), n + 1)
+        edges = self.KAPPA_BINS
+        for lo, hi in zip(edges[:-1], edges[1:]):
+            sel = (kappa >= lo) & (kappa < hi)
+            name = f"barker/kappa[{lo:g},{min(hi, 1.0):g}]"
+            vals = {"frac_t": float(sel.float().mean())}
+            if bool(sel.any()):
+                vals.update({"omega_mean": float(omega[sel].mean()), "term_norm": float(term[sel].norm(dim=-1).mean()),
+                             "term_norm_inter": float(term_inter[sel].norm(dim=-1).mean()), "inter_frac": float((omega[sel] * inter[sel]).sum() / omega[sel].sum().clamp(min=1e-12))})
+            for key, val in vals.items():
+                a, n = st.get(f"{name}/{key}", (0.0, 0))
+                st[f"{name}/{key}"] = (a + val, n + 1)
 
     def pop_stats(self):
         out = {k: a / n for k, (a, n) in self._stats.items()}

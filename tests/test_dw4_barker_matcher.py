@@ -105,7 +105,7 @@ def test_target_construction():
         e2, _ = m3.barker_term(t_, x0d, g(xtd0), g(x1d0))
         assert torch.allclose(e2, g(e1), rtol=1e-7, atol=1e-9), (kind, (e2 - g(e1)).abs().max())
     st = m3.pop_stats()
-    assert "barker/gamma_eff" in st and any(k.startswith("barker/term_vs_grad") for k in st)
+    assert "barker/gamma_eff" in st and any("term_norm_inter" in k for k in st) and abs(sum(v for k, v in st.items() if k.endswith("/frac_t")) - 1.0) < 1e-6, st
     print(f"ok  2. gamma = 0 is exactly the AS target; the extra term = γ h/ν_(1|t) (independent computation), mean-free, equivariant under rotations / reflections / permutations; "
           f"stats {sorted(st)[:3]} ...; mean |term|/|∇g| = {float(extra.norm(dim=-1).mean() / tg0.norm(dim=-1).mean()):.3f}")
 
