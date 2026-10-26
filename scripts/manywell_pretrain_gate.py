@@ -29,6 +29,16 @@ def main():
     print(" ", [round(v, 3) for v in f.tolist()])
     ok = bool(((f >= LO) & (f <= HI)).all())
     print(f"min {f.min():.3f}, max {f.max():.3f}, moyenne {f.mean():.3f} ; porte [{LO}, {HI}] sur chaque coordonnée : {'FRANCHIE' if ok else 'ÉCHEC'}")
+    # information only (not part of the gate): tails of the model samples. energy_w2 of the pre-training run is 300-500 (≈1-4 in the AS runs): a handful of
+    # far outliers (x^4 energy) would explain it
+    g = ManyWell(dim=x.shape[1], a=0.0, b=-6.0)
+    from adjoint_samplers.energies.dist_energy import DistEnergy
+    e, ref = DistEnergy(g).eval(x), DistEnergy(g).eval(g.sample([len(x)]))
+    xd = x[:, 0::2]
+    print(f"queues : max |x_double| {xd.abs().max():.2f} (exact {g.sample([len(x)])[:, 0::2].abs().max():.2f}), échantillons avec |x_double| > 3 : {int((xd.abs() > 3).any(1).sum())}, "
+          f"avec |x| > 4 (toutes coordonnées) : {int((x.abs() > 4).any(1).sum())}")
+    print(f"énergie : quantiles 50/99/99.9/max du modèle {[round(float(v), 1) for v in e.quantile(torch.tensor([.5, .99, .999])).tolist()] + [round(float(e.max()), 1)]} ; "
+          f"exact {[round(float(v), 1) for v in ref.quantile(torch.tensor([.5, .99, .999])).tolist()] + [round(float(ref.max()), 1)]}")
     flag = Path(a.samples).parent / "gate_ok"
     if ok:
         flag.write_text("ok\n")
