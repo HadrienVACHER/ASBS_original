@@ -1,0 +1,15 @@
+# @package _global_
+
+# DW-4, AS only, OFFICIAL Adjoint Sampling config (dw4_as: EGNN, 5000 epochs, buffer 10000, lr 1e-4, clip 100; sigma_max = 1.5 as in scripts/dw4.sh for AS).
+# Only the logging changes: the evaluator also logs the STATE metrics (graph of short pairs, d < 4, up to isomorphism), every 100 epochs for the plateau test.
+
+defaults:
+  - dw4_as
+
+exp_name: dw4_as_states
+
+sigma_max: 1.5
+eval_freq: 100
+
+evaluator:
+  _target_: adjoint_samplers.components.evaluator.DW4Evaluator

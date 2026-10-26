@@ -148,6 +148,24 @@ class SyntheticEenergyEvaluator:
         }
 
 
+class DW4Evaluator(SyntheticEenergyEvaluator):
+    """ SyntheticEenergyEvaluator (energy W2, equivariant W2, distance W2: unchanged) + the STATE metrics of DW-4: graph of short pairs (d < 4) up to isomorphism (11 classes).
+        Logged: short_frac (fraction of pairwise distances < 4), state_tv (model vs the whole reference), state/<k> (model frequency of class k). """
+    def __init__(self, ref_samples_path, energy) -> None:
+        super().__init__(ref_samples_path, energy)
+        from adjoint_samplers.utils.dw4_states import state_freq, state_ids
+        self._ref_freq = state_freq(state_ids(self.ref_samples))
+
+    def __call__(self, samples: torch.Tensor) -> Dict:
+        from adjoint_samplers.utils.dw4_states import pair_distances, state_freq, state_ids, state_tv
+        out = super().__call__(samples)
+        freq = state_freq(state_ids(samples.cpu()))
+        out["short_frac"] = float((pair_distances(samples.cpu()) < 4.0).float().mean())
+        out["state_tv"] = state_tv(freq, self._ref_freq)
+        out.update({f"state/{k}": float(v) for k, v in enumerate(freq)})
+        return out
+
+
 class GMMEvaluator:
     """ Compare generated samples against exact samples of a GMM target
 
