@@ -7,7 +7,7 @@
 #PBS -j oe
 
 # DW-4, AS SEUL, graine 0, config officielle avec sigma_max = 2 (valeur du YAML dw4_as, sans l'override 1.5 de scripts/dw4.sh), même logging d'états que dw4_as_states.
-# Loggé dans le projet W&B CCDS_NTU/as (project=as). Aucun run Barker. Règle : scripts/analyse_dw4.py.
+# + accélérations (buffer_on_device, fast_train vérifié, fast_sampling par graphe CUDA si le contrôle passe). Loggé dans le projet W&B CCDS_NTU/as (project=as). Aucun run Barker. Règle : scripts/analyse_dw4.py.
 cd "${PBS_O_WORKDIR}" || exit 1
 mkdir -p logs data
 export PYTHONUNBUFFERED=1
@@ -32,7 +32,12 @@ git log --oneline -1
 
 if [ ! -f data/test_split_DW4.npy ]; then bash scripts/download.sh; fi
 ls -la data/test_split_DW4.npy || exit 1
-python train.py experiment=dw4_as_states seed=0 sigma_max=2 exp_name=dw4_as_states_s2 project=as dump_final=true hydra.run.dir=results/dw4_as_states_s2/seed0 > logs/dw4_as_states_s2_seed0.log 2>&1
+# accélérations : buffer_on_device (sans risque) ; fast_train (Adam fusionné + torch.compile de l'EGNN, vérifié par train.py au démarrage : repli sur eager si le résultat diffère) ;
+# fast_sampling (graphe CUDA, GraphVESDE avec bruit sur GPU) seulement si scripts/check_fast_dw4.py passe, sinon sampling classique
+if python scripts/check_fast_dw4.py --sigma-max 2 > logs/check_fast_dw4.log 2>&1; then SAMPLING="fast_sampling=true"; else SAMPLING="fast_sampling=false"; fi
+cat logs/check_fast_dw4.log | tail -8
+echo "sampling: ${SAMPLING}"
+python train.py experiment=dw4_as_states seed=0 sigma_max=2 exp_name=dw4_as_states_s2 project=as dump_final=true buffer_on_device=true fast_train=true ${SAMPLING} hydra.run.dir=results/dw4_as_states_s2/seed0 > logs/dw4_as_states_s2_seed0.log 2>&1
 fail=$?
 python scripts/analyse_dw4.py --samples results/dw4_as_states_s2/seed0/samples_final.pt --commit $(git rev-parse --short HEAD) --project CCDS_NTU/as --name dw4_as_states_s2 || fail=1
 echo "Fin à $(date), statut : ${fail}"

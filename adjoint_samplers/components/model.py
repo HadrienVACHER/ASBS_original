@@ -171,16 +171,16 @@ class EGNN_dynamics(nn.Module):
         self._spatial_dim = spatial_dim
         self.edges = self._create_edges()
         self._edges_dict = {}
+        self._edges_dev = {}
         self.condition_time = condition_time
         # Count function calls
         self.counter = 0
 
     def forward(self, t, xs):
         n_batch = xs.shape[0]
-        edges = self._cast_edges2batch(self.edges, n_batch, self._n_particles)
-        edges = [edges[0].to(xs.device), edges[1].to(xs.device)]
+        edges = self._edges_on(n_batch, xs.device)
         x = xs.reshape(n_batch * self._n_particles, self._spatial_dim).clone()
-        h = torch.ones(n_batch, self._n_particles).to(xs.device)
+        h = torch.ones(n_batch, self._n_particles, device=xs.device)
 
         if self.condition_time:
             h = h * t
@@ -204,6 +204,15 @@ class EGNN_dynamics(nn.Module):
                 rows.append(j)
                 cols.append(i)
         return [torch.LongTensor(rows), torch.LongTensor(cols)]
+
+    def _edges_on(self, n_batch, device):
+        """ batched edge index on `device`, cached per (batch size, device): no host-to-device copy after the first call (needed to capture the model in a CUDA graph) """
+        key = (n_batch, str(device))
+        if key not in self._edges_dev:
+            rows, cols = self.edges
+            off = (torch.arange(n_batch) * self._n_particles)[:, None]
+            self._edges_dev[key] = [(rows[None, :] + off).reshape(-1).to(device), (cols[None, :] + off).reshape(-1).to(device)]
+        return self._edges_dev[key]
 
     def _cast_edges2batch(self, edges, n_batch, n_nodes):
         if n_batch not in self._edges_dict:

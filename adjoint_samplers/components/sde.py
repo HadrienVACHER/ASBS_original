@@ -277,7 +277,9 @@ class Graph:
         B, D = x.shape
         assert D == self.spatial_dim * self.n_particles
 
-        noise = self.projcted_gauss.sample((B,)).to(x)
+        # drawn on the device of x (same law as CenteredParticlesGauss(scale=1): standard normal, centre of mass removed), so that no host-to-device copy
+        # is needed and a sampling step can be captured in a CUDA graph
+        noise = graph_utils.remove_mean(torch.randn_like(x), self.n_particles, self.spatial_dim)
         assert noise.shape == x.shape
         return noise
 
@@ -403,14 +405,22 @@ def _graph_capturable(sde: BaseSDE) -> bool:
         drawn on CPU) nor BrownianMotionSDE (`full_like` with a tensor syncs).
     """
     ref = sde.ref_sde if isinstance(sde, ControlledSDE) else sde
-    return type(ref) in (VESDE, VPSDE)
+    return type(ref) in (VESDE, VPSDE, GraphVESDE, GraphVPSDE)
 
 
-def _graphed_boundary(sde, state0, timesteps) -> torch.Tensor:
+def _graphed_boundary(sde, state0, timesteps):
+    """ replay of the captured simulation, or None if the capture failed for this (sde, shape): the caller then simulates step by step as usual """
     key = (id(sde), tuple(state0.shape), state0.dtype, tuple(timesteps.tolist()))
     if key not in _BOUNDARY_GRAPHS:
-        _BOUNDARY_GRAPHS[key] = _BoundaryGraph(sde, state0, timesteps)
-    return _BOUNDARY_GRAPHS[key](state0)
+        try:
+            _BOUNDARY_GRAPHS[key] = _BoundaryGraph(sde, state0, timesteps)
+        except Exception as e:  # capture not possible for this model: stay correct, just not fast
+            import warnings
+            warnings.warn(f"CUDA graph capture failed ({type(e).__name__}: {e}); sampling without graph for this shape.")
+            _BOUNDARY_GRAPHS[key] = None
+            torch.cuda.synchronize()
+    g = _BOUNDARY_GRAPHS[key]
+    return None if g is None else g(state0)
 
 
 @torch.no_grad()
@@ -427,7 +437,9 @@ def sdeint(
     sde.train(False)
 
     if only_boundary and _CUDA_GRAPH_SAMPLING and state0.is_cuda and _graph_capturable(sde):
-        return state0, _graphed_boundary(sde, state0, timesteps)
+        out = _graphed_boundary(sde, state0, timesteps)
+        if out is not None:
+            return state0, out
 
     state = state0.clone()
 

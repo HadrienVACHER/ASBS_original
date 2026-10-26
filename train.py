@@ -149,7 +149,28 @@ def main(cfg):
         # compiled wrappers share the parameters; sampling keeps using the eager modules
         train_models = {"adjoint": controller, "corrector": corrector}
         if fast_train:
-            train_models = {k: m if m is None else torch.compile(m) for k, m in train_models.items()}
+            def _compile_checked(m):
+                """ torch.compile with a startup check: forward + backward on a dummy batch must run and the compiled output must match the eager one; otherwise the eager model is used """
+                cm = torch.compile(m)
+                try:
+                    tt, xx = torch.rand(64, 1, device=device), torch.randn(64, energy.dim, device=device)
+                    with torch.no_grad():
+                        ref_out = m(tt, xx)
+                    out = cm(tt, xx)
+                    out.sum().backward()
+                    for q in m.parameters():
+                        q.grad = None
+                    err = float((out.detach() - ref_out).abs().max())
+                    if not torch.allclose(out.detach(), ref_out, rtol=1e-3, atol=1e-4):
+                        raise RuntimeError(f"compiled output differs from eager (max abs diff {err:.3g})")
+                    print(f"torch.compile check OK (max abs diff {err:.2g})")
+                    return cm
+                except Exception as e:
+                    print(f"torch.compile check FAILED ({type(e).__name__}: {e}); training with the eager model.")
+                    for q in m.parameters():
+                        q.grad = None
+                    return m
+            train_models = {k: m if m is None else _compile_checked(m) for k, m in train_models.items()}
 
         # EMA of the controller: it samples for evaluation, and for the buffer with ema_buffer
         if cfg.get("ema_decay"):
