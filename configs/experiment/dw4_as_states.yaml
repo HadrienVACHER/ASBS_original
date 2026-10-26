@@ -13,4 +13,5 @@ eval_freq: 50 # must divide eq_w2_every, so that the point-cloud W2 falls on an 
 
 evaluator:
   _target_: adjoint_samplers.components.evaluator.DW4Evaluator
+  eq_n: 2000 # energy / distance / point-cloud W2 on 2000 samples whatever num_eval_samples is (as in the AS runs); the point-cloud W2 costs N^2 Python-level matchings
   eq_w2_every: 250 # point-cloud W2 (costly) every 250 epochs and at the last evaluation; state metrics, energy W2 and distance W2 at every evaluation
