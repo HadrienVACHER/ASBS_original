@@ -26,6 +26,8 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--samples", required=True)
     ap.add_argument("--commit", default=None)
+    ap.add_argument("--project", default="CCDS_NTU/adjoint_sampler_cv")
+    ap.add_argument("--name", default="dw4_as_states")
     a = ap.parse_args()
     root = Path(__file__).resolve().parents[1]
     ref = torch.tensor(np.load(root / "data" / "test_split_DW4.npy", allow_pickle=True)).float()
@@ -38,8 +40,8 @@ def main():
     drift = None
     if a.commit:
         import wandb
-        sel = [r for r in wandb.Api(timeout=120).runs("CCDS_NTU/adjoint_sampler_cv", per_page=200, order="-created_at")
-               if r.name == "dw4_as_states" and r.config.get("seed") == 0 and r.config.get("git_commit", "")[:7] == a.commit[:7]]
+        sel = [r for r in wandb.Api(timeout=120).runs(a.project, per_page=200, order="-created_at")
+               if r.name == a.name and r.config.get("seed") == 0 and r.config.get("git_commit", "")[:7] == a.commit[:7]]
         if sel and sel[0].state == "finished":
             h = sel[0].history(keys=["energy_w2", "eq_w2", "dist_w2", "state_tv", "short_frac"], samples=6000, pandas=True, x_axis="_step").dropna(subset=["state_tv"]).set_index("_step")
             last = h.iloc[-1]

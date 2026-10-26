@@ -1,0 +1,39 @@
+#!/bin/bash
+#PBS -N dw4_s2
+#PBS -P gs_ccds_haidang.dau
+#PBS -q gpu_as
+#PBS -l walltime=08:00:00
+#PBS -l select=1:ncpus=3:ngpus=1:mem=16gb
+#PBS -j oe
+
+# DW-4, AS SEUL, graine 0, config officielle avec sigma_max = 2 (valeur du YAML dw4_as, sans l'override 1.5 de scripts/dw4.sh), même logging d'états que dw4_as_states.
+# Loggé dans le projet W&B CCDS_NTU/as (project=as). Aucun run Barker. Règle : scripts/analyse_dw4.py.
+cd "${PBS_O_WORKDIR}" || exit 1
+mkdir -p logs data
+export PYTHONUNBUFFERED=1
+export OMP_NUM_THREADS=1
+export MKL_NUM_THREADS=1
+
+# --- Correctif officiel PBS/GaaS pour les identifiants GPU (inchangé) ---
+if echo "${CUDA_VISIBLE_DEVICES:-}" | grep -q "GPU-"; then
+    GPU_COUNT=$(echo "${CUDA_VISIBLE_DEVICES}" | tr ',' '\n' | wc -l)
+    CUDA_VISIBLE_DEVICES=$(seq -s, 0 $((GPU_COUNT - 1)))
+    export CUDA_VISIBLE_DEVICES
+fi
+
+module purge
+module load anaconda/2025
+eval "$(/usr/local/anaconda2025/bin/conda shell.bash hook)"
+conda activate BMS
+
+echo "Nœud : $(hostname) à $(date)"
+nvidia-smi -L
+git log --oneline -1
+
+if [ ! -f data/test_split_DW4.npy ]; then bash scripts/download.sh; fi
+ls -la data/test_split_DW4.npy || exit 1
+python train.py experiment=dw4_as_states seed=0 sigma_max=2 exp_name=dw4_as_states_s2 project=as dump_final=true hydra.run.dir=results/dw4_as_states_s2/seed0 > logs/dw4_as_states_s2_seed0.log 2>&1
+fail=$?
+python scripts/analyse_dw4.py --samples results/dw4_as_states_s2/seed0/samples_final.pt --commit $(git rev-parse --short HEAD) --project CCDS_NTU/as --name dw4_as_states_s2 || fail=1
+echo "Fin à $(date), statut : ${fail}"
+exit $fail
