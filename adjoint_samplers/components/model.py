@@ -192,7 +192,6 @@ class EGNN_dynamics(nn.Module):
 
         vel = vel.view(n_batch, self._n_particles, self._spatial_dim)
         vel = remove_mean(vel, self._n_particles, self._spatial_dim)
-        self.counter += 1
         return vel.view(n_batch, self._n_particles * self._spatial_dim)
 
     def _create_edges(self):

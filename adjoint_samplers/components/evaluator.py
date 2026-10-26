@@ -130,6 +130,8 @@ class SyntheticEenergyEvaluator:
         )
 
 
+        if getattr(self, "skip_eq_w2", False):
+            return {"energy_w2": energy_w2, "dist_w2": dist_w2}
         print("Computing particles W2...")
         M = dist_point_clouds(
             samples.reshape(-1, self.n_particles, self.n_spatial_dim).cpu(),
@@ -151,13 +153,17 @@ class SyntheticEenergyEvaluator:
 class DW4Evaluator(SyntheticEenergyEvaluator):
     """ SyntheticEenergyEvaluator (energy W2, equivariant W2, distance W2: unchanged) + the STATE metrics of DW-4: graph of short pairs (d < 4) up to isomorphism (11 classes).
         Logged: short_frac (fraction of pairwise distances < 4), state_tv (model vs the whole reference), state/<k> (model frequency of class k). """
-    def __init__(self, ref_samples_path, energy) -> None:
+    def __init__(self, ref_samples_path, energy, eq_w2_every: int = 0) -> None:
         super().__init__(ref_samples_path, energy)
         from adjoint_samplers.utils.dw4_states import state_freq, state_ids
         self._ref_freq = state_freq(state_ids(self.ref_samples))
+        # the point-cloud (equivariant) W2 is the costly metric: computed every `eq_w2_every` epochs and at the last evaluation only (0 = at every evaluation);
+        # energy W2, distance W2 and all the state metrics are computed at every evaluation. train.py sets `epoch` and `is_last` before the call.
+        self.eq_w2_every, self.epoch, self.is_last = eq_w2_every, 0, True
 
     def __call__(self, samples: torch.Tensor) -> Dict:
         from adjoint_samplers.utils.dw4_states import pair_distances, state_freq, state_ids, state_tv
+        self.skip_eq_w2 = bool(self.eq_w2_every) and self.epoch % self.eq_w2_every != 0 and not self.is_last
         out = super().__call__(samples)
         freq = state_freq(state_ids(samples.cpu()))
         out["short_frac"] = float((pair_distances(samples.cpu()) < 4.0).float().mean())

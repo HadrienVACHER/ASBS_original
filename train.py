@@ -8,6 +8,7 @@ import termcolor
 
 from pathlib import Path
 
+import time
 import torch
 import torch.backends.cudnn as cudnn
 
@@ -151,9 +152,9 @@ def main(cfg):
         if fast_train:
             def _compile_checked(m):
                 """ torch.compile with a startup check: forward + backward on a dummy batch must run and the compiled output must match the eager one; otherwise the eager model is used """
-                cm = torch.compile(m)
+                cm = torch.compile(m, mode=cfg.get("compile_mode"))   # None: default; "reduce-overhead": CUDA graphs for the training step
                 try:
-                    tt, xx = torch.rand(64, 1, device=device), torch.randn(64, energy.dim, device=device)
+                    tt, xx = torch.rand(cfg.train_batch_size, 1, device=device), torch.randn(cfg.train_batch_size, energy.dim, device=device)
                     with torch.no_grad():
                         ref_out = m(tt, xx)
                     out = cm(tt, xx)
@@ -258,6 +259,7 @@ def main(cfg):
             if hasattr(matcher, "set_progress"):
                 matcher.set_progress(epoch, cfg.num_epochs) # γ annealing of the Barker / MH term
 
+            t_epoch = time.perf_counter()
             loss = train_one_epoch(
                 matcher,
                 model,
@@ -270,8 +272,10 @@ def main(cfg):
                 after_step=(lambda: ema.update_parameters(controller)) if ema and stage == "adjoint" else None,
             )
 
+            t_epoch = time.perf_counter() - t_epoch
             log_dict = {
                 f"{stage}_loss": loss,
+                "time/epoch_s": t_epoch,
                 f"{stage}_buffer_size": len(matcher.buffer),
             }
             if hasattr(matcher, "pop_stats"):
@@ -308,7 +312,7 @@ def main(cfg):
             print("[{0} | {1}] {2}".format(
                 cyan(  f"{stage:<7}"),
                 yellow(f"ep={epoch:04}"),
-                green( f"loss={loss:.4f}"),
+                green( f"loss={loss:.4f}") + f" t={t_epoch:.2f}s",
             ))
 
             # Eval epoch according to the frequency
@@ -344,6 +348,8 @@ def main(cfg):
                         ))
 
                     samples = torch.cat(x1_list, dim=0)
+                    if hasattr(evaluator, "eq_w2_every"):
+                        evaluator.epoch, evaluator.is_last = epoch, epoch + cfg.eval_freq >= cfg.num_epochs
                     eval_dict = evaluator(samples)
                     if hasattr(evaluator, "mode_metrics"):
                         # mass errors of the replay buffer the regression sees, next to the model's

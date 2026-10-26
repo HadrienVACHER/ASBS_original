@@ -13,3 +13,4 @@ eval_freq: 100
 
 evaluator:
   _target_: adjoint_samplers.components.evaluator.DW4Evaluator
+  eq_w2_every: 500 # point-cloud W2 (costly) every 500 epochs and at the last evaluation; state metrics, energy W2 and distance W2 at every evaluation

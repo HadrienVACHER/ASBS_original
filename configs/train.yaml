@@ -42,3 +42,4 @@ num_eval_samples: ${eval_batch_size}
 fast_sampling: false # replay the SDE simulation as one CUDA graph
 buffer_on_device: false # index training batches on the GPU instead of through a DataLoader
 fast_train: false # fused Adam + torch.compile of the model in the training step
+compile_mode: null # torch.compile mode of the training step when fast_train: null (default) or reduce-overhead (CUDA graphs)
