@@ -7,8 +7,8 @@
 #PBS -j oe
 
 # DW-4, AS SEUL, graine 0, sigma_max = 2 (valeur du YAML dw4_as, FIXÉE par l'utilisateur pour tous les runs DW-4), accéléré (buffer_on_device, fast_train vérifié au démarrage, fast_sampling si scripts/check_fast_dw4.py passe).
-# ÉCARTS À LA CONFIG OFFICIELLE, décidés par l'utilisateur : num_epochs = 1500 (au lieu de 5000), nfe = 100 (au lieu de 200), évaluation toutes les 250 epochs (fenêtre de plateau =
-# 20 % derniers = epochs 1200-1500 : une seule évaluation, à l'epoch 1250). Règle pré-enregistrée inchangée (scripts/analyse_dw4.py) + robustesse par trempe (scripts/analyse_dw4_quench.py). Projet W&B : CCDS_NTU/as.
+# ÉCARTS À LA CONFIG OFFICIELLE, décidés par l'utilisateur : num_epochs = 1500 (au lieu de 5000), nfe = 100 (au lieu de 200), évaluation toutes les 50 epochs (eq_w2 toutes les 250) (fenêtre de plateau =
+# 20 % derniers = epochs 1200-1500 : 6 évaluations). Règle pré-enregistrée inchangée (scripts/analyse_dw4.py) + robustesse par trempe (scripts/analyse_dw4_quench.py). Projet W&B : CCDS_NTU/as.
 cd "${PBS_O_WORKDIR}" || exit 1
 mkdir -p logs data
 export PYTHONUNBUFFERED=1
@@ -38,7 +38,7 @@ ls -la data/test_split_DW4.npy || exit 1
 if python scripts/check_fast_dw4.py --sigma-max 2 --nfe 100 > logs/check_fast_dw4.log 2>&1; then SAMPLING="fast_sampling=true"; else SAMPLING="fast_sampling=false"; fi
 cat logs/check_fast_dw4.log | tail -8
 echo "sampling: ${SAMPLING}"
-python train.py experiment=dw4_as_states seed=0 sigma_max=2 num_epochs=1500 nfe=100 eval_freq=250 exp_name=dw4_as_states_e1500 project=as dump_final=true buffer_on_device=true fast_train=true ${SAMPLING} hydra.run.dir=results/dw4_as_states_e1500/seed0 > logs/dw4_as_states_e1500_seed0.log 2>&1
+python train.py experiment=dw4_as_states seed=0 sigma_max=2 num_epochs=1500 nfe=100 eval_freq=50 exp_name=dw4_as_states_e1500 project=as dump_final=true buffer_on_device=true fast_train=true ${SAMPLING} hydra.run.dir=results/dw4_as_states_e1500/seed0 > logs/dw4_as_states_e1500_seed0.log 2>&1
 fail=$?
 python scripts/analyse_dw4.py --samples results/dw4_as_states_e1500/seed0/samples_final.pt --commit $(git rev-parse --short HEAD) --project CCDS_NTU/as --name dw4_as_states_e1500 || fail=1
 python scripts/analyse_dw4_quench.py --samples results/dw4_as_states_e1500/seed0/samples_final.pt || fail=1
