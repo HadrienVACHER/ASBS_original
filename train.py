@@ -93,6 +93,11 @@ def main(cfg):
         print('Instantiating model...')
         ref_sde = hydra.utils.instantiate(cfg.ref_sde).to(device)
         controller = hydra.utils.instantiate(cfg.controller).to(device)
+        if cfg.get("init_controller"):
+            # start from a pre-trained controller (same SDE: same sigma_max); the optimizer starts fresh
+            ckpt = torch.load(cfg.init_controller, map_location=device, weights_only=False)
+            controller.load_state_dict(ckpt["controller"])
+            print(f"Loaded controller from {cfg.init_controller}")
         sde = ControlledSDE(ref_sde, controller).to(device)
 
 
@@ -201,6 +206,23 @@ def main(cfg):
         eval_dir.mkdir(exist_ok=True)
         evaluator = hydra.utils.instantiate(cfg.evaluator, energy=energy)
 
+
+        if cfg.get("init_buffer"):
+            # the initial replay buffer = given endpoints X1 (the SAME set for AS and Barker): the matcher builds the usual entries (adjoint1 = ∇E + ∇log p^base_1
+            # of the CURRENT target, orbit, denoised points) from them instead of simulating the SDE
+            import adjoint_samplers.components.matcher as matcher_module
+            X = torch.load(cfg.init_buffer, map_location="cpu", weights_only=False)["model_samples"][: adjoint_matcher.buffer.buffer_size].to(device)
+            if hasattr(adjoint_matcher, "init_wells"):
+                print(f"Well bank initialised from the initial buffer: {adjoint_matcher.init_wells(X)} double-well coordinates")
+            real_sdeint, chunk = matcher_module.sdeint, 500
+            for k in range(0, len(X), chunk):
+                xk = X[k:k + chunk]
+                matcher_module.sdeint = lambda sde_, x0_, ts_, only_boundary=True, _x=xk: (x0_, _x)
+                try:
+                    adjoint_matcher.populate_buffer(source.sample([len(xk),]).to(device), train_utils.get_timesteps(**cfg.timesteps).to(device), False)
+                finally:
+                    matcher_module.sdeint = real_sdeint
+            print(f"Initial buffer: {len(adjoint_matcher.buffer)} samples from {cfg.init_buffer}")
 
         corr_cost, warned_correction, corr_memory = {"E": 0, "grad": 0}, False, None
         print(f"Starting from {start_epoch}/{cfg.num_epochs} epochs...")

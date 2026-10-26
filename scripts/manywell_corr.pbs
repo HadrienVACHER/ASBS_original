@@ -1,0 +1,44 @@
+#!/bin/bash
+#PBS -N manywell_corr
+#PBS -P gs_ccds_haidang.dau
+#PBS -q gpu_as
+#PBS -l walltime=03:00:00
+#PBS -l select=1:ncpus=3:ngpus=1:mem=16gb
+#PBS -j oe
+
+# PHASE 2 : correction vers la vraie cible p (ManyWell standard) à partir du MÊME contrôleur pré-entraîné et du MÊME buffer initial : AS et Barker (gamma = 3, orbite s = 3,
+# débruitage Newton 1D, banc de puits initialisé sur le buffer initial), graine 0, 2000 epochs, 2 runs en parallèle. Refuse de tourner sans la porte de la phase 1.
+cd "${PBS_O_WORKDIR}" || exit 1
+if [ ! -f results/manywell_pretrain/seed0/gate_ok ]; then echo "porte de la phase 1 non franchie (results/manywell_pretrain/seed0/gate_ok absent) : ARRÊT"; exit 2; fi
+mkdir -p logs
+export PYTHONUNBUFFERED=1
+export OMP_NUM_THREADS=1
+export MKL_NUM_THREADS=1
+
+# --- Correctif officiel PBS/GaaS pour les identifiants GPU (inchangé) ---
+if echo "${CUDA_VISIBLE_DEVICES:-}" | grep -q "GPU-"; then
+    GPU_COUNT=$(echo "${CUDA_VISIBLE_DEVICES}" | tr ',' '\n' | wc -l)
+    CUDA_VISIBLE_DEVICES=$(seq -s, 0 $((GPU_COUNT - 1)))
+    export CUDA_VISIBLE_DEVICES
+fi
+
+module purge
+module load anaconda/2025
+eval "$(/usr/local/anaconda2025/bin/conda shell.bash hook)"
+conda activate BMS
+
+echo "Nœud : $(hostname) à $(date)"
+nvidia-smi -L
+git log --oneline -1
+
+COMMON="num_epochs=2000 dump_final=true fast_sampling=true buffer_on_device=true fast_train=true"
+pids=()
+for E in as barker; do
+  python train.py experiment=manywell_corr_${E} seed=0 ${COMMON} hydra.run.dir=results/manywell_corr_${E}/seed0 \
+      > logs/manywell_corr_${E}_seed0.log 2>&1 &
+  pids+=($!)
+done
+fail=0
+for p in "${pids[@]}"; do wait "$p" || fail=1; done
+echo "Fin à $(date), statut : ${fail}"
+exit $fail

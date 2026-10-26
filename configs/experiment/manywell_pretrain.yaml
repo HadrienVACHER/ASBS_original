@@ -1,0 +1,17 @@
+# @package _global_
+
+# PHASE 1 of the correction experiment: pre-train the controller on the MIS-WEIGHTED target q = ManyWell with tilt b = 0 (symmetric, light-well fraction 0.5 on every
+# coordinate; a = 6 unchanged), with the AS regression on a FIXED buffer of 10k exact q samples (never refreshed), big network, lr 1e-4, clip 100.
+# sigma_max matched to q; the correction runs (manywell_corr_*) use the SAME sigma_max, since the controller is tied to the SDE.
+
+defaults:
+  - manywell_as
+  - override /matcher@adjoint_matcher: adjoint_ve_fixed_buffer
+
+exp_name: manywell_pretrain
+
+well_a: 6.0
+well_b: 0.0
+
+adjoint_matcher:
+  fixed_size: 10000

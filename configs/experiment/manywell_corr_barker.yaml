@@ -1,0 +1,18 @@
+# @package _global_
+
+# PHASE 2, Barker: same start as manywell_corr_as (same controller, same initial buffer), frozen method: gamma = 3, subgroup orbit s = 3, 1D Newton denoising,
+# persistent well bank initialised from the initial buffer (all 16 coordinates start with both wells).
+
+defaults:
+  - manywell_corr_as
+  - override /matcher@adjoint_matcher: adjoint_ve_barker
+
+exp_name: manywell_corr_barker
+
+adjoint_matcher:
+  gamma: 3.0
+  centre_method: wells
+  orbit: product
+  product_subset: 3
+  radius_scale: 1.0
+  denoise_steps: 12

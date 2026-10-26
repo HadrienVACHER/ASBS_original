@@ -1,0 +1,16 @@
+# @package _global_
+
+# PHASE 2, AS: standard AS on the TRUE target p (standard ManyWell, b = 0.5, light fraction 0.156), started from the pre-trained controller (b = 0) and its initial buffer
+# (10k model samples). sigma_max is the one of the pre-training (matched to q): the controller is tied to the SDE.
+
+defaults:
+  - manywell_as
+
+exp_name: manywell_corr_as
+
+well_a: 6.0
+well_b: 0.5
+sigma_max: ${manywell_std:${dim},1,${well_a},0.0}
+
+init_controller: results/manywell_pretrain/seed0/controller_final.pt
+init_buffer: results/manywell_pretrain/seed0/samples_final.pt

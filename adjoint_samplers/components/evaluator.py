@@ -284,7 +284,15 @@ class ManyWellEvaluator:
         left = (x[:, 0::2] < self.dist.well_split).float().mean(0)     # (n_wells,)
         R = left / self.p_left
         visited = (left >= self.cover_ratio * self.p_left) & ((1 - left) >= self.cover_ratio * (1 - self.p_left))
+        # joint: TV between the law of the number of light wells per sample and Binomial(n_wells, p_left) (independent coordinates)
+        n_light = (x[:, 0::2] < self.dist.well_split).sum(1).long()
+        emp = torch.bincount(n_light, minlength=self.dist.n_wells + 1).double() / len(x)
+        binom = torch.distributions.Binomial(self.dist.n_wells, torch.tensor(self.p_left, dtype=torch.float64)).log_prob(
+            torch.arange(self.dist.n_wells + 1, dtype=torch.float64)).exp()
         out = {
+            "light_count_tv": 0.5 * (emp.cpu() - binom).abs().sum().item(),
+            "light_frac_dev": (left - self.p_left).abs().mean().item(),
+            "wells_kept": int((left > 0.01).sum().item()),
             "well_ratio_mean": R.mean().item(),
             "well_logratio_mean": R.clamp(min=1e-3).log().abs().mean().item(),
             "wells_visited_frac": visited.float().mean().item(),

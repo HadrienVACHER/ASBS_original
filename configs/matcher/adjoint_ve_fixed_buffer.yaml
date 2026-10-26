@@ -1,0 +1,10 @@
+_target_: adjoint_samplers.components.matcher.AdjointVEFixedBufferMatcher
+
+fixed_size: 10000 # exact samples drawn once, never refreshed
+
+grad_state_cost:
+  _target_: adjoint_samplers.components.state_cost.ZeroGradStateCost
+
+buffer:
+  _target_: adjoint_samplers.components.buffer.BatchBuffer
+  buffer_size: ${adjoint_matcher.buffer_size}

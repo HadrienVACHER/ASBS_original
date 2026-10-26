@@ -291,6 +291,22 @@ class AdjointVETargetBufferMatcher(AdjointVEDiracMatcher):
         })
 
 
+class AdjointVEFixedBufferMatcher(AdjointVETargetBufferMatcher):
+    """ Pre-training buffer: X1 are EXACT samples of the target (`energy.dist`), drawn ONCE until `fixed_size` samples are stored, then never refreshed
+        (populate_buffer is a no-op). The regression is that of u* for this fixed set of endpoints (target ∇g of the energy it is built with). """
+    def __init__(self, fixed_size: int = 10000, **kwargs):
+        super().__init__(**kwargs)
+        self.fixed_size = fixed_size
+        self._filled = 0
+
+    def populate_buffer(self, x0, timesteps, is_asbs_init_stage):
+        n = min(x0.shape[0], self.fixed_size - self._filled)
+        if n <= 0:
+            return
+        super().populate_buffer(x0[:n], timesteps, is_asbs_init_stage)
+        self._filled += n
+
+
 class AdjointVEIMHBufferMatcher(AdjointVEDiracMatcher):
     """ X1 of the buffer comes from an independent Metropolis-Hastings chain on the target p1 = e^{-E} / Z,
         not from the model. The proposal r is the target with equal mode weights (`dist.uniform_weights()`):
@@ -1093,6 +1109,16 @@ class AdjointVEMHMatcher(AdjointVEDiracMatcher):
             st["dn_steps"] += steps.sum()
             st["dn_conv"] += conv.sum()
         self.buffer.add(data)
+
+    def init_wells(self, x1):
+        """ well bank fitted on a given set of endpoints (the initial buffer of a correction run), so every coordinate starts with its wells """
+        assert self.centre_method == "wells"
+        energy = self.grad_term_cost.energy
+        xd, conv, lam, *_ = _denoise_separable(energy, x1.to(self.grad_term_cost.mu1), self.denoise_steps, self.denoise_tol)
+        wells, n_active = _product_wells(energy, xd, conv, lam, self.radius_scale)
+        if n_active > 0:
+            self.wells = _merge_wells(self.wells, wells)
+        return n_active
 
     def _refit_wells(self, like):
         """ per-coordinate double wells from the cached converged basin minima of the buffer (product-structured target) """
