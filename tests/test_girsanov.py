@@ -12,7 +12,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from adjoint_samplers.components.sde import ControlledSDE, VESDE  # noqa: E402
 from adjoint_samplers.energies.dist_energy import DistEnergy  # noqa: E402
 from adjoint_samplers.utils.dist_utils import ManyWell  # noqa: E402
-from adjoint_samplers.utils.girsanov import ess_and_logz, log_path_weights  # noqa: E402
+from adjoint_samplers.utils.girsanov import ess_and_logz, log_path_weights, mode_weight_ess_frac  # noqa: E402
 
 
 class Const(torch.nn.Module):
@@ -50,7 +50,17 @@ def test_unbiased_for_any_controller():
         print(f"ok  {name}: log Z_hat = {r['log_zhat']:.4f}, exact {lz:.4f}, |err| = {abs(r['log_zhat'] - lz):.4f} (4 se = {4 * se:.4f}), ESS fraction {r['ess_frac']:.3f}")
 
 
+def test_mode_weight_ess():
+    w = 0.156
+    assert abs(mode_weight_ess_frac(torch.full((16,), w), w) - 1.0) < 1e-9
+    one = (w ** 2 / 0.5 + (1 - w) ** 2 / 0.5) ** -1                       # one coordinate with f = 0.5
+    assert abs(mode_weight_ess_frac(torch.full((16,), 0.5), w) - one ** 16) < 1e-12 * one
+    assert mode_weight_ess_frac(torch.tensor([0.0] + [w] * 15), w) == 0.0
+    print(f"ok  mode-weight ESS: 1 at f = w, {one:.4f} per coordinate at f = 0.5 ({100 * one ** 16:.1e} % for 16), 0 if a well is missing")
+
+
 if __name__ == "__main__":
+    test_mode_weight_ess()
     test_log_z()
     test_unbiased_for_any_controller()
     print("all passed")

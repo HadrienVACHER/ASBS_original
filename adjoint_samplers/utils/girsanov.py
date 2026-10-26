@@ -46,3 +46,12 @@ def ess_and_logz(log_w, log_z_exact=None):
     if log_z_exact is not None:
         out["log_z_err"] = abs(log_zhat - log_z_exact)
     return out
+
+
+def mode_weight_ess_frac(f, w):
+    """ Fallback when the path-weight ESS is ~0 in 32-D: ESS_w / N = Π_i ( w^2 / f_i + (1 - w)^2 / (1 - f_i) )^{-1}, the importance-sampling efficiency of reweighting the
+        per-coordinate light-well fractions f_i (independent coordinates) to the target weight w. f_i in {0, 1} gives 0. """
+    f = torch.as_tensor(f, dtype=torch.float64)
+    with torch.no_grad():
+        terms = torch.where((f <= 0) | (f >= 1), torch.full_like(f, float("inf")), w ** 2 / f.clamp(1e-300) + (1 - w) ** 2 / (1 - f).clamp(1e-300))
+        return float(torch.exp(-torch.log(terms).sum()))

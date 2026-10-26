@@ -15,7 +15,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import train  # noqa: F401,E402  (registers the resolvers)
 from adjoint_samplers.components.sde import ControlledSDE  # noqa: E402
 from adjoint_samplers.utils import train_utils  # noqa: E402
-from adjoint_samplers.utils.girsanov import ess_and_logz, log_path_weights  # noqa: E402
+from adjoint_samplers.utils.girsanov import ess_and_logz, log_path_weights, mode_weight_ess_frac  # noqa: E402
 
 
 def main():
@@ -38,16 +38,21 @@ def main():
     sde = ControlledSDE(ref_sde, controller).to(device)
     ts = train_utils.get_timesteps(**cfg.timesteps).to(device)
     torch.manual_seed(a.seed)
-    lws, per_batch, B = [], [], a.n // 4
+    lws, xs, per_batch, B = [], [], [], a.n // 4
     for _ in range(4):
-        lw, _x = log_path_weights(sde, energy, torch.zeros(B, energy.dim, device=device), ts)
+        lw, x1 = log_path_weights(sde, energy, torch.zeros(B, energy.dim, device=device), ts)
         lws.append(lw.cpu())
+        xs.append(x1.cpu())
         per_batch.append(ess_and_logz(lw.cpu())["log_zhat"])
     log_z = energy.dist.log_Z()
     r = ess_and_logz(torch.cat(lws), log_z)
     sd = float(torch.tensor(per_batch).std())
     print(f"{a.label or a.experiment}: N = {a.n} trajectoires ; ESS = {r['ess']:.1f} ({100 * r['ess_frac']:.3f} %) ; log Z_hat = {r['log_zhat']:.3f} "
           f"(exact {log_z:.3f}) ; |log Z_hat - log Z| = {r['log_z_err']:.3f} ; écart-type de log Z_hat entre 4 lots = {sd:.3f}")
+    # fallback if the path-weight ESS is ~0 for every model: mode-weight ESS from the per-coordinate light fractions of the model endpoints
+    xe = torch.cat(xs)
+    f = (xe[:, 0::2] < energy.dist.well_split).float().mean(0)
+    print(f"  repli : ESS des poids de modes ESS_w/N = {100 * mode_weight_ess_frac(f, energy.dist.light_mass):.4f} % (f_i du modèle, cible {energy.dist.light_mass:.4f}) ; f_i = {[round(v, 3) for v in f.tolist()]}")
 
 
 if __name__ == "__main__":

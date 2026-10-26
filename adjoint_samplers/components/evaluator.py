@@ -260,6 +260,9 @@ class GMMEvaluator:
         }
 
 
+from adjoint_samplers.utils.girsanov import mode_weight_ess_frac  # noqa: E402
+
+
 class ManyWellEvaluator:
     """ ManyWell (FAB): per-coordinate mass of the LIGHT well. For each of the n_wells double-well coordinates x_{2i-1}, the share of samples
         in the left well (x < well_split) divided by the exact share p_left = 0.1557:
@@ -293,6 +296,7 @@ class ManyWellEvaluator:
             "light_count_tv": 0.5 * (emp.cpu() - binom).abs().sum().item(),
             "light_frac_dev": (left - self.p_left).abs().mean().item(),
             "wells_kept": int((left > 0.01).sum().item()),
+            "mode_ess_frac": mode_weight_ess_frac(left.double(), self.p_left),
             "well_ratio_mean": R.mean().item(),
             "well_logratio_mean": R.clamp(min=1e-3).log().abs().mean().item(),
             "wells_visited_frac": visited.float().mean().item(),
