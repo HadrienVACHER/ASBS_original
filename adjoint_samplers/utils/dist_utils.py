@@ -231,6 +231,14 @@ class ManyWell(distributions.Distribution):
         self._m2_first = float((x ** 2 * p).sum() / p.sum())     # E[x_1^2] about the origin
         self.to(device)
 
+    def log_Z(self) -> float:
+        """ log of the normalising constant of the unnormalised density exp(log_prob): n_wells x log(Z_1D sqrt(2 pi)), Z_1D = ∫ exp(-(a x + b x^2 + c x^4)) dx by
+            the trapezoid rule on a fine grid (FAB's TARGET_Z for the standard well: 11784.509) """
+        x = self._grid
+        e = self.a * x + self.b * x ** 2 + self.c * x ** 4
+        z1 = torch.trapezoid(torch.exp(-(e - e.min())), x).item() * math.exp(-e.min().item())
+        return self.n_wells * (math.log(z1) + 0.5 * math.log(2 * math.pi))
+
     def to(self, device) -> distributions.Distribution:
         self._dev = device
         self._grid_d, self._cdf_d = self._grid.to(device), self._cdf.to(device)

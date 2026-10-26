@@ -9,6 +9,9 @@
       puits conservés : nombre de coordonnées avec f_i > 0.01       (wells_kept)
       joint : TV entre la loi du nombre de puits légers par échantillon et Binomial(16, 0.156)   (light_count_tv)
       energy_w2 et les valeurs à l'epoch 50 ; valeurs de départ (epoch 0, f_i ~ 0.5).
+    Pré-enregistré en plus (scripts/manywell_posthoc.py, scripts/manywell_model_quality.py) : les PROPORTIONS (métrique primaire) sont rapportées pour toutes les méthodes
+    (AS, AS + reweight BAR, AS + MCMC orbite à budget apparié, Barker) ; l'ESS d'échantillonnage préférentiel de Girsanov et |log Z_hat - log Z| pour les trois modèles
+    (AS, Barker, AS + post-hoc = le modèle AS).
     SUCCÈS = métrique primaire de Barker < celle d'AS ET Barker conserve au moins autant de puits qu'AS. Une graine ; si Barker échoue, on le documente et on s'arrête.
 """
 import argparse
