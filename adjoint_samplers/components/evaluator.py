@@ -133,7 +133,7 @@ class SyntheticEenergyEvaluator:
         if getattr(self, "skip_eq_w2", False):
             return {"energy_w2": energy_w2, "dist_w2": dist_w2}
         print("Computing particles W2...")
-        M = dist_point_clouds(
+        M = getattr(self, "dist_point_clouds_fn", dist_point_clouds)(
             samples.reshape(-1, self.n_particles, self.n_spatial_dim).cpu(),
             ref_samples.reshape(-1, self.n_particles, self.n_spatial_dim).cpu(),
         )
@@ -153,8 +153,11 @@ class SyntheticEenergyEvaluator:
 class DW4Evaluator(SyntheticEenergyEvaluator):
     """ SyntheticEenergyEvaluator (energy W2, equivariant W2, distance W2: unchanged) + the STATE metrics of DW-4: graph of short pairs (d < 4) up to isomorphism (11 classes).
         Logged: short_frac (fraction of pairwise distances < 4), state_tv (model vs the whole reference), state/<k> (model frequency of class k). """
-    def __init__(self, ref_samples_path, energy, eq_w2_every: int = 0, eq_n: int = 2000) -> None:
+    def __init__(self, ref_samples_path, energy, eq_w2_every: int = 0, eq_n: int = 2000, fast_eq: bool = False) -> None:
         super().__init__(ref_samples_path, energy)
+        if fast_eq:  # vectorised point-cloud distances (tests/test_eval_vectorized.py): same quantity, no Python loop over the pairs
+            from adjoint_samplers.utils.eval_utils import dist_point_clouds_fast
+            self.dist_point_clouds_fn = dist_point_clouds_fast
         self.eq_n = eq_n  # energy / distance / point-cloud W2 on the first eq_n samples (the point-cloud W2 loops over all N^2 pairs in Python); state and basin metrics use all of them
         from adjoint_samplers.utils.dw4_states import state_freq, state_ids
         self._ref_freq = state_freq(state_ids(self.ref_samples))

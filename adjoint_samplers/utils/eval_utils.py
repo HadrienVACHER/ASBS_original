@@ -111,3 +111,29 @@ def interatomic_dist(x, n_particles, n_spatial_dim):
         torch.triu(torch.ones((n_particles, n_particles)), diagonal=1) == 1,
     ]
     return torch.linalg.norm(distances, dim=-1)
+
+
+# Vectorised version of dist_point_clouds (same quantity, no Python loop over the N x N pairs): for every pair (i, j) the optimal assignment of the particles of x1[j] to those of x0[i]
+# (minimising the sum of Euclidean distances, as `ot` does via linear_sum_assignment: here the minimum over the n! permutations, n = 4 for DW-4), then the Kabsch rotation of
+# find_rigid_alignment (R = V U^T of the SVD of A_c^T B_c, B superimposed as B @ R) and the Euclidean distance between the flattened clouds.
+def dist_point_clouds_fast(x0, x1, block=64):
+    import itertools
+    n, d = x0.shape[1], x0.shape[2]
+    perms = torch.tensor(list(itertools.permutations(range(n))), device=x0.device)             # (P, n)
+    rows = torch.arange(n, device=x0.device)
+    out = []
+    for s in range(0, len(x0), block):
+        A = x0[s:s + block]                                                                    # (I, n, d)
+        I, J = len(A), len(x1)
+        C = torch.cdist(A[:, None].expand(I, J, n, d).reshape(I * J, n, d), x1[None].expand(I, J, n, d).reshape(I * J, n, d)).reshape(I, J, n, n)     # C[i, j, k, l] = |A_ik - B_jl|
+        cost = C[:, :, rows[None, :], perms].sum(-1)                                            # (I, J, P): sum_k C[i, j, k, perm_k]
+        best = perms[cost.argmin(-1)]                                                          # (I, J, n): column assigned to row k
+        B = torch.gather(x1[None].expand(I, J, n, d), 2, best[..., None].expand(I, J, n, d))   # reordered B[i, j] = x1[j][best[i, j]]
+        Ac = A[:, None] - A[:, None].mean(2, keepdim=True)
+        Bc = B - B.mean(2, keepdim=True)
+        H = torch.matmul(Ac.transpose(-1, -2), Bc)                                             # (I, J, d, d)
+        U, S, Vh = torch.linalg.svd(H)
+        R = torch.matmul(Vh.transpose(-1, -2), U.transpose(-1, -2))                            # V U^T
+        sup = torch.matmul(B, R)
+        out.append((A[:, None].reshape(I, 1, n * d) - sup.reshape(I, J, n * d)).norm(dim=-1))
+    return torch.cat(out)
