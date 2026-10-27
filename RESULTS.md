@@ -49,7 +49,7 @@ Single seed (0) unless stated. Pre-registered thresholds were never relaxed afte
 - **Checks.** End-to-end exact zero-mean test under the training law of x_t (tests/test_dw4_end_to_end.py): max |z| = 1.24 over 20 kappa x 3 test functions; positive control (v_t x 1.2 in the Barker factor only) 17.3; the diagnostic's own generator 1.99. State-level flux Delta_b(kappa) has the right sign for every class at every kappa <= 0.7 (z up to 12, `dw4_flux_kappa.py`), and is compatible with 0 on the reference. Involution, |det J| = 1 on the zero-CoM subspace, equivariance, detailed balance (tests/test_dw4_reflections.py). The pool-based vector diagnostic (alignment of E[h | x_t] with the exact correction) was dropped: its estimator has a non-vanishing residual that is not in kappa / v / the x_t generator.
 - **Structural explanation (conjecture, not tested).** The weight information sits at intermediate-to-large kappa, where a reflection move costs dE ~ 4 and has ~1 % flux; at small kappa the term is a vector field that vanishes by symmetry.
 
-## 5. Division (Gelfand-Dey) control variate, isotropic GMM (branch `div`; step 1 done, step 2 relaunch prepared)
+## 5. Division (Gelfand-Dey) control variate, isotropic GMM (branch `div`; step 1 done, step 2 run done: numerical failure)
 
 - **Method.** term = sum_k exp(-L_k + log Q_k - log C_k + log N_k(x1) + E(x1)/tau) (M_hat - m_k) / nu_{1|t}, with N_k the shrunk and q_k the unshrunk Gaussian of mode k, C_k and Q_k their smoothed marginals,
   m_k the posterior mean of x1 under q_k, pi_hat = softmax(-L + log Q), M_hat = sum_k pi_hat_k m_k (`adjoint_samplers/utils/division_cv.py`, `AdjointVEDivisionMatcher`). Zero mean under pi(. | x_t) for ANY frozen
@@ -66,6 +66,17 @@ Single seed (0) unless stated. Pre-registered thresholds were never relaxed afte
   `scripts/gmm_as_division.pbs`). Pre-registered (`scripts/analyse_division_gmm.py`): metric = mean |log R̄| over the last 30 evaluations; seed-0 references AS big 0.38949, Barker gamma = 3 big 0.11660;
   success iff metric <= 0.5 x Barker (0.05830) and below AS; "matches Barker" iff in ]0.5, 1] x Barker; fail otherwise. Expectation: likely success, because L_k is exact on this GMM; the run validates the implementation end to end,
   not the method's generality.
+
+- **Step 2 result (commit a8e0c53, seed 0): NUMERICAL FAILURE, as pre-registered; no rule amendment.** The run reached epoch 1999 with no NaN loss, but `div/nonfinite_frac` was 1.95e-5 (one sample of 51 200, zeroed by the guard)
+  at epochs 86 and 1479, so the validity rule (== 0 throughout) fails; mean `div/clipped_frac` = 0. The verdict is not a method result. The cut removed terms of max norm 18.4 in [0.99, 0.999) and 4.2 in [0.999, 1]
+  (`div/cut_diag`), the max ||term|| in kappa in [0.7, 1] was 79.6 and the max component 31: no sign of a 1/nu_{1|t} blow-up. The source of the two non-finite samples is NOT identified (the counter does not record kappa).
+  **Post hoc, informative only (not a verdict):** mean|log R̄| 0.1103 (Barker 0.1166, AS big 0.3895); light quarter 0.757 (Barker 0.775, AS 0.405); min R̄ 0.571 (Barker 0.126, AS 0.111); energy_w2 0.668
+  (Barker 0.720, AS 0.552), so the energy_w2 excess over AS is shared with Barker, not specific to division.
+- **Offline diagnosis (CPU, `scripts/division_diag.py`).** Hypothesis: estimated N_k wider than the true mode -> N_k / p unbounded -> overflow / infinite variance of r_k. The fit takes Sigma_k from the Laplace Hessian of E at the
+  centre (not from samples), N_k = N(mu_k, 0.8 Sigma_k). On PROXY buffers (10 000 exact samples, and wrong-weight samples) the fit procedure gives shrink x maxeig(Sigma_true^{-1/2} Sigma_hat_k Sigma_true^{-1/2}) in
+  [0.80000, 0.80011] (<< 1, bounded) for all 36 modes; centre error 1e-5; consistent with the logged per-version fit stats of the real run (xi in [0.5, 2] for 100 % of the buffer, xi_std 6e-5, centre_err_mean 1.2-1.7e-5,
+  K = 36 at the three logged versions). max_k log u_k over the proxy samples: max 2.3-2.5 (overflow at 709), Pareto k_hat median 0.04-0.07 (one mode at 0.61 in the exact proxy, from ~40-sample tails). The hypothesis is therefore not
+  supported for the fit procedure; the real buffer (`samples_final.pt`, outlying endpoints of the trained sampler) and the epoch-86 / 1479 versions were NOT available locally (not saved), so items 1-2 are not checked on them.
 
 - **First launch of step 2: execution failure, no metric outcome.** The loss became NaN at epoch 86 and the job was killed; the root cause was not identified (hypothesis, to be checked with the new logs, not assumed: the 1/nu_{1|t} factor as kappa -> 1).
   The relaunch counts as THE SAME pre-registered run (seed 0, same criteria, same thresholds). Changes declared before the relaunch, none of which touches the criteria:
