@@ -34,25 +34,55 @@ def _bk(a, like):
 
 
 def division_term(xt, x1, E1, kappa, v, nu1t, par, tau=1.0, terms=False, c_var_scale=1.0):
-    """ term (B, D) (and, with terms=True, the log-weights, pi_hat and M_hat) for samples (x1, x_t); kappa, v, nu1t: scalars or (B, 1) """
+    """ term (B, D) (and, with terms=True, the log-weights, pi_hat and M_hat) for samples (x1, x_t); kappa, v, nu1t: scalars or (B, 1).
+        `par` holds ONE version (mu (K, D), lam (K, D), V (K, D, D), L (K,)) or one version PER SAMPLE (leading batch dimension: mu (B, K, D), lam (B, K, D), V (B, K, D, D), L (B, K);
+        modes padded with L = +inf have zero weight): the same formulas, no Python loop over versions. """
     mu, lam, V, L, s = par["mu"], par["lam"], par["V"], par["L"], par["shrink"]
+    per_sample = mu.dim() == 3
     xt, x1, E1 = xt.double(), x1.double(), E1.double()                                            # float64 whatever the training dtype
     kap, vv = _bk(kappa, x1), _bk(v, x1)
     nu = torch.as_tensor(nu1t, dtype=x1.dtype, device=x1.device)
     nu = nu.reshape(-1, 1) if nu.dim() > 0 else nu
-    y1 = torch.einsum("kdj,bkd->bkj", V, x1[:, None, :] - mu[None])
-    logN = _lg(y1, s * lam[None])
-    yt = torch.einsum("kdj,bkd->bkj", V, xt[:, None, :] - kap * mu[None])
-    logC = _lg(yt, kap ** 2 * s * c_var_scale * lam[None] + vv)                                   # c_var_scale != 1 only in the positive control of the tests
-    varQ = kap ** 2 * lam[None] + vv
+    if per_sample:
+        mu_b, lam_b, L_b = mu, lam, L
+        y1 = torch.einsum("bkdj,bkd->bkj", V, x1[:, None, :] - mu_b)
+        yt = torch.einsum("bkdj,bkd->bkj", V, xt[:, None, :] - kap * mu_b)
+    else:
+        mu_b, lam_b, L_b = mu[None], lam[None], L[None]
+        y1 = torch.einsum("kdj,bkd->bkj", V, x1[:, None, :] - mu_b)
+        yt = torch.einsum("kdj,bkd->bkj", V, xt[:, None, :] - kap * mu_b)
+    logN = _lg(y1, s * lam_b)
+    logC = _lg(yt, kap ** 2 * s * c_var_scale * lam_b + vv)                                       # c_var_scale != 1 only in the positive control of the tests
+    varQ = kap ** 2 * lam_b + vv
     logQ = _lg(yt, varQ)
-    m = mu[None] + kap * torch.einsum("kdj,bkj->bkd", V, lam[None] / varQ * yt)                    # (B, K, D)
-    logw = -L[None] + logQ
+    z = lam_b / varQ * yt
+    m = mu_b + kap * (torch.einsum("bkdj,bkj->bkd", V, z) if per_sample else torch.einsum("kdj,bkj->bkd", V, z))   # (B, K, D)
+    logw = -L_b + logQ
     pi = torch.softmax(logw, dim=-1)
     Mhat = (pi[..., None] * m).sum(1)
     logs = logw - logC + logN + E1.reshape(-1, 1) / tau
     term = (torch.exp(logs)[..., None] * (Mhat[:, None, :] - m)).sum(1) / nu
     return (term, logs, pi, Mhat) if terms else term
+
+
+def stack_versions(versions, ids):
+    """ stack the parameter dicts of the versions `ids` into padded tensors (n_versions, Kmax, ...) for per-sample gathering; padded modes get L = +inf (zero weight) """
+    ps = [versions[i] for i in ids]
+    Kmax, D = max(len(p["mu"]) for p in ps), ps[0]["mu"].shape[1]
+    dev, dt = ps[0]["mu"].device, ps[0]["mu"].dtype
+    mu = torch.zeros(len(ps), Kmax, D, dtype=dt, device=dev)
+    lam = torch.ones(len(ps), Kmax, D, dtype=dt, device=dev)
+    V = torch.eye(D, dtype=dt, device=dev).expand(len(ps), Kmax, D, D).clone()
+    L = torch.full((len(ps), Kmax), float("inf"), dtype=dt, device=dev)
+    for i, p in enumerate(ps):
+        K = len(p["mu"])
+        mu[i, :K], lam[i, :K], V[i, :K], L[i, :K] = p["mu"], p["lam"], p["V"], p["L"]
+    return dict(mu=mu, lam=lam, V=V, L=L, shrink=ps[0]["shrink"])
+
+
+def gather_versions(stack, idx):
+    """ per-sample parameters from the stacked versions: idx (B,) indices into the stack """
+    return dict(mu=stack["mu"][idx], lam=stack["lam"][idx], V=stack["V"][idx], L=stack["L"][idx], shrink=stack["shrink"])
 
 
 def _logq_fn(mu, cov):

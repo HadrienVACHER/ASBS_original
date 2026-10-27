@@ -927,10 +927,12 @@ class AdjointVEDivisionMatcher(AdjointVEDiracMatcher):
         denoise_tol: float = 0.05,
         keep_versions: int = 60,
         stats_every: int = 10,
+        term_clip: float = 1e4,
         **kwargs,
     ):
         super().__init__(**kwargs)
         assert 0 < shrink < 2
+        self.term_clip, self._guard = term_clip, None
         self.gamma, self.shrink, self.tau = gamma, shrink, tau
         self.refresh_every, self.min_buffer, self.radius_scale = refresh_every, min_buffer, radius_scale
         self.denoise_steps, self.denoise_tol, self.keep_versions, self.stats_every = denoise_steps, denoise_tol, keep_versions, stats_every
@@ -985,20 +987,32 @@ class AdjointVEDivisionMatcher(AdjointVEDiracMatcher):
             "version": torch.full((len(x1),), self.current, dtype=torch.long),
         })
 
+    def _stacked(self, like):
+        """ versions stacked into padded tensors, rebuilt only when the set of versions changes """
+        from adjoint_samplers.utils.division_cv import stack_versions
+        ids = tuple(sorted(self.versions))
+        if getattr(self, "_stack_ids", None) != (ids, like.device):
+            self._stack, self._stack_ids = stack_versions(self.versions, ids), (ids, like.device)
+            self._stack_index = torch.full((max(ids) + 2,), -1, dtype=torch.long, device=like.device)
+            self._stack_index[torch.tensor(ids, device=like.device)] = torch.arange(len(ids), device=like.device)
+        return self._stack, self._stack_index
+
     def division_term(self, t, x0, xt, x1, E1, version):
-        """ term (B, D) in float64 with the parameters of each sample's version (0 for samples without a version: warm-up) """
-        from adjoint_samplers.utils.division_cv import division_term
+        """ term (B, D) in float64 with the parameters of each sample's version, gathered per sample (ONE call, no loop over versions); 0 for samples without a version (warm-up) """
+        from adjoint_samplers.utils.division_cv import division_term, gather_versions
         term = torch.zeros(x1.shape, dtype=torch.float64, device=x1.device)
         logS = torch.full((len(x1),), float("-inf"), dtype=torch.float64, device=x1.device)          # log sum_k s_k: total weight of the sample's term
         nut, nu1 = self._nu(t.double()), self._nu(torch.ones_like(t).double())
         kappa, nu1t = nut / nu1, (nu1 - nut).clamp(min=1e-12)
         v = nu1 * kappa * (1 - kappa)
-        for ver in version.unique().tolist():
-            if ver < 0 or ver not in self.versions:
-                continue
-            sel = version == ver
-            out, logs, _, _ = division_term(xt[sel].double() - (1 - kappa[sel]) * x0[sel].double(), x1[sel], E1[sel], kappa[sel], v[sel], nu1t[sel], self.versions[ver], self.tau, terms=True)
-            term[sel], logS[sel] = out, torch.logsumexp(logs, dim=-1)
+        if self.versions:
+            stack, index = self._stacked(x1)
+            idx = index[version.clamp(min=0).clamp(max=len(index) - 1)]
+            ok = (version >= 0) & (idx >= 0)                                                        # version missing (pruned) or warm-up: no term
+            if bool(ok.any()):
+                par = gather_versions(stack, idx[ok].clamp(min=0))
+                out, logs, _, _ = division_term(xt[ok].double() - (1 - kappa[ok]) * x0[ok].double(), x1[ok], E1[ok], kappa[ok], v[ok], nu1t[ok], par, self.tau, terms=True)
+                term[ok], logS[ok] = out, torch.logsumexp(logs, dim=-1)
         self._last_logS, self._last_kappa = logS, kappa.reshape(-1)
         return term
 
@@ -1006,6 +1020,15 @@ class AdjointVEDivisionMatcher(AdjointVEDiracMatcher):
         (t, xt), target = super().prepare_target(data, device)
         x0, x1, E1, version = data["x0"].to(device), data["x1"].to(device), data["E1"].to(device), data["version"].to(device)
         term = self.division_term(t, x0, xt, x1, E1, version)
+        # guards (counted, logged; they never trigger when the term is well behaved, |term| <= ~30 on the unit tests): a non-finite sample term is set to 0, a component beyond
+        # `term_clip` is rescaled. Counters stay on the device (no host sync per step).
+        bad = ~torch.isfinite(term).all(-1)
+        term = torch.where(bad[:, None], torch.zeros_like(term), term)
+        amax = term.abs().amax(-1)
+        big = amax > self.term_clip
+        term = term * torch.where(big, self.term_clip / amax.clamp(min=1e-300), torch.ones_like(amax))[:, None]
+        g = torch.stack([bad.sum().double(), big.sum().double(), torch.tensor(float(len(bad)), dtype=torch.float64, device=bad.device), torch.where(bad, torch.zeros_like(amax), amax).max()])
+        self._guard = g if self._guard is None else torch.stack([self._guard[0] + g[0], self._guard[1] + g[1], self._guard[2] + g[2], torch.maximum(self._guard[3], g[3])])
         self._step += 1
         if self._step % self.stats_every == 0:
             self._update_stats(term, target, version)
@@ -1037,6 +1060,10 @@ class AdjointVEDivisionMatcher(AdjointVEDiracMatcher):
 
     def pop_stats(self):
         out = {f"div/{k}": v for k, v in {**self._fit_info, **self._stats}.items()}
+        if self._guard is not None:
+            nbad, nbig, n, amax = self._guard.tolist()
+            out.update({"div/nonfinite_frac": nbad / max(n, 1.0), "div/clipped_frac": nbig / max(n, 1.0), "div/term_absmax": amax})
+            self._guard = None
         out["div/version"] = float(self.current)
         out["div/gamma"] = self.gamma
         self._stats = {}

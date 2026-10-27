@@ -126,7 +126,30 @@ def test_end_to_end_zero_mean():
     print(f"ok  end-to-end through the matcher's own bridge sampler and prepare_target: max |z| = {zmax:.2f} (exact endpoints), {zctl:.1f} (wrong-weight endpoints)")
 
 
+def test_guards():
+    """ non-finite sample terms are zeroed and counted, huge terms are rescaled and counted; the target stays finite """
+    gen = torch.Generator().manual_seed(3)
+    m = build(min_buffer=1000)
+    for _ in range(4):
+        insert(m, sample(1000, gmm.weights, gen))
+    data = data_of(m, 3)
+    E1 = data["E1"].clone()
+    E1[:5] = float("inf")                                                   # corrupted energies: exp(inf) * 0 -> NaN in the term
+    E1[5:8] = 300.0                                                          # absurdly large weights
+    data["E1"] = E1
+    (t, xt), tgt = m.prepare_target(data, "cpu")
+    st = m.pop_stats()
+    assert torch.isfinite(tgt).all(), "the target must stay finite"
+    assert st["div/nonfinite_frac"] > 0 and st["div/clipped_frac"] > 0 and st["div/term_absmax"] <= m.term_clip * 1.0001, st
+    clean = data_of(m, 3)
+    (t, xt), tgt = m.prepare_target(clean, "cpu")
+    st = m.pop_stats()
+    assert st["div/nonfinite_frac"] == 0 and st["div/clipped_frac"] == 0, st
+    print(f"ok  guards: corrupted samples zeroed / rescaled and counted (nonfinite, clipped fractions > 0), target finite; clean batch: both counters 0, max |term| {st['div/term_absmax']:.1f}")
+
+
 if __name__ == "__main__":
     test_versioning_and_warmup()
+    test_guards()
     test_end_to_end_zero_mean()
     print("all passed")
