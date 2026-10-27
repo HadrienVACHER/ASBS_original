@@ -88,6 +88,10 @@ Single seed (0) unless stated. Pre-registered thresholds were never relaxed afte
   into NaN weights; the relaunch zeroed the sample (`div/nonfinite_frac` 1.95e-5 = 1/51 200 at epochs 86 and 1479). It was not 1/nu_{1|t} nor the widths. Also found: the cut was a product `term * lam` (0 * NaN = NaN); now a `torch.where`.
   Fix (not rerun): the term is computed only for kappa in [1e-6, kappa_max] (`KAPPA_MIN`), masked with `torch.where`; unit test `test_t_edges` at t = 0, 2^-24, 1e-12, kappa = kappa_max, t = 1 and a NaN raw term above the cut
   (fails without the fix at t = 0). The fixed term is exactly 0 for kappa < 1e-6 (a set of probability ~6e-8): the zero-mean property is untouched (any function of (x_t, t)). The pre-registered verdict stays "numerical failure".
+- **Step 2 relaunch after the t = 0 fix (NEW run, commit fec80d1, seed 0; same pre-registered criteria and validity rule): VALID, verdict "MATCHES BARKER" (not success).** Validity: max `div/nonfinite_frac` = 0 over all 2000 logged
+  points, mean `div/clipped_frac` = 0, max |term| component 31.9, run reached epoch 1999. mean|log R̄| (last 30 evals) = 0.10583: above the success threshold 0.05830 (0.5 x Barker), within ]0.5, 1] x Barker (0.11660), below AS big
+  (0.38949). Other metrics (informative): light quarter 0.767 (Barker 0.775, AS 0.405); min R̄ 0.576 (Barker 0.126, AS 0.111); energy_w2 0.647 (Barker 0.720, AS 0.552). The earlier run a8e0c53 stays "numerical failure".
+  Reading: the division CV reaches Barker's level on the frozen GMM, where L_k is exact, but does not beat it by the pre-registered margin; one seed, so this validates the implementation, not generality.
 - **Barker seed-0 energy_w2 at d = 36:** 0.720 (division 0.668, AS big 0.552).
 
 - **First launch of step 2: execution failure, no metric outcome.** The loss became NaN at epoch 86 and the job was killed; the root cause was not identified (hypothesis, to be checked with the new logs, not assumed: the 1/nu_{1|t} factor as kappa -> 1).
