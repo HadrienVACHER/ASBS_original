@@ -1,13 +1,13 @@
 """ TEST DE CONTINUATION APPARIÉ, DW-4 : règle PRÉ-ENREGISTRÉE (engagée dans git avant la soumission).
 
-    Point de départ commun : controller_final.pt et buffer (buffer_x1) du run AS 94252 (c166b5d : sigma_max 2, nfe 100, 1500 epochs). 500 epochs de continuation, évaluation toutes les 25 epochs à 5000 échantillons,
+    Point de départ commun : controller_final.pt et buffer (buffer_x1) du run AS 94252 (c166b5d : sigma_max 2, nfe 100, 1500 epochs). 500 epochs de continuation, évaluation toutes les 10 epochs à 5000 échantillons,
     proportions par bassin loggées (basin/<k>). Cinq bras, t uniforme partout, Adam repart de zéro dans tous les bras :
         C1 : AS graine 1     C2 : AS graine 2     G3 : Barker gamma = 3     G10 : Barker gamma = 10     G30 : Barker gamma = 30      (G* : graine 1, comme C1)
 
       PYTHONPATH=. python scripts/dw4_continuation_rule.py --commit <hash du run de continuation>
 
-    Statistique : S = sum_b |pbar_b - ref_b|, pbar_b = proportion du bassin b moyennée sur les 10 DERNIÈRES évaluations (epochs 250 à 475), ref_b = proportions de la référence trempée (11 classes).
-    Bruit  = |S_C1 - S_C2| + 2 x SE, SE = écart-type par bootstrap sur les évaluations (1000 rééchantillonnages des 10 évaluations) ; on prend le PLUS GRAND SE parmi les cinq bras.
+    Statistique : S = sum_b |pbar_b - ref_b|, pbar_b = proportion du bassin b moyennée sur les 20 DERNIÈRES évaluations (epochs 300 à 490, même fenêtre pour tous les bras ; l'écart-type par évaluation des états dominants est de 0,05 à 0,07), ref_b = proportions de la référence trempée (11 classes).
+    Bruit  = |S_C1 - S_C2| + 2 x SE, SE = écart-type par bootstrap sur les évaluations (1000 rééchantillonnages des 20 évaluations) ; on prend le PLUS GRAND SE parmi les cinq bras.
     Effet à gamma  <=>  S_gamma < min(S_C1, S_C2) - bruit.
     La méthode est VIVANTE sur DW-4 <=>  un effet à gamma = 10 OU 30  ET  S décroissant en gamma (S_3 >= S_10 >= S_30 « à bruit près » : S_3 + bruit >= S_10 et S_10 + bruit >= S_30).
     Rapporte aussi le sens de chaque bassin par rapport à la moyenne des contrôles. Si G30 est instable (loss non finie, ou eq_w2 > 1.5 x celui des contrôles), on le rapporte au lieu de S.
@@ -25,7 +25,7 @@ from adjoint_samplers.utils.dw4_quench import quench  # noqa: E402
 from adjoint_samplers.utils.dw4_states import KEYS, NAMES, state_freq, state_ids  # noqa: E402
 
 ARMS = {"C1": "dw4_cont_C1", "C2": "dw4_cont_C2", "G3": "dw4_cont_G3", "G10": "dw4_cont_G10", "G30": "dw4_cont_G30"}
-LAST = 10
+LAST = 20
 
 
 def main():

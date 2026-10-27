@@ -834,6 +834,7 @@ class AdjointVEDW4BarkerMatcher(AdjointVEMatcher):
         assert (mdw._a, mdw._b, mdw._c, mdw._offset) == (0.9, -4, 0, 4), "the closed-form energy change assumes the benchmark's DW-4 potential"
         self.gamma, self.variant, self.stats_every = gamma, variant, stats_every
         self.gamma_scale, self._step = 1.0, 0
+        self.v_scale = 1.0  # test hook (tests/test_dw4_end_to_end.py): multiplies v_t inside the Barker Gaussian factor ONLY; 1.0 in all runs
         self._stats = {}
 
     def set_progress(self, epoch: int, num_epochs: int) -> None:
@@ -852,7 +853,7 @@ class AdjointVEDW4BarkerMatcher(AdjointVEMatcher):
         nut, nu1 = self._nu(t), self._nu(torch.ones_like(t))
         kappa, nu1t = nut / nu1, (nu1 - nut).clamp(min=1e-12)
         v = nu1 * kappa * (1 - kappa)
-        h, omega = dwr.barker_h(x1, xt - (1 - kappa) * x0, kappa, v.clamp(min=1e-12), self.variant)
+        h, omega = dwr.barker_h(x1, xt - (1 - kappa) * x0, kappa, (v * self.v_scale).clamp(min=1e-12), self.variant)
         return self.gamma_eff * h / nu1t, omega
 
     def prepare_target(self, data, device):

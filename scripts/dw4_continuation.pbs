@@ -6,7 +6,7 @@
 #PBS -l select=1:ncpus=3:ngpus=1:mem=16gb
 #PBS -j oe
 
-# DW-4, TEST DE CONTINUATION APPARIÉ (PRÉPARÉ, NON SOUMIS) : controller_final.pt et buffer de 94252, 500 epochs, évaluation toutes les 25 epochs à 5000 échantillons, 5 bras en parallèle :
+# DW-4, TEST DE CONTINUATION APPARIÉ (PRÉPARÉ, NON SOUMIS) : controller_final.pt et buffer de 94252, 500 epochs, évaluation toutes les 10 epochs à 5000 échantillons, 5 bras en parallèle :
 #   C1 AS graine 1, C2 AS graine 2, G3 / G10 / G30 = Barker gamma 3 / 10 / 30 (graine 1), t uniforme partout. Règle pré-enregistrée : scripts/dw4_continuation_rule.py (engagée avant la soumission).
 # AVANT de soumettre : sauvegarder le contrôleur de 94252 (l'écrasement par un autre run de dw4_as_states_e1500 le détruirait) :
 #   cp results/dw4_as_states_e1500/seed0/controller_final.pt results/dw4_e1500_94252_controller.pt   (vérifier la date : celle du run 94252)
@@ -39,7 +39,7 @@ INIT_B=results/dw4_e1500_94252_samples.pt
 for f in ${INIT_C} ${INIT_B}; do [ -f ${f} ] || { echo "fichier manquant : ${f}"; exit 2; }; done
 if python scripts/check_fast_dw4.py --sigma-max 2 --nfe 100 > logs/check_fast_dw4.log 2>&1; then SAMPLING="fast_sampling=true"; else SAMPLING="fast_sampling=false"; fi
 echo "sampling: ${SAMPLING}"
-COMMON="sigma_max=2 num_epochs=500 nfe=100 eval_freq=25 evaluator.eq_w2_every=100 num_eval_samples=5000 project=as dump_final=true buffer_on_device=true fast_train=true ${SAMPLING} init_controller=${INIT_C} init_buffer=${INIT_B} init_buffer_key=buffer_x1"
+COMMON="sigma_max=2 num_epochs=500 nfe=100 eval_freq=10 evaluator.eq_w2_every=100 num_eval_samples=5000 project=as dump_final=true buffer_on_device=true fast_train=true ${SAMPLING} init_controller=${INIT_C} init_buffer=${INIT_B} init_buffer_key=buffer_x1"
 pids=()
 run() { name=$1; exp=$2; shift 2; python train.py experiment=${exp} ${COMMON} exp_name=${name} hydra.run.dir=results/${name} "$@" > logs/${name}.log 2>&1 & pids+=($!); }
 run dw4_cont_C1  dw4_as_states         seed=1
