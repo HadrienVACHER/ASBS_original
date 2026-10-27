@@ -116,6 +116,19 @@ Single seed (0) unless stated. Pre-registered thresholds were never relaxed afte
   K4 minus an edge 0.067 / 0.049 / 0.062 (0.305 vs 0.239); star 0.0097 / 0.0057 / 0.0163 (0.533 vs 1.051). (1) |log b_hat/ref| <= 0.1 for the three largest basins: False (0.28, 0.35, 2.23); (2) closer to ref than AS for all five: False
   (worse in four of five; better only for the star). The estimator from AS samples is worse than the AS weights themselves; DW-4 division stops here, as pre-registered.
 
+- **DW-4 division, variant B, step 0 (`scripts/dw4_division_b.py`, job 95063; rule and eta_a committed before the run; AS samples `results/dw4_e1500_ed8bb67_samples.pt`): VERDICT NO-GO, (c) fails.**
+  eta_a (fixed from the model fitted on reference half A): triangle+pendant 0.3, path of 2 0.2, two disjoint pairs 0.8 and K4 minus an edge 0.8 (neither reaches < 1 % leakage of pair distances into [3.5, 4.5]: 8.2 % and 1.2 % at 0.8), star 0.8.
+  Disclosure: a plumbing smoke test with reference samples standing in for AS ran steps 2-4 once before the job, so part (c) was seen before the formal run (it is identical in the job: it does not use AS samples).
+  Leakage correction: f_a = 1.000 (0.999 for star) in every basin, so the correction changes nothing (b_hat with and without it are identical): quench leakage is not the problem.
+  (c) ref-fitted (half A fit, half B weights), |log b_hat/ref|: triangle+pendant 0.174 (SE of b_hat 0.060), path of 2 0.161 (0.073), two disjoint pairs 0.066 (0.014), K4- 0.047, star 0.596: FAILS the <= 0.1 on the two largest basins.
+  (d) AS-fitted: triangle+pendant 0.069 (AS 0.119), path of 2 0.110 (AS 0.073), two disjoint pairs 0.476 (AS 0.664), K4- 0.179 (0.246), star 0.261 (0.893): closer than AS in 4 of 5 (passes that clause), but two disjoint pairs 0.476 > 0.2: FAILS.
+  (b) k_hat of u_a over all AS samples: 0.18, 0.22, 6.96, 1.14, 1.14 (restricted to the basin: 0.65, 0.57, 0.39, 0.78, 1.64): FAILS (three small basins). SD of log N_bar_a + E/tau on reference half B: 2.85, 2.76, 12.7, 16.2, 10.5.
+  IS ESS (report only): ref-fitted proposal 6292 / 20000 (31.5 %), AS-fitted 2273 / 20000 (11.4 %).
+  Pre-registered interpretation: (c) fails, so the single-Gaussian model is not enough; variant A is the user's call. Remarks (not part of the rule): the (c) deviations on the two big basins are of the order of the bootstrap SE
+  (b_hat SE 0.06-0.07, i.e. ~15 % relative, with 2400 / 2000 fit samples and a within-basin SD of ~2.8 nats), so (c) is limited by estimator noise as much as by the model; the AS-fitted estimate (10 000 samples, SE 0.016)
+  is closer to the reference than the ref-fitted one on the two big basins. The small, anharmonic basins (SD 10-16 nats) are where the single Gaussian breaks down. The AS file used here (AS weights 0.420 / 0.382 / 0.121 / 0.061 / 0.017)
+  differs from `dw4_as_states_e1500/seed0` used in step 0 (0.434 / 0.375 / 0.113 / 0.062 / 0.016).
+
 ## Methodology notes
 
 - Pair arms by seed: arms sharing a seed share their excursions, so seed-paired differences are the low-noise statistic.
