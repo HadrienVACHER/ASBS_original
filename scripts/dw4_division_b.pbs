@@ -3,11 +3,12 @@
 #PBS -P gs_ccds_haidang.dau
 #PBS -q gpu_as
 #PBS -l walltime=01:00:00
-#PBS -l select=1:ncpus=6:mem=16gb
+#PBS -l select=1:ncpus=6:ngpus=1:mem=16gb
 #PBS -j oe
 
 # DW-4 division, variante B, étape 0 (hors ligne, CPU, ni matcher ni entraînement) : masses de bassins par Gelfand-Dey corrigé de la fuite.
 # Règle GO pré-enregistrée dans l'en-tête de scripts/dw4_division_b.py ; eta_a figés dans scripts/dw4_division_b_eta.json (commités avant ce job).
+# Le cluster n'accepte que des jobs GPU : 1 GPU demandé, non utilisé (le script est CPU).
 # Échantillons AS : run ed8bb67 ; le chemin ci-dessous est essayé en premier, puis le dossier du run.
 cd "${PBS_O_WORKDIR}" || exit 1
 export PYTHONUNBUFFERED=1 OMP_NUM_THREADS=6
