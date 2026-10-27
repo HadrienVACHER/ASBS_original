@@ -14,6 +14,12 @@
           then (b)'s statistics with the ESTIMATED parameters: cos >= 0.9 and scale in [0.7, 1.4] for kappa in {0.1, 0.2, 0.3, 0.5, 0.7} (kappa = 0.05 reported).
     c*(x_t) = (E_p[x1 | x_t] - E_q[x1 | x_t]) / nu_{1|t}: the exact Tweedie correction (closed form for the isotropic GMM).
 
+    OUTCOME AND ACCEPTED AMENDMENT (step 1 review, 2026-10-27). The threshold specification of (c) and (d) did not state a number of posterior draws; the tests were first run with 1500 draws per x_t.
+    LITERAL RESULT AT 1500 DRAWS: (c) FAIL at d = 24 and 36 (cos 0.88-0.97 at kappa <= 0.3, scale 0.97-1.00) and (d) FAIL at d = 36 (cos 0.865-0.969). The measurement was underpowered: the Monte Carlo
+    noise of the estimate of E_q[term | x_t] biases the cosine downward; the cosine rises monotonically with the number of draws (d = 24, kappa 0.05: 0.918 / 0.976 / 0.994 for 1500 / 6000 / 24000 draws)
+    while the scale stays ~1. The same thresholds PASS at 24000 draws (cos 0.990-0.999, scale 0.975-1.0), which is what is asserted below. Both literal 1500-draw results stay reported.
+    Two other declared amendments (accepted): the positive control of (a) (variance x 2.5, parameters around the truth), and the GMM of (c), (d) built as in train.py (float32 default dtype).
+
     python tests/test_division_cv.py [--quick]
 """
 import math
@@ -180,13 +186,16 @@ class F32:
 
 
 def test_c_confirmation():
-    """ REPORT ONLY (added after the first run, not a pre-registered threshold): (c) with 24000 posterior draws per x_t, all kappa, d = 24 and 36 """
+    """ (c) with 24000 posterior draws per x_t, all kappa, d = 24 and 36: the accepted, adequately powered version of the threshold """
     for d in (24, 36):
         g, mu, w, nu1 = frozen_gmm(d)
         wb = w ** 0.5
         wb = wb / wb.sum()
         res = alignment(oracle_params(mu, w), mu, w, wb, nu1, n_xt=40, n_post=24000)
-        show(f"(c, confirmation) d = {d}, oracle, 24000 draws per x_t, 40 x_t", res)
+        show(f"(c, 24000 draws) d = {d}, oracle, 40 x_t", res)
+        bad = check(res, 0.95, 0.8, 1.25)
+        RESULTS[f"c{d}_24000_draws"] = not bad
+        print(f"{'ok ' if not bad else 'FAIL'} (c) oracle at d = {d}, 24000 draws: cos >= 0.95 and scale in [0.8, 1.25] at all kappa")
 
 
 def frozen_gmm(d):
@@ -203,8 +212,8 @@ def test_c_high_dim():
         res = alignment(oracle_params(mu, w), mu, w, wb, nu1, n_xt=100, n_post=1500)
         show(f"(c) d = {d}, K = {d}, oracle", res)
         bad = check(res, 0.95, 0.8, 1.25)
-        RESULTS[f"c{d}"] = not bad
-        print(f"{'ok ' if not bad else 'FAIL'} (c) oracle at d = {d} (isotropic frozen geometry): cos >= 0.95 and scale in [0.8, 1.25] at all kappa" + ("" if not bad else f" -> violations (kappa, (cos, scale)): {[(k, tuple(round(x, 3) for x in v)) for k, v in bad]}"))
+        RESULTS[f"c{d}_literal_1500_draws"] = not bad
+        print(f"{'ok ' if not bad else 'LITERAL FAIL (underpowered, see header)'} (c) oracle at d = {d}, 1500 draws: cos >= 0.95 and scale in [0.8, 1.25] at all kappa" + ("" if not bad else f" -> violations (kappa, (cos, scale)): {[(k, tuple(round(x, 3) for x in v)) for k, v in bad]}"))
 
 
 def test_d_estimated():
@@ -240,28 +249,35 @@ def test_d_estimated():
         c3 = 0.8 <= float(xi.mean()) <= 1.25 and float(((xi > 0.5) & (xi < 2)).double().mean()) >= 0.9
         c4 = not check(res, 0.9, 0.7, 1.4, kappas=(0.1, 0.2, 0.3, 0.5, 0.7))
         print(f"        thresholds: K_found == K {c1} ; weights within 25 % {c2} ; coverage {c3} ; cos/scale {c4}")
-        ok &= c1 and c2 and c3 and c4
-        if "--confirm" in sys.argv:
-            res = alignment(par, mu, w, wb, nu1, kappas=(0.05, 0.1, 0.2, 0.3, 0.5, 0.7), n_xt=40, n_post=24000)
-            show(f"(d, confirmation, REPORT ONLY) d = {d}, estimated parameters, 24000 draws per x_t, 40 x_t", res)
+        RESULTS[f"d{d}_literal_1500_draws"] = bool(c1 and c2 and c3 and c4)
+        res = alignment(par, mu, w, wb, nu1, kappas=(0.05, 0.1, 0.2, 0.3, 0.5, 0.7), n_xt=40, n_post=24000)
+        show(f"(d, 24000 draws) d = {d}, estimated parameters, 40 x_t", res)
+        c4b = not check(res, 0.9, 0.7, 1.4, kappas=(0.1, 0.2, 0.3, 0.5, 0.7))
+        RESULTS[f"d{d}_24000_draws"] = bool(c1 and c2 and c3 and c4b)
+        print(f"        thresholds at 24000 draws: K_found == K {c1} ; weights within 25 % {c2} ; coverage {c3} ; cos/scale {c4b}")
+        ok &= bool(c1 and c2 and c3 and c4b)
     return ok
 
 
 if __name__ == "__main__":
     only = sys.argv[sys.argv.index("--only") + 1] if "--only" in sys.argv else "abcd"
-    if "d" in only and len(only) == 1:
-        RESULTS["d"] = test_d_estimated()
-        print("\nSUMMARY:", RESULTS)
-        sys.exit(0)
-    gen = torch.Generator().manual_seed(7)
     mu2 = torch.tensor([[3.0, 0.0], [-1.5, 2.6], [-1.5, -2.6]])
     w2 = torch.tensor([0.5, 0.3, 0.2])
-    for i in range(3):
-        test_a_quadrature(f"random parameters {i}", random_params(gen), mu2, w2)
-    test_a_monte_carlo(noisy_params(mu2, w2, torch.Generator().manual_seed(3)), mu2, w2)
-    test_b_oracle()
-    test_c_high_dim()
-    test_c_noise_check()
-    test_c_confirmation()
-    RESULTS["d"] = test_d_estimated()
-    print("\nSUMMARY of the pre-registered thresholds:", RESULTS)
+    if "a" in only:
+        gen = torch.Generator().manual_seed(7)
+        for i in range(3):
+            test_a_quadrature(f"random parameters {i}", random_params(gen), mu2, w2)
+        test_a_monte_carlo(noisy_params(mu2, w2, torch.Generator().manual_seed(3)), mu2, w2)
+    if "b" in only:
+        test_b_oracle()
+    if "c" in only:
+        test_c_high_dim()
+        test_c_noise_check()
+        test_c_confirmation()
+    if "d" in only:
+        RESULTS["d_all_24000"] = test_d_estimated()
+    print("\nSUMMARY of the thresholds:", RESULTS)
+    required = [k for k in RESULTS if not k.endswith("literal_1500_draws")]
+    if not all(RESULTS[k] for k in required):
+        sys.exit("a required threshold FAILED: " + str({k: RESULTS[k] for k in required}))
+    print("all required thresholds passed (the 1500-draw literal results are reported, not required)")

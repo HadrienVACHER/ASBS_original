@@ -1,0 +1,24 @@
+# @package _global_
+
+# GMM, AS + the DIVISION (Gelfand-Dey) control variate (AdjointVEDivisionMatcher), FROZEN GMM setup of the final Barker runs: big controller 256 x 6, 2000 epochs, same target / sde /
+# evaluator as gmm_as (d = K, spread layout, radius 4.25, loguniform weights ratio 20). gamma = 1 once the first parameter version exists (warm-up before: gamma = 0).
+# Parameters per version: threshold centres of the buffer, Laplace Sigma_k, log-space regression of L_k; applied only to samples inserted after the version.
+# Pre-registered criteria: scripts/analyse_division_gmm.py.
+
+defaults:
+  - gmm_as
+  - override /matcher@adjoint_matcher: adjoint_ve_division
+
+exp_name: gmm${dim}d_as_division
+
+adjoint_matcher:
+  gamma: 1.0
+  shrink: 0.8
+  refresh_every: 1
+  min_buffer: 2000
+  radius_scale: 1.0
+  denoise_steps: 12
+
+controller:
+  channels: 256
+  num_layers: 6

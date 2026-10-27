@@ -77,6 +77,12 @@ def test_versioning_and_warmup():
     (t, xt), tgt = m.prepare_target(data, "cpu")
     extra = tgt + data["adjoint1"]
     assert torch.isfinite(tgt).all() and float(extra[data["version"] < 0].abs().max()) == 0.0 and float(extra[data["version"] >= 0].abs().max()) > 0
+    st = m.pop_stats()
+    need = ["div/K_clusters", "div/K_matched_distinct", "div/w_relerr_max_ge1pct", "div/xi_mean", "div/version", "div/warmup_frac"] + [f"div/kappa[{lo},{hi}]/{k}" for lo, hi in (("0", "0.1"), ("0.1", "0.7"), ("0.7", "1"))
+                                                                                                                                for k in ("frac_t", "term_over_gradg", "ess_frac", "max_weight_frac")]
+    missing = [k for k in need if k not in st and not k.endswith(("term_over_gradg", "ess_frac", "max_weight_frac"))]   # per-bin ratios only exist if the bin holds >= 2 active samples
+    assert not missing, missing
+    assert st["div/K_clusters"] == K and st["div/K_matched_distinct"] == K and st["div/w_relerr_max_ge1pct"] < 1e-3, st
     print(f"ok  warm-up and versioning: batch versions {vers}; target = AS target during warm-up; K found {len(m.versions[0]['mu'])}; xi mean {m._fit_info['xi_mean']:.3f}")
 
 

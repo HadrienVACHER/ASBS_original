@@ -949,7 +949,20 @@ class AdjointVEDivisionMatcher(AdjointVEDiracMatcher):
             return
         self.current += 1
         self.versions[self.current] = {k: (v.to(like.device) if torch.is_tensor(v) else v) for k, v in par.items()}
-        self._fit_info["xi_mean"] = float(coverage(x1.double(), E1.double(), par, self.tau).mean())
+        xi = coverage(x1.double(), E1.double(), par, self.tau)
+        self._fit_info.update({"xi_mean": float(xi.mean()), "xi_std": float(xi.std()), "xi_in_0.5_2": float(((xi > 0.5) & (xi < 2)).double().mean()),
+                               "softmax_L_sum": float(torch.exp(-par["L"]).sum()), "K_clusters": float(len(par["mu"]))})
+        dist = getattr(self.grad_term_cost.energy, "dist", None)
+        if hasattr(dist, "means") and hasattr(dist, "weights"):
+            # softmax(-L) against the TRUE mode weights (matched to the nearest true mean): logged per version, diagnostics only
+            true_mu, true_w = dist.means.to(like.device).double(), dist.weights.to(like.device).double()
+            near = torch.cdist(par["mu"], true_mu).argmin(1)
+            what = torch.softmax(-par["L"], 0)
+            rel = (what / true_w[near] - 1).abs()
+            big = true_w[near] >= 0.01
+            self._fit_info.update({"K_true": float(len(true_mu)), "K_matched_distinct": float(len(set(near.tolist()))),
+                                   "w_relerr_max_ge1pct": float(rel[big].max()) if big.any() else float("nan"), "w_relerr_median": float(rel.median()),
+                                   "centre_err_mean": float((par["mu"] - true_mu[near]).norm(dim=1).mean())})
         for old in [v for v in self.versions if v < self.current - self.keep_versions]:
             del self.versions[old]
 
@@ -976,6 +989,7 @@ class AdjointVEDivisionMatcher(AdjointVEDiracMatcher):
         """ term (B, D) in float64 with the parameters of each sample's version (0 for samples without a version: warm-up) """
         from adjoint_samplers.utils.division_cv import division_term
         term = torch.zeros(x1.shape, dtype=torch.float64, device=x1.device)
+        logS = torch.full((len(x1),), float("-inf"), dtype=torch.float64, device=x1.device)          # log sum_k s_k: total weight of the sample's term
         nut, nu1 = self._nu(t.double()), self._nu(torch.ones_like(t).double())
         kappa, nu1t = nut / nu1, (nu1 - nut).clamp(min=1e-12)
         v = nu1 * kappa * (1 - kappa)
@@ -983,7 +997,9 @@ class AdjointVEDivisionMatcher(AdjointVEDiracMatcher):
             if ver < 0 or ver not in self.versions:
                 continue
             sel = version == ver
-            term[sel] = division_term(xt[sel].double() - (1 - kappa[sel]) * x0[sel].double(), x1[sel], E1[sel], kappa[sel], v[sel], nu1t[sel], self.versions[ver], self.tau)
+            out, logs, _, _ = division_term(xt[sel].double() - (1 - kappa[sel]) * x0[sel].double(), x1[sel], E1[sel], kappa[sel], v[sel], nu1t[sel], self.versions[ver], self.tau, terms=True)
+            term[sel], logS[sel] = out, torch.logsumexp(logs, dim=-1)
+        self._last_logS, self._last_kappa = logS, kappa.reshape(-1)
         return term
 
     def prepare_target(self, data, device):
@@ -992,10 +1008,32 @@ class AdjointVEDivisionMatcher(AdjointVEDiracMatcher):
         term = self.division_term(t, x0, xt, x1, E1, version)
         self._step += 1
         if self._step % self.stats_every == 0:
-            with torch.no_grad():
-                self._stats["term_over_target"] = float(term.norm(dim=-1).mean() / target.norm(dim=-1).mean().clamp(min=1e-12))
-                self._stats["warmup_frac"] = float((version < 0).float().mean())
+            self._update_stats(term, target, version)
         return (t, xt), target + self.gamma * term.to(target)
+
+    KAPPA_BINS = (0.0, 0.1, 0.7, 1.0 + 1e-6)
+
+    @torch.no_grad()
+    def _update_stats(self, term, target, version):
+        """ per kappa bin [0, 0.1), [0.1, 0.7), [0.7, 1]: fraction of the sampled t, mean ||gamma term|| / ||grad g|| (mean of the per-sample ratios), and the variance watch of the
+            weights s_i = sum_k s_k(x1_i, x_t_i) of the batch: effective sample size / n (ESS = (sum s)^2 / sum s^2) and the max-weight fraction max s / sum s. """
+        st = self._stats
+        active = version >= 0
+        st["warmup_frac"] = float((~active).float().mean())
+        kappa, logS = self._last_kappa, self._last_logS
+        gn = target.norm(dim=-1).clamp(min=1e-12)
+        tn = (self.gamma * term).norm(dim=-1)
+        for lo, hi in zip(self.KAPPA_BINS[:-1], self.KAPPA_BINS[1:]):
+            sel = (kappa >= lo) & (kappa < hi)
+            name = f"kappa[{lo:g},{min(hi, 1.0):g}]"
+            st[f"{name}/frac_t"] = float(sel.double().mean())
+            sa = sel & active
+            if int(sa.sum()) < 2:
+                continue
+            w = torch.exp(logS[sa] - logS[sa].max())
+            st[f"{name}/term_over_gradg"] = float((tn[sa] / gn[sa]).mean())
+            st[f"{name}/ess_frac"] = float(w.sum() ** 2 / (w ** 2).sum() / len(w))
+            st[f"{name}/max_weight_frac"] = float(w.max() / w.sum())
 
     def pop_stats(self):
         out = {f"div/{k}": v for k, v in {**self._fit_info, **self._stats}.items()}

@@ -49,6 +49,24 @@ Single seed (0) unless stated. Pre-registered thresholds were never relaxed afte
 - **Checks.** End-to-end exact zero-mean test under the training law of x_t (tests/test_dw4_end_to_end.py): max |z| = 1.24 over 20 kappa x 3 test functions; positive control (v_t x 1.2 in the Barker factor only) 17.3; the diagnostic's own generator 1.99. State-level flux Delta_b(kappa) has the right sign for every class at every kappa <= 0.7 (z up to 12, `dw4_flux_kappa.py`), and is compatible with 0 on the reference. Involution, |det J| = 1 on the zero-CoM subspace, equivariance, detailed balance (tests/test_dw4_reflections.py). The pool-based vector diagnostic (alignment of E[h | x_t] with the exact correction) was dropped: its estimator has a non-vanishing residual that is not in kappa / v / the x_t generator.
 - **Structural explanation (conjecture, not tested).** The weight information sits at intermediate-to-large kappa, where a reflection move costs dE ~ 4 and has ~1 % flux; at small kappa the term is a vector field that vanishes by symmetry.
 
+## 5. Division (Gelfand-Dey) control variate, isotropic GMM (branch `div`; step 1 done, step 2 prepared)
+
+- **Method.** term = sum_k exp(-L_k + log Q_k - log C_k + log N_k(x1) + E(x1)/tau) (M_hat - m_k) / nu_{1|t}, with N_k the shrunk and q_k the unshrunk Gaussian of mode k, C_k and Q_k their smoothed marginals,
+  m_k the posterior mean of x1 under q_k, pi_hat = softmax(-L + log Q), M_hat = sum_k pi_hat_k m_k (`adjoint_samplers/utils/division_cv.py`, `AdjointVEDivisionMatcher`). Zero mean under pi(. | x_t) for ANY frozen
+  parameters; for disjoint modes with exact shapes and exp(-L_k) = Z w_k, E_q[term | x_t] equals the exact Tweedie correction (M* - M^q) / nu_{1|t} at every kappa (no kappa-dependent scale). Parameters (threshold centres,
+  Laplace Sigma_k, L_k by log-space regression) are fitted at buffer refresh v, stored as version v and used only for samples inserted after v; gamma = 0 before the first version (warm-up).
+- **Step 1 (unit tests, `tests/test_division_cv.py`, `tests/test_division_matcher.py`, thresholds fixed in the file header before the runs).**
+  (a) zero mean: quadrature ~1e-27 for random parameters; Monte Carlo max |z| 2.1, positive control 144. (b) oracle, wrong-weight buffer, exact posterior sampling: separation 6 sd: cos 0.995-0.997, scale 0.987-1.006
+  at kappa 0.05-0.7 (4 sd: scale 0.91-0.94; 3 sd: 0.74-0.79, reported only). (c) d = 24, 36 (isotropic frozen geometry): LITERAL FAIL at 1500 posterior draws per x_t (cos 0.88-0.97 at kappa <= 0.3), PASS at 24000 draws
+  (cos 0.990-0.998, scale 0.975-1.0). (d) estimated parameters (buffer of 10 000 samples with weights ∝ w^0.5): K found = K, centres, weights and coverage exact on this GMM (the mixture is exactly representable),
+  literal FAIL at d = 36 with 1500 draws, PASS with 24000 (cos 0.990-0.999, scale 0.98-0.99). Matcher end to end through its own bridge sampler and prepare_target: max |z| 2.1 (exact endpoints), 5.5 with wrong-weight endpoints.
+  The threshold specification (mine) lacked a number of draws: the 1500-draw measurement was underpowered (the Monte Carlo noise of the estimate of E_q[term | x_t] biases the cosine downward; the cosine rises monotonically with the
+  number of draws, the scale stays ~1). Declared amendments, accepted: that draw count; the positive control of (a) (variance x 2.5, parameters around the truth); the GMM built as in train.py (float32).
+- **Step 2 (prepared, NOT submitted).** One run, d = K = 36, seed 0, frozen GMM setup (256x6, 2000 epochs, eval every 50, 10 000 samples), gamma = 1 after warm-up (`configs/experiment/gmm_as_division.yaml`,
+  `scripts/gmm_as_division.pbs`). Pre-registered (`scripts/analyse_division_gmm.py`): metric = mean |log R̄| over the last 30 evaluations; seed-0 references AS big 0.38949, Barker gamma = 3 big 0.11660;
+  success iff metric <= 0.5 x Barker (0.05830) and below AS; "matches Barker" iff in ]0.5, 1] x Barker; fail otherwise. Expectation: likely success, because L_k is exact on this GMM; the run validates the implementation end to end,
+  not the method's generality.
+
 ## Methodology notes
 
 - Pair arms by seed: arms sharing a seed share their excursions, so seed-paired differences are the low-noise statistic.
