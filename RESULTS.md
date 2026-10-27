@@ -127,7 +127,7 @@ Single seed (0) unless stated. Pre-registered thresholds were never relaxed afte
   Pre-registered interpretation: (c) fails, so the single-Gaussian model is not enough; variant A is the user's call. Remarks (not part of the rule): the (c) deviations on the two big basins are of the order of the bootstrap SE
   (b_hat SE 0.06-0.07, i.e. ~15 % relative, with 2400 / 2000 fit samples and a within-basin SD of ~2.8 nats), so (c) is limited by estimator noise as much as by the model; the AS-fitted estimate (10 000 samples, SE 0.016)
   is closer to the reference than the ref-fitted one on the two big basins. The small, anharmonic basins (SD 10-16 nats) are where the single Gaussian breaks down. The AS file used here (AS weights 0.420 / 0.382 / 0.121 / 0.061 / 0.017)
-  differs from `dw4_as_states_e1500/seed0` used in step 0 (0.434 / 0.375 / 0.113 / 0.062 / 0.016).
+  differs from `dw4_as_states_e1500/seed0` used in step 0 (0.434 / 0.375 / 0.113 / 0.062 / 0.016). Resolved: `results/dw4_as_states_e1500/seed0/samples_final.pt` was overwritten by run 94252 (same output folder), so the "AS-fitted" column of the FIRST division step 0 (`dw4_division_step0.py`, NO-GO) used AS run 94252, not ed8bb67; variant B used ed8bb67.
 
 ## Methodology notes
 
