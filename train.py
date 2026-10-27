@@ -96,7 +96,7 @@ def main(cfg):
         controller = hydra.utils.instantiate(cfg.controller).to(device)
         if cfg.get("init_controller"):
             # start from a pre-trained controller (same SDE: same sigma_max); the optimizer starts fresh
-            ckpt = torch.load(cfg.init_controller, map_location=device, weights_only=False)
+            ckpt = torch.load(hydra.utils.to_absolute_path(cfg.init_controller), map_location=device, weights_only=False)   # relative to the launch directory: Hydra changes the working directory
             controller.load_state_dict(ckpt["controller"])
             print(f"Loaded controller from {cfg.init_controller}")
         sde = ControlledSDE(ref_sde, controller).to(device)
@@ -233,7 +233,7 @@ def main(cfg):
             # the initial replay buffer = given endpoints X1 (the SAME set for AS and Barker): the matcher builds the usual entries (adjoint1 = ∇E + ∇log p^base_1
             # of the CURRENT target, orbit, denoised points) from them instead of simulating the SDE
             import adjoint_samplers.components.matcher as matcher_module
-            X = torch.load(cfg.init_buffer, map_location="cpu", weights_only=False)[cfg.get("init_buffer_key") or "model_samples"][: adjoint_matcher.buffer.buffer_size].to(device)
+            X = torch.load(hydra.utils.to_absolute_path(cfg.init_buffer), map_location="cpu", weights_only=False)[cfg.get("init_buffer_key") or "model_samples"][: adjoint_matcher.buffer.buffer_size].to(device)
             if hasattr(adjoint_matcher, "init_wells"):
                 print(f"Well bank initialised from the initial buffer: {adjoint_matcher.init_wells(X)} double-well coordinates")
             real_sdeint, chunk = matcher_module.sdeint, 500
