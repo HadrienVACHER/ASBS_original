@@ -10,7 +10,13 @@ Single seed (0) unless stated. Pre-registered thresholds were never relaxed afte
 - **Setup.** Spread (regular-simplex) layout, radius 4.25, log-uniform weights; big controller 256x6 for AS and Barker; seeds 0-2; d = 24 and 36; metrics time-averaged over the last 30 evaluations (per-mode ratios averaged first). Frozen method (commit `ec12405`, configs `gmm_as_final`, `gmm_as_barker_final`): Barker orbit control variate, gamma = 3, threshold centres (Barzilai-Borwein basin minima of the buffer, radius = 1 x median mode width, capacity 128, 12 denoising steps).
 - **Rule.** gamma = the single global value minimising mean |log R̄| over d = 24 and 36 (3 seeds). Centres from the buffer only (zero mean stays exact).
 - **Verdict.** Works.
-- **Key numbers** (mean |log R̄|, Barker vs AS-big): d = 36: 0.112 vs 0.351 (-68 %), better at every seed; d = 24: 0.034 vs 0.235 (-86 %). Capacity ablation (d = 36, gamma = 2): -47 % with the small network, -55 % with the big one: the big network helps both and the Barker advantage persists.
+- **Key numbers** (VERIFIED against W&B on 2026-10-27; mean |log R̄| over the 30 last evaluations, per seed 0 / 1 / 2, floor 1e-6):
+  d = 24: AS big 0.268 / 0.255 / 0.183 (mean 0.235), Barker gamma = 3 big 0.032 / 0.037 / 0.034 (mean 0.034): -86 %, better at every seed.
+  d = 36: AS big 0.389 / 0.345 / 0.317 (mean 0.351), Barker gamma = 3 big 0.117 / 0.145 / 0.075 (mean 0.112): -68 %, better at every seed.
+  energy_w2 (3 seeds): d = 24 0.33-0.36 (AS) vs 0.41-0.43 (Barker); d = 36 0.53-0.59 vs 0.72-0.78.
+  Run names in W&B: `gmm{24,36}d_as_big_cap_K*_s*_spread` and `gmm{24,36}d_as_barker_g3_thr_big_K*_s*_spread` (256x6, 2000 epochs; commits `3f672a7` / `203f59d`). The cells named `*_as_final` /
+  `*_as_barker_final` (configs of the freeze commit `ec12405`) were never run under those names: the frozen-method numbers are those of the capacity-ablation cells above, which use the same settings.
+  Capacity ablation (d = 36, gamma = 2, from my notes, not re-checked): -47 % with the small network, -55 % with the big one.
 - **Costs / caveats.** ~140-200 energy calls per gradient update (d = 24 / 36) against ~5 for AS. energy_w2 is worse with Barker (small net effect, dominated by a common 3-5 % mode-width excess that shrinks with capacity; +0.19 at d = 36 reported as is). gamma annealing was not adopted.
 - **Checks.** Exact zero mean by orbit enumeration and under the exact posterior (tests/test_barker_matcher.py, test_mh_matcher.py, test_threshold_centres.py); oracle-centre intervention showed that k-means centres limited Barker, which motivated the threshold centres; the weight deficit of the simplex is monotone in the weight (no mode-specific effect).
 
@@ -19,7 +25,7 @@ Single seed (0) unless stated. Pre-registered thresholds were never relaxed afte
 - **Setup.** `HeteroGMM` (unequal radii / covariances, affine orbit with the Jacobian in the weights, commit `3f672a7`).
 - **Rule (AS alone, Barker never read before the choice).** A geometry is informative iff AS-big has light-quarter ratio < 0.6 (3-seed mean) AND modes_covered >= 0.9. Candidates G1-G4, extension E1-E4 (`a58e478`), last candidate F1 (`70a375f`), fixed stopping rule.
 - **Verdict.** No informative regime found; hetero GMM dropped.
-- **Key numbers.** v1 (radii 7-11): AS found 2-3 of 24 modes (results void, unread). G1-G4 and E1-E4: AS finds 8-18 % of the modes. F1 (isotropic simplex positions and weights, heterogeneous covariances): light quarter 0.785, modes_covered 1.0, i.e. too easy.
+- **Key numbers** (VERIFIED against W&B with `scripts/hetero_geometry_rule.py` on 2026-10-27; AS big, 3 seeds, mean of the last 30 evaluations; light quarter / modes_covered): G1 0.125 / 0.182, G2 0.018 / 0.124, G3 0.193 / 0.108, G4 0.014 / 0.077 (AS finds 8-18 % of the modes); E1 0.277 / 0.838, E2 0.074 / 0.740, E3 0.134 / 0.570, E4 0.026 / 0.443 (E1 narrowly misses modes_covered >= 0.9; not relaxed); F1 (isotropic simplex positions and weights, heterogeneous covariances) 0.785 / 1.000, too easy. Hetero v1 (radii 7-11): AS found 2-3 of 24 modes (results void, unread).
 - **Reading.** On the tested geometries "AS discovers all modes" and "AS has a clear weight deficit" do not overlap. The normalised separation (distance / (sigma_i + sigma_j) along the line) explains the collapse: 3.05 in the isotropic benchmark (AS finds all modes), collapse above ~3.45.
 
 ## 3. ManyWell-32 (FAB; 16 double wells + 16 Gaussian coordinates; light well 0.1557)
