@@ -6,7 +6,7 @@
 #PBS -l select=1:ncpus=6:ngpus=1:mem=32gb
 #PBS -j oe
 
-# PRÉPARÉ, NON SOUMIS. UN run : AS + variable de contrôle par DIVISION (AdjointVEDivisionMatcher), d = K = 36, graine 0, cible GMM isotrope figée (spread, rayon 4.25), gros contrôleur
+# NOUVEAU run (le précédent, commit a8e0c53, reste « échec numérique » : NaN à t = 0 exactement, corrigé en e6aa459), mêmes règles pré-enregistrées et règle de validité. UN run : AS + variable de contrôle par DIVISION (AdjointVEDivisionMatcher), d = K = 36, graine 0, cible GMM isotrope figée (spread, rayon 4.25), gros contrôleur
 # 256x6, 2000 epochs, gamma = 1 après l'échauffement (première version des paramètres). Mêmes drapeaux, mêmes évaluations (toutes les 50 epochs, 10 000 échantillons) que les cellules AS-big et
 # Barker-gamma3-big du balayage de capacité (scripts/gmm_as_capacity.pbs). Critères pré-enregistrés : scripts/analyse_division_gmm.py (engagés dans git avant la soumission).
 EPOCHS=2000
@@ -37,8 +37,8 @@ git log --oneline -1
 
 python train.py experiment=gmm_as_division dim=36 K=36 seed=0 ${COMMON} \
     exp_name=gmm36d_as_division \
-    hydra.run.dir=results/gmm_as_division/seed0 \
-    > logs/gmm_as_division_seed0.log 2>&1
+    hydra.run.dir=results/gmm_as_division/seed0_t0fix \
+    > logs/gmm_as_division_seed0_t0fix.log 2>&1
 fail=$?
 python scripts/analyse_division_gmm.py --commit $(git rev-parse --short HEAD) || fail=1
 echo "Fin à $(date), statut : ${fail}"
