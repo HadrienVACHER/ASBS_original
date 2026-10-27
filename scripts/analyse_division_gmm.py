@@ -46,9 +46,12 @@ def main():
     import wandb
     ap = argparse.ArgumentParser()
     ap.add_argument("--commit", required=True)
-    ap.add_argument("--project", default="CCDS_NTU/adjoint_sampler_cv")
+    ap.add_argument("--project", default="CCDS_NTU/div", help="W&B project of the division run")
+    ap.add_argument("--ref-project", default="CCDS_NTU/adjoint_sampler_cv", help="W&B project of the AS / Barker reference cells")
     a = ap.parse_args()
-    runs = list(wandb.Api(timeout=120).runs(a.project, per_page=300, order="-created_at"))
+    api = wandb.Api(timeout=120)
+    runs = list(api.runs(a.project, per_page=300, order="-created_at"))
+    ref_runs = list(api.runs(a.ref_project, per_page=300, order="-created_at"))
     g = GMM(dim=D, K=D, seed=0, layout="spread", weight_law="loguniform", weight_ratio=20.0, radius=4.25)
     w = g.weights.numpy()
     light = np.argsort(w)[: D // 4]
@@ -59,7 +62,7 @@ def main():
     s = stats(r, light)
     print(f"DIVISION (gamma = 1 après échauffement), graine 0, d = K = 36 : mean|log R̄| = {s['m']:.5f}   quart léger {s['light']:.4f}   min R̄ {s['minR']:.4f}   energy_w2 {s['ew2']:.3f}   ({s['n']} évaluations, dernière epoch {s['last']})")
     for nm, pref in (("AS big", "gmm36d_as_big_cap_K36_s0_spread"), ("Barker gamma = 3 big", "gmm36d_as_barker_g3_thr_big_K36_s0_spread")):
-        c = cell(runs, pref)
+        c = cell(ref_runs, pref)
         if c is not None:
             t = stats(c, light)
             print(f"  {nm:22} mean|log R̄| = {t['m']:.5f}   quart léger {t['light']:.4f}   min R̄ {t['minR']:.4f}   energy_w2 {t['ew2']:.3f}")

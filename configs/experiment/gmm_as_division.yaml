@@ -10,6 +10,7 @@ defaults:
   - override /matcher@adjoint_matcher: adjoint_ve_division
 
 exp_name: gmm${dim}d_as_division
+project: div # W&B project CCDS_NTU/div (division control variate runs)
 
 adjoint_matcher:
   gamma: 1.0
