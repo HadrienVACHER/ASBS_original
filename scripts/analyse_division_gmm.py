@@ -69,8 +69,8 @@ def main():
     m = s["m"]
     hv = r.history(keys=["div/nonfinite_frac", "div/clipped_frac"], samples=6000, pandas=True, x_axis="_step")
     nf, cl = (hv["div/nonfinite_frac"].dropna(), hv["div/clipped_frac"].dropna()) if len(hv) else ([], [])
-    valid = len(nf) > 0 and float(np.max(nf)) == 0.0 and float(np.mean(cl)) < 1e-4 and s["last"] >= 1999
-    print(f"validité (pré-enregistrée) : max nonfinite_frac = {float(np.max(nf)) if len(nf) else float('nan'):.2e} (doit être 0), moyenne clipped_frac = {float(np.mean(cl)) if len(cl) else float('nan'):.2e} (< 1e-4), dernière epoch {s['last']}  =>  {'VALIDE' if valid else 'INVALIDE'}")
+    valid = len(nf) > 0 and float(np.max(nf)) == 0.0 and float(np.mean(cl)) < 1e-4 and int(r.summary.get("_step", 0)) >= 1999
+    print(f"validité (pré-enregistrée) : max nonfinite_frac = {float(np.max(nf)) if len(nf) else float('nan'):.2e} (doit être 0), moyenne clipped_frac = {float(np.mean(cl)) if len(cl) else float('nan'):.2e} (< 1e-4), dernière epoch loggée {int(r.summary.get('_step', 0))}  =>  {'VALIDE' if valid else 'INVALIDE'}")
     if not valid:
         verdict = "ÉCHEC NUMÉRIQUE (run invalide, pas un résultat de méthode)"
     elif not np.isfinite(m):
