@@ -1,4 +1,4 @@
-""" ATTENTION : NON VALIDÉ. Sur un jeu synthétique mal pondéré (référence rééchantillonnée avec des rapports d'états connus, indépendant des pools de référence) ce diagnostic rend corr ~ -0.7
+""" ABANDONNÉ (décision du relecteur : l'alignement de m avec c* n'est pas garanti même sans bug) ; conservé pour mémoire. ATTENTION : NON VALIDÉ. Sur un jeu synthétique mal pondéré (référence rééchantillonnée avec des rapports d'états connus, indépendant des pools de référence) ce diagnostic rend corr ~ -0.7
     et beta ~ -0.05 alors que le flux d'états à kappa > 0 (scripts/dw4_flux_kappa.py) a le bon signe pour toutes les classes. L'estimateur de E[h | x_t] par poids gaussiens sur des
     échantillons a un résidu non nul (rms ~ 0.04, indépendant de la taille de pool jusqu'à ESS ~ 17000) alors que E_pi[h | x_t] = 0 exactement. Ne PAS soumettre ni interpréter tant que
     cet écart n'est pas compris.

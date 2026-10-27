@@ -1,0 +1,55 @@
+#!/bin/bash
+#PBS -N dw4_cont
+#PBS -P gs_ccds_haidang.dau
+#PBS -q gpu_as
+#PBS -l walltime=02:00:00
+#PBS -l select=1:ncpus=3:ngpus=1:mem=16gb
+#PBS -j oe
+
+# DW-4, TEST DE CONTINUATION APPARIÉ (PRÉPARÉ, NON SOUMIS) : controller_final.pt et buffer de 94252, 500 epochs, évaluation toutes les 25 epochs à 5000 échantillons, 5 bras en parallèle :
+#   C1 AS graine 1, C2 AS graine 2, G3 / G10 / G30 = Barker gamma 3 / 10 / 30 (graine 1), t uniforme partout. Règle pré-enregistrée : scripts/dw4_continuation_rule.py (engagée avant la soumission).
+# AVANT de soumettre : sauvegarder le contrôleur de 94252 (l'écrasement par un autre run de dw4_as_states_e1500 le détruirait) :
+#   cp results/dw4_as_states_e1500/seed0/controller_final.pt results/dw4_e1500_94252_controller.pt   (vérifier la date : celle du run 94252)
+cd "${PBS_O_WORKDIR}" || exit 1
+mkdir -p logs data
+export PYTHONUNBUFFERED=1
+export OMP_NUM_THREADS=1
+export MKL_NUM_THREADS=1
+
+# --- Correctif officiel PBS/GaaS pour les identifiants GPU (inchangé) ---
+if echo "${CUDA_VISIBLE_DEVICES:-}" | grep -q "GPU-"; then
+    GPU_COUNT=$(echo "${CUDA_VISIBLE_DEVICES}" | tr ',' '\n' | wc -l)
+    CUDA_VISIBLE_DEVICES=$(seq -s, 0 $((GPU_COUNT - 1)))
+    export CUDA_VISIBLE_DEVICES
+fi
+
+module purge
+module load anaconda/2025
+eval "$(/usr/local/anaconda2025/bin/conda shell.bash hook)"
+conda activate BMS
+
+echo "Nœud : $(hostname) à $(date)"
+nvidia-smi -L
+git log --oneline -1
+
+if [ ! -f data/test_split_DW4.npy ]; then bash scripts/download.sh; fi
+ls -la data/test_split_DW4.npy || exit 1
+INIT_C=results/dw4_e1500_94252_controller.pt
+INIT_B=results/dw4_e1500_94252_samples.pt
+for f in ${INIT_C} ${INIT_B}; do [ -f ${f} ] || { echo "fichier manquant : ${f}"; exit 2; }; done
+if python scripts/check_fast_dw4.py --sigma-max 2 --nfe 100 > logs/check_fast_dw4.log 2>&1; then SAMPLING="fast_sampling=true"; else SAMPLING="fast_sampling=false"; fi
+echo "sampling: ${SAMPLING}"
+COMMON="sigma_max=2 num_epochs=500 nfe=100 eval_freq=25 evaluator.eq_w2_every=100 num_eval_samples=5000 project=as dump_final=true buffer_on_device=true fast_train=true ${SAMPLING} init_controller=${INIT_C} init_buffer=${INIT_B} init_buffer_key=buffer_x1"
+pids=()
+run() { name=$1; exp=$2; shift 2; python train.py experiment=${exp} ${COMMON} exp_name=${name} hydra.run.dir=results/${name} "$@" > logs/${name}.log 2>&1 & pids+=($!); }
+run dw4_cont_C1  dw4_as_states         seed=1
+run dw4_cont_C2  dw4_as_states         seed=2
+run dw4_cont_G3  dw4_as_barker_states  seed=1 adjoint_matcher.gamma=3.0
+run dw4_cont_G10 dw4_as_barker_states  seed=1 adjoint_matcher.gamma=10.0
+run dw4_cont_G30 dw4_as_barker_states  seed=1 adjoint_matcher.gamma=30.0
+fail=0
+for p in "${pids[@]}"; do wait "$p" || fail=1; done
+python scripts/dw4_continuation_rule.py --commit $(git rev-parse --short HEAD) || fail=1
+
+echo "Fin à $(date), statut : ${fail}"
+exit $fail
