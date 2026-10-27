@@ -103,6 +103,12 @@ Single seed (0) unless stated. Pre-registered thresholds were never relaxed afte
   Curve E[1 - max pi*]: kappa 0.02: 0.907, 0.1: 0.863, 0.3: 0.753, 0.5: 0.604, 0.7: 0.387, 0.9: 0.116, 0.95: 0.0606, 0.97: 0.0421, 0.99: 0.0275, 0.999: 0.0221, 1: 0.0211; ambiguity(0) = 1 - max w = 0.928.
   Rule 2 (relative excess, adopted): smallest kappa with (ambiguity - floor) < 1% of (ambiguity(0) - floor) = 9.07e-3. Excess: 0.98: 1.31e-2, 0.985: 9.48e-3 (fails), 0.99: 6.2e-3 (passes) => kappa_max = 0.99 (grid step 0.005).
 
+- **DW-4 division, step 0 (offline, `scripts/dw4_division_step0.py`; GO rule pre-registered in the script header, committed before the first run).** G-averaged Gaussian basin model (O(2) x S4 x Z2, 256-angle trapezoid exact
+  to 1e-13 vs 1024 angles; the degree-2 trig interpolation matches direct evaluation to 9e-13), 5 quenched basins, shrink eta = 0.2. Reference-fitted (fit and Gelfand-Dey on the 10 000 reference samples; best case, model error only):
+  b_hat vs ref: triangle+pendant 0.408 vs 0.476 (|log| 0.155), path of 2 0.503 vs 0.410 (0.204), 2 disjoint pairs 0.046 vs 0.059 (0.260), K4 minus an edge 0.037 vs 0.049 (0.272), star 0.0067 vs 0.0057 (0.169). SD within basin of
+  log q_bar_a + E/tau: 1.76 / 1.83 / 2.23 / 2.05 / 1.82 nats (in-sample); coverage mean 1.00, median 0.83, p5 0.019, p95 2.17. Even with reference parameters the three largest basins are off by 0.155-0.26 > 0.1: the Gaussian
+  (harmonic) basin model is too coarse for the quartic wells. The AS-fitted part (the go rule proper) was NOT run: the AS samples (ed8bb67) are on the cluster.
+
 ## Methodology notes
 
 - Pair arms by seed: arms sharing a seed share their excursions, so seed-paired differences are the low-noise statistic.

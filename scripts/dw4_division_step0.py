@@ -149,6 +149,7 @@ def main():
     root = Path(__file__).resolve().parents[1]
     ref = torch.tensor(np.load(root / "data" / "test_split_DW4.npy", allow_pickle=True)).double()
     qr, gr, _ = quench(ref)
+    qr = qr.double()
     lab_r = state_ids(qr)
     freq = torch.bincount(lab_r, minlength=len(KEYS)).double() / len(lab_r)
     types = [k for k in range(len(KEYS)) if freq[k] > 0.001]
@@ -184,19 +185,20 @@ def main():
         bh = torch.softmax(-L, 0) if not torch.isnan(L).any() else torch.full_like(L, float("nan"))
         return fits, L, bh
 
-    # ---- reference-fitted (fit AND Gelfand-Dey on half A of the reference; diagnostics on half B)
-    fitsR, LR, bR = report("ref", ref[A_idx], lab_r[A_idx], E_ref[A_idx])
+    # ---- reference-fitted (fit AND Gelfand-Dey on the whole reference; the diagnostics below are therefore IN-SAMPLE)
+    fitsR, LR, bR = report("ref", ref, lab_r, E_ref)                    # fit and Gelfand-Dey on the whole reference (the star basin has only ~57 samples)
     # ---- AS-fitted
     out = {}
     if a.samples:
         model = torch.load(a.samples, map_location="cpu", weights_only=False)["model_samples"].double()
         qm, gm, _ = quench(model)
+        qm = qm.double()
         lab_m = state_ids(qm)
         fm = torch.bincount(lab_m, minlength=len(KEYS)).double() / len(lab_m)
         asw = torch.stack([fm[k] for k in types])
         fitsA, LA, bA = report("AS", model, lab_m, energy(model))
         out = dict(asw=asw, bA=bA, n_as=[0 if fitsA[k] is None else len(fitsA[k][3]) for k in types], nm=len(model), conv=float((gm < 1e-4).double().mean()))
-    print(f"\n{'basin':26}{'ref':>9}" + (f"{'AS':>9}{'b_hat(AS-fit)':>15}{'|log b/ref|':>13}{'|log AS/ref|':>14}" if out else "") + f"{'b_hat(ref-fit)':>16}{'|log b/ref|':>13}   n_ref_A")
+    print(f"\n{'basin':26}{'ref':>9}" + (f"{'AS':>9}{'b_hat(AS-fit)':>15}{'|log b/ref|':>13}{'|log AS/ref|':>14}" if out else "") + f"{'b_hat(ref-fit)':>16}{'|log b/ref|':>13}   n_ref")
     for i, k in enumerate(types):
         s = f"{names[i]:26}{float(refw[i]):9.4f}"
         if out:
@@ -204,8 +206,8 @@ def main():
         s += f"{float(bR[i]):16.4f}{abs(float(torch.log(bR[i] / refw[i]))):13.3f}   {len(fitsR[k][3]) if fitsR[k] else 0}"
         print(s)
     # ---- diagnostics on the held-out half B of the reference: SD of log q_bar + E, and coverage
-    print("\nreference-fitted model, held-out half of the reference: SD within basin of log q_bar_a(x) + E(x)/tau (unshrunk q_bar):")
-    xb, lb, Eb = ref[B_idx], lab_r[B_idx], E_ref[B_idx]
+    print("\nreference-fitted model, reference (in-sample): SD within basin of log q_bar_a(x) + E(x)/tau (unshrunk q_bar):")
+    xb, lb, Eb = ref, lab_r, E_ref
     lq = {}
     cov = torch.zeros(len(xb))
     for i, k in enumerate(types):
@@ -217,7 +219,7 @@ def main():
         v = lqa[idx] + Eb[idx] / TAU
         print(f"  {names[i]:26} n = {len(idx):5d}   SD {float(v.std()):.3f}   mean {float(v.mean()):.3f}")
         cov = cov + torch.exp(-LR[i] + lqa + Eb / TAU)
-    print(f"coverage sum_a exp(-L_a) q_bar_a(x) e^{{E/tau}} on held-out reference: mean {float(cov.mean()):.3f}  median {float(cov.median()):.3f}  p5 {float(cov.quantile(0.05)):.3f}  p95 {float(cov.quantile(0.95)):.3f}")
+    print(f"coverage sum_a exp(-L_a) q_bar_a(x) e^{{E/tau}} on the reference (in-sample): mean {float(cov.mean()):.3f}  median {float(cov.median()):.3f}  p5 {float(cov.quantile(0.05)):.3f}  p95 {float(cov.quantile(0.95)):.3f}")
     if out:
         print(f"\nAS samples: {out['nm']} ({100 * out['conv']:.1f} % quench-converged); per-basin n: " + ", ".join(f"{nm} {n}" for nm, n in zip(names, out["n_as"])))
         d_hat = torch.log(out["bA"] / refw).abs()
