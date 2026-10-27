@@ -180,3 +180,6 @@ data/*
 
 # VS Code workspace files (personal editor config)
 *.code-workspace
+
+# W&B local run directories (created by wandb.init in the repo root)
+wandb/
