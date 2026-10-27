@@ -77,6 +77,11 @@ Single seed (0) unless stated. Pre-registered thresholds were never relaxed afte
   [0.80000, 0.80011] (<< 1, bounded) for all 36 modes; centre error 1e-5; consistent with the logged per-version fit stats of the real run (xi in [0.5, 2] for 100 % of the buffer, xi_std 6e-5, centre_err_mean 1.2-1.7e-5,
   K = 36 at the three logged versions). max_k log u_k over the proxy samples: max 2.3-2.5 (overflow at 709), Pareto k_hat median 0.04-0.07 (one mode at 0.61 in the exact proxy, from ~40-sample tails). The hypothesis is therefore not
   supported for the fit procedure; the real buffer (`samples_final.pt`, outlying endpoints of the trained sampler) and the epoch-86 / 1479 versions were NOT available locally (not saved), so items 1-2 are not checked on them.
+  **Real final buffer (epoch 2000, `samples_final.pt`, run on the cluster):** K = 36, centre error 1.2e-5; shrink x maxeig in [0.80000, 0.80012] (unshrunk max 1.00015, min 0.99998), so N_k / p_k is bounded for every mode;
+  max_k log u_k over samples: median -0.56, p99.9 2.00, max 2.41 (no overflow possible); Pareto k_hat of u_k: median -0.047, max 0.842, one mode above 0.5 out of 36. Since log u_k is bounded above (max 2.4) and N_k is narrower than the
+  mode, the single k_hat > 0.5 is read as a tail-fit artefact on a small per-mode sample (u_k cannot have infinite variance), not as a heavy tail. The width hypothesis is refuted on the real epoch-2000 buffer; the two non-finite samples
+  (epochs 86, 1479) remain unexplained (versions at those epochs not saved; the counter does not record kappa). If the term must be made robust, the remaining candidate is the x_t-dependent factor 1/C_k(x_t) for modes
+  k other than the sample's own, not the x1-dependent weight.
 
 - **First launch of step 2: execution failure, no metric outcome.** The loss became NaN at epoch 86 and the job was killed; the root cause was not identified (hypothesis, to be checked with the new logs, not assumed: the 1/nu_{1|t} factor as kappa -> 1).
   The relaunch counts as THE SAME pre-registered run (seed 0, same criteria, same thresholds). Changes declared before the relaunch, none of which touches the criteria:
