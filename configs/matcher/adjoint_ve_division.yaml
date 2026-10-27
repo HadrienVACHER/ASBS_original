@@ -1,0 +1,20 @@
+_target_: adjoint_samplers.components.matcher.AdjointVEDivisionMatcher
+
+# Division (Gelfand-Dey) control variate, isotropic / Gaussian-mode targets (GMM). Parameters are fitted at buffer refresh v and applied only to samples inserted after v.
+gamma: 1.0 # applied once the first version exists (gamma = 0 before: warm-up)
+shrink: 0.8 # N_k = N(mu_k, shrink Sigma_k), 0 < shrink < 2
+tau: 1.0
+refresh_every: 1
+min_buffer: 2000
+radius_scale: 1.0
+denoise_steps: 12
+denoise_tol: 0.05
+keep_versions: 60
+stats_every: 10
+
+grad_state_cost:
+  _target_: adjoint_samplers.components.state_cost.ZeroGradStateCost
+
+buffer:
+  _target_: adjoint_samplers.components.buffer.BatchBuffer
+  buffer_size: ${adjoint_matcher.buffer_size}

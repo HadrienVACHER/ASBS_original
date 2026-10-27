@@ -1,48 +1,110 @@
-""" Division ("Gelfand-Dey") control variate for Adjoint Sampling on GMM targets: building blocks (no matcher yet).
+""" Division ("Gelfand-Dey") control variate for Adjoint Sampling, GMM-type targets: parameter fit and term (no training code).
 
-    Target p(x1) = e^{-E(x1)} (normalised, Z = 1), Dirac source X0 = 0, VE bridge x_t | x1 ~ N(kappa_t x1, v_t I), kappa_t = nu_t / nu_1, v_t = nu_1 kappa_t (1 - kappa_t).
-    For each mode k a Gaussian N_k = N(mu_k, s_k I) (Laplace approximation of the mode, s_k < 2 sigma^2) and its exact smoothed marginal
+    Target p(x1) = e^{-E(x1)} / Z, Dirac source X0 = 0, VE bridge x_t | x1 ~ N(kappa x1, v I), kappa = nu_t / nu_1, v = nu_1 kappa (1 - kappa), nu_{1|t} = nu_1 - nu_t.
+    Frozen parameters (a "version"): modes q_k = N(mu_k, Sigma_k), log-weights L_k (exp(-L_k) = beta_k ~ Z w_k), shrink s < 2, tau = 1.
 
-        C_k(x_t) = ∫ N_k(x1) N(x_t; kappa x1, v I) dx1 = N(x_t; kappa mu_k, (v + kappa^2 s_k) I),
-        r_k(x1, x_t) = N_k(x1) e^{E(x1)} / C_k(x_t).
+        N_k = N(mu_k, s Sigma_k) (shrunk),    C_k(x_t) = N(x_t; kappa mu_k, kappa^2 s Sigma_k + v I)        r_k = N_k(x1) e^{E(x1)/tau} / C_k(x_t)
+        Q_k(x_t) = N(x_t; kappa mu_k, kappa^2 Sigma_k + v I),    m_k(x_t) = mu_k + kappa Sigma_k (kappa^2 Sigma_k + v I)^{-1} (x_t - kappa mu_k)     (posterior mean of x1 under q_k)
+        pi_hat_k = softmax_k(-L_k + log Q_k),    M_hat = sum_k pi_hat_k m_k
+        term = sum_k exp(-L_k + log Q_k - log C_k + log N_k(x1) + E(x1)/tau) (M_hat - m_k) / nu_{1|t}          target = -grad g + gamma * term
 
-    Under the exact posterior pi(x1 | x_t) ∝ p(x1) N(x_t; kappa x1, v I):  E_pi[r_k | x_t] = 1 / p_t(x_t) for EVERY k (the integrand p N(x_t; .) r_k = N_k N(x_t; .) / C_k integrates to 1).
-    Hence for any vectors a_k(x_t) with sum_k a_k = 0 (they may depend on x_t) and any function h(x_t):
-
-        term(x1, x_t) = h(x_t) sum_k r_k(x1, x_t) a_k      has   E_pi[term | x_t] = 0   EXACTLY.
-
-    Carrier used here: constant vectors a_k = mbar - mu_k, mbar = mean_k mu_k (sum_k a_k = 0): with r_k ∝ q/p smoothed around mode k, the term is -Cov_k(r_k, mu_k), the same structure as the exact
-    posterior-mean correction (E_p[x1 | x_t] - E_q[x1 | x_t]) ∝ sum_k (p_k - q_k)(x_t) mu_k. It pushes the drift away from over-sampled modes. Stabiliser h(x_t) = 1 / sum_j C_j(x_t)^{-1}
-    (h = 1 gives E[r_k^2] = infinity for every s_k; with this h, h r_k <= sup_x1 N_k e^E). Everything is computed in log space.
+    Zero mean under pi(x1 | x_t) for ANY frozen parameters: E_pi[r_k | x_t] = 1 / (Z p_t(x_t)) for every k, so E_pi[term | x_t] ∝ sum_k e^{-L_k} Q_k (M_hat - m_k) = 0 (pi_hat_k ∝ e^{-L_k} Q_k).
+    For disjoint modes with exact shapes and e^{-L_k} = Z w_k: E_q[term | x_t] = (M* - M^q) / nu_{1|t}, the exact Tweedie correction, at every kappa (no kappa-dependent scale).
+    Computed in log space, in float64, in the eigenbasis of each Sigma_k.
 """
 import math
 
 import torch
 
 
-def log_gauss_iso(x, mean, var, d):
-    """ log N(x; mean, var I_d): x (..., d), mean broadcastable, var broadcastable to the batch (..., 1) """
-    return -0.5 * ((x - mean) ** 2).sum(-1) / var.squeeze(-1) - 0.5 * d * torch.log(2 * math.pi * var.squeeze(-1))
+def make_params(mu, cov, L, shrink=0.8):
+    """ mu (K, D), cov (K, D, D) SPD, L (K,) -> dict with the eigendecomposition of each Sigma_k """
+    lam, V = torch.linalg.eigh(0.5 * (cov + cov.transpose(-1, -2)))
+    return dict(mu=mu, lam=lam.clamp(min=1e-10), V=V, L=L, shrink=float(shrink))
 
 
-def log_r(xt, x1, logp1, kappa, v, mu, s, s_c=None):
-    """ log r_k(x1, x_t), (B, K). xt, x1 (B, d); logp1 = log p(x1) (B,) with p normalised; mu (K, d); s (K,) variances of the N_k;
-        kappa, v: scalars or (B, 1). s_c: variances used inside C_k only (positive control: s_c != s breaks the zero mean). """
-    d = x1.shape[-1]
-    s_c = s if s_c is None else s_c
-    kappa, v = torch.as_tensor(kappa, dtype=x1.dtype), torch.as_tensor(v, dtype=x1.dtype)
-    kappa = kappa.reshape(-1, 1, 1) if kappa.dim() > 0 else kappa
-    vk = (v.reshape(-1, 1) if v.dim() > 0 else v) + (kappa.reshape(-1, 1) if kappa.dim() > 0 else kappa) ** 2 * s_c   # (B, K) or (K,)
-    kap = kappa.reshape(-1, 1, 1) if kappa.dim() > 0 else kappa
-    logN = log_gauss_iso(x1[:, None, :], mu[None], s[None, :, None], d)                       # (B, K)
-    logC = log_gauss_iso(xt[:, None, :], kap * mu[None], (vk if vk.dim() == 2 else vk[None])[..., None], d)
-    return logN - logp1[:, None] - logC, logC
+def _lg(y, var):
+    """ log N in the eigenbasis: y (B, K, D) centred and rotated, var (B or 1, K, D) -> (B, K) """
+    return -0.5 * (y ** 2 / var).sum(-1) - 0.5 * torch.log(2 * math.pi * var).sum(-1)
 
 
-def division_term(xt, x1, logp1, kappa, v, mu, s, s_c=None, scale=1.0):
-    """ scale * h(x_t) sum_k r_k a_k, (B, d), and the stabilised weights h r_k (B, K) """
-    lr, logC = log_r(xt, x1, logp1, kappa, v, mu, s, s_c)
-    logh = -torch.logsumexp(-logC, dim=-1, keepdim=True)
-    rt = torch.exp(lr + logh)                                                                  # h r_k, (B, K)
-    a = mu.mean(0, keepdim=True) - mu                                                          # (K, d), sum_k a_k = 0
-    return scale * rt @ a, rt
+def _bk(a, like):
+    a = torch.as_tensor(a, dtype=like.dtype, device=like.device)
+    return a.reshape(-1, 1, 1) if a.dim() > 0 else a
+
+
+def division_term(xt, x1, E1, kappa, v, nu1t, par, tau=1.0, terms=False, c_var_scale=1.0):
+    """ term (B, D) (and, with terms=True, the log-weights, pi_hat and M_hat) for samples (x1, x_t); kappa, v, nu1t: scalars or (B, 1) """
+    mu, lam, V, L, s = par["mu"], par["lam"], par["V"], par["L"], par["shrink"]
+    xt, x1, E1 = xt.double(), x1.double(), E1.double()                                            # float64 whatever the training dtype
+    kap, vv = _bk(kappa, x1), _bk(v, x1)
+    nu = torch.as_tensor(nu1t, dtype=x1.dtype, device=x1.device)
+    nu = nu.reshape(-1, 1) if nu.dim() > 0 else nu
+    y1 = torch.einsum("kdj,bkd->bkj", V, x1[:, None, :] - mu[None])
+    logN = _lg(y1, s * lam[None])
+    yt = torch.einsum("kdj,bkd->bkj", V, xt[:, None, :] - kap * mu[None])
+    logC = _lg(yt, kap ** 2 * s * c_var_scale * lam[None] + vv)                                   # c_var_scale != 1 only in the positive control of the tests
+    varQ = kap ** 2 * lam[None] + vv
+    logQ = _lg(yt, varQ)
+    m = mu[None] + kap * torch.einsum("kdj,bkj->bkd", V, lam[None] / varQ * yt)                    # (B, K, D)
+    logw = -L[None] + logQ
+    pi = torch.softmax(logw, dim=-1)
+    Mhat = (pi[..., None] * m).sum(1)
+    logs = logw - logC + logN + E1.reshape(-1, 1) / tau
+    term = (torch.exp(logs)[..., None] * (Mhat[:, None, :] - m)).sum(1) / nu
+    return (term, logs, pi, Mhat) if terms else term
+
+
+def _logq_fn(mu, cov):
+    lam, V = torch.linalg.eigh(0.5 * (cov + cov.transpose(-1, -2)))
+    lam = lam.clamp(min=1e-10)
+    return lambda z: _lg(torch.einsum("kdj,bkd->bkj", V, z[:, None, :] - mu[None]), lam[None])      # (B, K): log q_k(z_b)
+
+
+def fit_log_beta(x, E, mu, cov, tau=1.0, iters=100):
+    """ log-space regression  min_{log beta} mean_i ( logsumexp_k(log beta_k + log q_k(x_i)) + E_i / tau )^2,  q_k = N(mu_k, Sigma_k) (unshrunk); returns L_k = -log beta_k (K,).
+        e^{-E/tau} = sum_k beta_k q_k(x) is the model; exp(-L_k) = beta_k ~ Z w_k. Initialised from the buffer point nearest to each mu_k. """
+    logq = _logq_fn(mu, cov)
+    lq = logq(x)                                                                                  # (N, K)
+    near = torch.cdist(mu, x).argmin(dim=1)
+    logbeta = (-E[near] / tau - lq[near, torch.arange(len(mu))]).clone().requires_grad_(True)
+    opt = torch.optim.LBFGS([logbeta], lr=1.0, max_iter=iters, line_search_fn="strong_wolfe")
+
+    def closure():
+        opt.zero_grad()
+        loss = ((torch.logsumexp(logbeta[None] + lq, dim=1) + E / tau) ** 2).mean()
+        loss.backward()
+        return loss
+
+    with torch.enable_grad():
+        opt.step(closure)
+    return -logbeta.detach()
+
+
+def coverage(x, E, par, tau=1.0):
+    """ xi(x) = sum_k exp(-L_k) q_k(x) e^{E(x)/tau}  (~ 1 where the fitted mixture reproduces e^{-E/tau}), (N,) """
+    logq = _logq_fn(par["mu"], torch.einsum("kdj,kj,kej->kde", par["V"], par["lam"], par["V"]))
+    return torch.exp(torch.logsumexp(-par["L"][None] + logq(x), dim=1) + E / tau)
+
+
+def fit_modes(energy, x1, E1=None, radius_scale=1.0, denoise_steps=12, shrink=0.8, tau=1.0, xd=None, conv=None, lam=None, generator=None):
+    """ Threshold centres of the buffer (frozen Barker method: Barzilai-Borwein basin minima, leader clustering at radius_scale x median width, barrier merge),
+        Sigma_k by Laplace (Hessian of E at the centre), L_k by log_beta regression. Returns (params dict or None, info dict).
+        xd / conv / lam: cached denoised points (otherwise computed here). """
+    from adjoint_samplers.components.matcher import _bb_denoise, _converged_centres, _laplace_factors
+    if E1 is None:
+        E1 = energy.eval(x1).reshape(-1)
+    if xd is None:
+        s0 = energy.grad_E(x1)
+        xd, conv, lam, *_ = _bb_denoise(energy, x1, E1, s0, denoise_steps, 0.05)
+    centres, counts, info = _converged_centres(energy, xd, conv, lam, radius_scale, generator=generator)
+    info["K_found"] = len(centres)
+    if len(centres) < 2:
+        return None, info
+    Lf, _, _, cond = _laplace_factors(energy, centres)
+    centres, Lf, x1d, E1d = centres.double(), Lf.double(), x1.double(), E1.double()
+    cov = Lf @ Lf.transpose(-1, -2)
+    Lk = fit_log_beta(x1d, E1d, centres, cov, tau)
+    par = make_params(centres, cov, Lk, shrink)
+    info["counts"] = counts
+    return par, info

@@ -905,6 +905,106 @@ class AdjointVEDW4BarkerMatcher(AdjointVEMatcher):
         return out
 
 
+class AdjointVEDivisionMatcher(AdjointVEDiracMatcher):
+    """ AS from a Dirac X0 with the DIVISION (Gelfand-Dey) control variate in the regression target (adjoint_samplers/utils/division_cv.py):
+
+            target = - ∇g(X1) + gamma * term(X1, Xt),   term = sum_k exp(-L_k + log Q_k - log C_k + log N_k(X1) + E(X1)/tau) (M_hat - m_k) / nu_{1|t}
+
+        Parameters (mode centres by threshold clustering of the denoised buffer, Sigma_k by Laplace, L_k by log-space regression) are fitted at buffer refresh v from the samples already in the
+        buffer and stored as VERSION v; a sample inserted after v carries v and is only ever used with the parameters of its version (it is independent of them: the zero mean under
+        pi(. | x_t) is exact for any frozen parameters, and the 1 / n_k self-dependence of a fit that includes the sample itself is avoided). Warm-up: gamma = 0 for samples inserted
+        before the first version exists. All the term is computed in float64. Isotropic / Gaussian-mode targets (GMM); the Dirac source has X0 = 0.
+    """
+    def __init__(
+        self,
+        gamma: float = 1.0,
+        shrink: float = 0.8,
+        tau: float = 1.0,
+        refresh_every: int = 1,
+        min_buffer: int = 2000,
+        radius_scale: float = 1.0,
+        denoise_steps: int = 12,
+        denoise_tol: float = 0.05,
+        keep_versions: int = 60,
+        stats_every: int = 10,
+        **kwargs,
+    ):
+        super().__init__(**kwargs)
+        assert 0 < shrink < 2
+        self.gamma, self.shrink, self.tau = gamma, shrink, tau
+        self.refresh_every, self.min_buffer, self.radius_scale = refresh_every, min_buffer, radius_scale
+        self.denoise_steps, self.denoise_tol, self.keep_versions, self.stats_every = denoise_steps, denoise_tol, keep_versions, stats_every
+        self.versions, self.current, self._calls, self._step = {}, -1, 0, 0
+        self._fit_info, self._stats = {}, {}
+
+    def _refit(self, like):
+        from adjoint_samplers.utils.division_cv import coverage, fit_modes
+        n = self.buffer.buffer_size
+        cat = lambda key: torch.cat(self.buffer.batches[key])[-n:]
+        x1, E1 = cat("x1").to(like), cat("E1").reshape(-1).to(like)
+        xd, conv, lam = cat("xd").to(like), cat("conv").to(like.device), cat("lam").to(like)
+        par, info = fit_modes(self.grad_term_cost.energy, x1, E1, self.radius_scale, self.denoise_steps, self.shrink, self.tau, xd=xd, conv=conv, lam=lam)
+        self._fit_info = {k: v for k, v in info.items() if isinstance(v, (int, float))}
+        if par is None:
+            return
+        self.current += 1
+        self.versions[self.current] = {k: (v.to(like.device) if torch.is_tensor(v) else v) for k, v in par.items()}
+        self._fit_info["xi_mean"] = float(coverage(x1.double(), E1.double(), par, self.tau).mean())
+        for old in [v for v in self.versions if v < self.current - self.keep_versions]:
+            del self.versions[old]
+
+    def populate_buffer(self, x0, timesteps, is_asbs_init_stage):
+        (x0, x1) = sdeint(self.sde, x0, timesteps, only_boundary=True)
+        adjoint1 = self._compute_adjoint1(x1, is_asbs_init_stage).clone()
+        self._check_buffer_sample_shape(x0, x1, adjoint1)
+        energy = self.grad_term_cost.energy
+        with torch.no_grad():
+            E1 = energy.eval(x1).reshape(-1)
+            s0 = adjoint1 - self.grad_term_cost.base_score(x1)                       # ∇E(x1) (stored with the sample)
+            xd, conv, lam, *_ = _bb_denoise(energy, x1, E1, s0, self.denoise_steps, self.denoise_tol)
+        self._calls += 1
+        # parameters are refitted from the samples ALREADY in the buffer (before this batch is inserted): the batch is independent of the new version
+        if len(self.buffer) >= self.min_buffer and self._calls % self.refresh_every == 0:
+            self._refit(x1)
+        self.buffer.add({
+            "x0": x0.to("cpu"), "x1": x1.to("cpu"), "adjoint1": adjoint1.to("cpu"), "E1": E1.reshape(-1, 1).to("cpu"),
+            "xd": xd.to("cpu"), "conv": conv.to("cpu"), "lam": lam.to("cpu"),
+            "version": torch.full((len(x1),), self.current, dtype=torch.long),
+        })
+
+    def division_term(self, t, x0, xt, x1, E1, version):
+        """ term (B, D) in float64 with the parameters of each sample's version (0 for samples without a version: warm-up) """
+        from adjoint_samplers.utils.division_cv import division_term
+        term = torch.zeros(x1.shape, dtype=torch.float64, device=x1.device)
+        nut, nu1 = self._nu(t.double()), self._nu(torch.ones_like(t).double())
+        kappa, nu1t = nut / nu1, (nu1 - nut).clamp(min=1e-12)
+        v = nu1 * kappa * (1 - kappa)
+        for ver in version.unique().tolist():
+            if ver < 0 or ver not in self.versions:
+                continue
+            sel = version == ver
+            term[sel] = division_term(xt[sel].double() - (1 - kappa[sel]) * x0[sel].double(), x1[sel], E1[sel], kappa[sel], v[sel], nu1t[sel], self.versions[ver], self.tau)
+        return term
+
+    def prepare_target(self, data, device):
+        (t, xt), target = super().prepare_target(data, device)
+        x0, x1, E1, version = data["x0"].to(device), data["x1"].to(device), data["E1"].to(device), data["version"].to(device)
+        term = self.division_term(t, x0, xt, x1, E1, version)
+        self._step += 1
+        if self._step % self.stats_every == 0:
+            with torch.no_grad():
+                self._stats["term_over_target"] = float(term.norm(dim=-1).mean() / target.norm(dim=-1).mean().clamp(min=1e-12))
+                self._stats["warmup_frac"] = float((version < 0).float().mean())
+        return (t, xt), target + self.gamma * term.to(target)
+
+    def pop_stats(self):
+        out = {f"div/{k}": v for k, v in {**self._fit_info, **self._stats}.items()}
+        out["div/version"] = float(self.current)
+        out["div/gamma"] = self.gamma
+        self._stats = {}
+        return out
+
+
 class AdjointVEMHMatcher(AdjointVEDiracMatcher):
     """ AdjointVEMatcher with a Metropolis-Hastings control variate added to the target:
 
