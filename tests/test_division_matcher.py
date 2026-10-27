@@ -171,9 +171,43 @@ def test_kappa_cut():
     print(f"ok  kappa cut: term exactly 0 for kappa > kappa_max ({int((k > 0.5).sum())} samples), unchanged for kappa <= kappa_max; raw term kept for the diagnostics")
 
 
+def test_t_edges():
+    """ exact endpoints: t = 0 (kappa = 0, v = 0, x_t = 0: 0/0 in the unrestricted term, the NaN of the first launch), smallest positive float32, kappa = kappa_max exactly, t = 1; and the cut masks (0 * NaN) """
+    g = torch.Generator().manual_seed(7)
+    m = build(min_buffer=1000)
+    m.kappa_max = 0.99
+    for _ in range(4):
+        insert(m, sample(1000, gmm.weights, g))
+    d = data_of(m, 1)
+    x0, x1, E1, ver = d["x0"][:200], d["x1"][:200], d["E1"][:200], d["version"][:200]
+    nu = lambda t: m._nu(t.double())
+    a, b = 0.0, 1.0
+    for _ in range(80):                                                      # t with kappa == kappa_max (to float64)
+        mid = 0.5 * (a + b)
+        a, b = (mid, b) if float(nu(torch.tensor([[mid]])) / nu(torch.ones(1, 1))) < 0.99 else (a, mid)
+    for name, tv in (("t=0", 0.0), ("t=2^-24", 2.0 ** -24), ("t=1e-12", 1e-12), ("kappa=kappa_max", b), ("t=1", 1.0)):
+        t = torch.full((200, 1), tv)
+        xt = m.sde.ref_sde.sample_posterior(t, x0, x1)
+        term = m.division_term(t, x0, xt, x1, E1, ver)
+        assert torch.isfinite(term).all(), name
+        kap = float(m._last_kappa[0])
+        if name == "t=0":
+            assert kap == 0 and (term == 0).all()
+        if name == "t=1":
+            assert (term == 0).all() and not bool(m._last_lam.any())
+        if name == "kappa=kappa_max":
+            assert bool(m._last_lam.all()) or kap > 0.99 and (term == 0).all()
+    E1b = E1.clone(); E1b[:] = float("inf")                                  # NaN raw term above the cut must not reach the target
+    t = torch.full((200, 1), 1.0)
+    term = m.division_term(t, x0, m.sde.ref_sde.sample_posterior(t, x0, x1), x1, E1b, ver)
+    assert torch.isfinite(term).all() and (term == 0).all()
+    print("ok  t edges: finite and exactly 0 at t = 0 and t = 1; finite at 2^-24, 1e-12 and kappa = kappa_max; NaN above the cut masked, not multiplied")
+
+
 if __name__ == "__main__":
     test_versioning_and_warmup()
     test_guards()
     test_kappa_cut()
+    test_t_edges()
     test_end_to_end_zero_mean()
     print("all passed")

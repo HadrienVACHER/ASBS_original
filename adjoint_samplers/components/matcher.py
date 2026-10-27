@@ -1010,14 +1010,14 @@ class AdjointVEDivisionMatcher(AdjointVEDiracMatcher):
         if self.versions:
             stack, index = self._stacked(x1)
             idx = index[version.clamp(min=0).clamp(max=len(index) - 1)]
-            ok = (version >= 0) & (idx >= 0)                                                        # version missing (pruned) or warm-up: no term
+            ok = (version >= 0) & (idx >= 0) & (kappa.reshape(-1) >= self.KAPPA_MIN)               # version missing (pruned) or warm-up: no term; kappa < KAPPA_MIN (t = 0 exactly: v = 0, x_t = 0, 0/0): no term
             if bool(ok.any()):
                 par = gather_versions(stack, idx[ok].clamp(min=0))
                 out, logs, _, _ = division_term(xt[ok].double() - (1 - kappa[ok]) * x0[ok].double(), x1[ok], E1[ok], kappa[ok], v[ok], nu1t[ok], par, self.tau, terms=True)
                 term[ok], logS[ok] = out, torch.logsumexp(logs, dim=-1)
         lam = torch.ones(len(x1), dtype=torch.bool, device=x1.device) if self.kappa_max is None else (kappa.reshape(-1) <= self.kappa_max)
         self._last_raw = term                                                                        # the term that would have applied without the cut (diagnostics only, never in the target)
-        term = term * lam[:, None].to(term.dtype)
+        term = torch.where(lam[:, None], term, torch.zeros_like(term))                               # masking, not a product by 0 (0 * NaN = NaN)
         logS = torch.where(lam, logS, torch.full_like(logS, float("-inf")))
         self._last_logS, self._last_kappa, self._last_lam = logS, kappa.reshape(-1), lam
         return term
@@ -1057,6 +1057,7 @@ class AdjointVEDivisionMatcher(AdjointVEDiracMatcher):
             self._update_stats(term, target, version)
         return (t, xt), target + self.gamma * term.to(target)
 
+    KAPPA_MIN = 1e-6                                                                                  # term restricted to kappa in [KAPPA_MIN, kappa_max]
     CUT_BINS = ((0.99, 0.999), (0.999, 1.0 + 1e-6))
     KAPPA_BINS = (0.0, 0.1, 0.7, 1.0 + 1e-6)
 

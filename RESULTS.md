@@ -82,6 +82,13 @@ Single seed (0) unless stated. Pre-registered thresholds were never relaxed afte
   mode, the single k_hat > 0.5 is read as a tail-fit artefact on a small per-mode sample (u_k cannot have infinite variance), not as a heavy tail. The width hypothesis is refuted on the real epoch-2000 buffer; the two non-finite samples
   (epochs 86, 1479) remain unexplained (versions at those epochs not saved; the counter does not record kappa). If the term must be made robust, the remaining candidate is the x_t-dependent factor 1/C_k(x_t) for modes
   k other than the sample's own, not the x1-dependent weight.
+- **Cause of the non-finite samples: t = 0 exactly (found offline, `scripts/division_t_edge.py`).** `sample_t` uses `torch.rand` in float32, which returns exactly 0.0 with probability 2^-24 ~ 6e-8 per sample. At t = 0: kappa = 0,
+  v = 0, x_t = 0, so Var Q_k = kappa^2 lambda + v = 0 and the term is 0/0 = NaN (log C_k, log Q_k, m_k, softmax, log-weights and term all non-finite for the 100 % of the samples at t = 0; every intermediate is finite at the smallest
+  positive float32 t = 2^-24, at 1e-8, 1e-6, at kappa = kappa_max = 0.99 (t = 0.29504) and at t = 1). Both launches (same seed 0, same random stream until the first event) hit it at epoch 86: the first run, without guards, turned
+  into NaN weights; the relaunch zeroed the sample (`div/nonfinite_frac` 1.95e-5 = 1/51 200 at epochs 86 and 1479). It was not 1/nu_{1|t} nor the widths. Also found: the cut was a product `term * lam` (0 * NaN = NaN); now a `torch.where`.
+  Fix (not rerun): the term is computed only for kappa in [1e-6, kappa_max] (`KAPPA_MIN`), masked with `torch.where`; unit test `test_t_edges` at t = 0, 2^-24, 1e-12, kappa = kappa_max, t = 1 and a NaN raw term above the cut
+  (fails without the fix at t = 0). The fixed term is exactly 0 for kappa < 1e-6 (a set of probability ~6e-8): the zero-mean property is untouched (any function of (x_t, t)). The pre-registered verdict stays "numerical failure".
+- **Barker seed-0 energy_w2 at d = 36:** 0.720 (division 0.668, AS big 0.552).
 
 - **First launch of step 2: execution failure, no metric outcome.** The loss became NaN at epoch 86 and the job was killed; the root cause was not identified (hypothesis, to be checked with the new logs, not assumed: the 1/nu_{1|t} factor as kappa -> 1).
   The relaunch counts as THE SAME pre-registered run (seed 0, same criteria, same thresholds). Changes declared before the relaunch, none of which touches the criteria:
