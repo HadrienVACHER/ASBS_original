@@ -15,7 +15,8 @@ project: div # W&B project CCDS_NTU/div (division control variate runs)
 adjoint_matcher:
   gamma: 1.0
   shrink: 0.8
-  refresh_every: 1
+  refresh_every: 5
+  kappa_max: 0.99
   min_buffer: 2000
   radius_scale: 1.0
   denoise_steps: 12

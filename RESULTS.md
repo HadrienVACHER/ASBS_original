@@ -49,7 +49,7 @@ Single seed (0) unless stated. Pre-registered thresholds were never relaxed afte
 - **Checks.** End-to-end exact zero-mean test under the training law of x_t (tests/test_dw4_end_to_end.py): max |z| = 1.24 over 20 kappa x 3 test functions; positive control (v_t x 1.2 in the Barker factor only) 17.3; the diagnostic's own generator 1.99. State-level flux Delta_b(kappa) has the right sign for every class at every kappa <= 0.7 (z up to 12, `dw4_flux_kappa.py`), and is compatible with 0 on the reference. Involution, |det J| = 1 on the zero-CoM subspace, equivariance, detailed balance (tests/test_dw4_reflections.py). The pool-based vector diagnostic (alignment of E[h | x_t] with the exact correction) was dropped: its estimator has a non-vanishing residual that is not in kappa / v / the x_t generator.
 - **Structural explanation (conjecture, not tested).** The weight information sits at intermediate-to-large kappa, where a reflection move costs dE ~ 4 and has ~1 % flux; at small kappa the term is a vector field that vanishes by symmetry.
 
-## 5. Division (Gelfand-Dey) control variate, isotropic GMM (branch `div`; step 1 done, step 2 prepared)
+## 5. Division (Gelfand-Dey) control variate, isotropic GMM (branch `div`; step 1 done, step 2 relaunch prepared)
 
 - **Method.** term = sum_k exp(-L_k + log Q_k - log C_k + log N_k(x1) + E(x1)/tau) (M_hat - m_k) / nu_{1|t}, with N_k the shrunk and q_k the unshrunk Gaussian of mode k, C_k and Q_k their smoothed marginals,
   m_k the posterior mean of x1 under q_k, pi_hat = softmax(-L + log Q), M_hat = sum_k pi_hat_k m_k (`adjoint_samplers/utils/division_cv.py`, `AdjointVEDivisionMatcher`). Zero mean under pi(. | x_t) for ANY frozen
@@ -66,6 +66,19 @@ Single seed (0) unless stated. Pre-registered thresholds were never relaxed afte
   `scripts/gmm_as_division.pbs`). Pre-registered (`scripts/analyse_division_gmm.py`): metric = mean |log R̄| over the last 30 evaluations; seed-0 references AS big 0.38949, Barker gamma = 3 big 0.11660;
   success iff metric <= 0.5 x Barker (0.05830) and below AS; "matches Barker" iff in ]0.5, 1] x Barker; fail otherwise. Expectation: likely success, because L_k is exact on this GMM; the run validates the implementation end to end,
   not the method's generality.
+
+- **First launch of step 2: execution failure, no metric outcome.** The loss became NaN at epoch 86 and the job was killed; the root cause was not identified (hypothesis, to be checked with the new logs, not assumed: the 1/nu_{1|t} factor as kappa -> 1).
+  The relaunch counts as THE SAME pre-registered run (seed 0, same criteria, same thresholds). Changes declared before the relaunch, none of which touches the criteria:
+  (1) `refresh_every` 1 -> 5 (cost); (2) one batched division_term call for all parameter versions (per-sample gather, no Python loop; same maths, end-to-end zero-mean test unchanged: max |z| 2.1 / 5.5);
+  (3) guards as counters: the term is computed in float64, finiteness checked in float64 and after the cast to the training dtype; non-finite sample terms set to 0, components beyond 1e4 rescaled; logged `div/nonfinite_frac`,
+  `div/clipped_frac`, `div/term_absmax`; (4) per kappa bin the max ||term|| and the kappa of the max (`div/kappa[..]/term_norm_max`, `kappa_at_max`); (5) lambda(t) = 1{kappa_t <= kappa_max} multiplying the term
+  (any function of (x_t, t) keeps the exact zero mean; unit test: term exactly 0 above kappa_max, unchanged below), kappa_max = 0.99; (6) diagnostics only, NOT in the target: max ||raw term|| removed by the cut, per bin
+  [0.99, 0.999), [0.999, 1] (`div/cut_diag[..]/term_norm_max`); (7) validity rule (pre-registered): the run is valid only if `div/nonfinite_frac` == 0 throughout, mean `div/clipped_frac` < 1e-4 and the run reaches epoch 1999;
+  otherwise the verdict is "numerical failure", not a method result.
+- **kappa_max (chosen BEFORE the run, from the oracle only: frozen d = K = 36 GMM, exact mode posterior under the target; `scripts/division_kappa_max.py`, 200 000 samples per kappa).**
+  Rule 1 (absolute: smallest kappa with E[1 - max_k pi*_k(x_t)] < 1e-3) has NO SOLUTION: the ambiguity does not go below the kappa = 1 floor 2.11e-2 (overlap of the modes, intrinsic to the frozen GMM).
+  Curve E[1 - max pi*]: kappa 0.02: 0.907, 0.1: 0.863, 0.3: 0.753, 0.5: 0.604, 0.7: 0.387, 0.9: 0.116, 0.95: 0.0606, 0.97: 0.0421, 0.99: 0.0275, 0.999: 0.0221, 1: 0.0211; ambiguity(0) = 1 - max w = 0.928.
+  Rule 2 (relative excess, adopted): smallest kappa with (ambiguity - floor) < 1% of (ambiguity(0) - floor) = 9.07e-3. Excess: 0.98: 1.31e-2, 0.985: 9.48e-3 (fails), 0.99: 6.2e-3 (passes) => kappa_max = 0.99 (grid step 0.005).
 
 ## Methodology notes
 

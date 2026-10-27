@@ -4,7 +4,8 @@ _target_: adjoint_samplers.components.matcher.AdjointVEDivisionMatcher
 gamma: 1.0 # applied once the first version exists (gamma = 0 before: warm-up)
 shrink: 0.8 # N_k = N(mu_k, shrink Sigma_k), 0 < shrink < 2
 tau: 1.0
-refresh_every: 1
+refresh_every: 5
+kappa_max: 0.99
 min_buffer: 2000
 radius_scale: 1.0
 denoise_steps: 12

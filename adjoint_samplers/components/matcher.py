@@ -928,11 +928,13 @@ class AdjointVEDivisionMatcher(AdjointVEDiracMatcher):
         keep_versions: int = 60,
         stats_every: int = 10,
         term_clip: float = 1e4,
+        kappa_max: float | None = None,
         **kwargs,
     ):
         super().__init__(**kwargs)
         assert 0 < shrink < 2
-        self.term_clip, self._guard = term_clip, None
+        self.term_clip, self._guard, self._binmax, self._diagmax = term_clip, None, None, None
+        self.kappa_max = kappa_max # lambda(t) = 1{kappa_t <= kappa_max} multiplies the term (any function of (x_t, t) keeps the exact zero mean); None: no cut
         self.gamma, self.shrink, self.tau = gamma, shrink, tau
         self.refresh_every, self.min_buffer, self.radius_scale = refresh_every, min_buffer, radius_scale
         self.denoise_steps, self.denoise_tol, self.keep_versions, self.stats_every = denoise_steps, denoise_tol, keep_versions, stats_every
@@ -1013,27 +1015,49 @@ class AdjointVEDivisionMatcher(AdjointVEDiracMatcher):
                 par = gather_versions(stack, idx[ok].clamp(min=0))
                 out, logs, _, _ = division_term(xt[ok].double() - (1 - kappa[ok]) * x0[ok].double(), x1[ok], E1[ok], kappa[ok], v[ok], nu1t[ok], par, self.tau, terms=True)
                 term[ok], logS[ok] = out, torch.logsumexp(logs, dim=-1)
-        self._last_logS, self._last_kappa = logS, kappa.reshape(-1)
+        lam = torch.ones(len(x1), dtype=torch.bool, device=x1.device) if self.kappa_max is None else (kappa.reshape(-1) <= self.kappa_max)
+        self._last_raw = term                                                                        # the term that would have applied without the cut (diagnostics only, never in the target)
+        term = term * lam[:, None].to(term.dtype)
+        logS = torch.where(lam, logS, torch.full_like(logS, float("-inf")))
+        self._last_logS, self._last_kappa, self._last_lam = logS, kappa.reshape(-1), lam
         return term
 
     def prepare_target(self, data, device):
         (t, xt), target = super().prepare_target(data, device)
         x0, x1, E1, version = data["x0"].to(device), data["x1"].to(device), data["E1"].to(device), data["version"].to(device)
         term = self.division_term(t, x0, xt, x1, E1, version)
-        # guards (counted, logged; they never trigger when the term is well behaved, |term| <= ~30 on the unit tests): a non-finite sample term is set to 0, a component beyond
-        # `term_clip` is rescaled. Counters stay on the device (no host sync per step).
+        # guards (counted, logged; they never trigger when the term is well behaved, |term| <= ~30 on the unit tests). The term is computed in float64; finiteness is checked in float64 AND after
+        # the cast to the training dtype: a non-finite sample term is set to 0, a component beyond `term_clip` is rescaled. Counters stay on the device (no host sync per step).
         bad = ~torch.isfinite(term).all(-1)
         term = torch.where(bad[:, None], torch.zeros_like(term), term)
         amax = term.abs().amax(-1)
         big = amax > self.term_clip
         term = term * torch.where(big, self.term_clip / amax.clamp(min=1e-300), torch.ones_like(amax))[:, None]
+        bad32 = ~torch.isfinite(term.to(target)).all(-1)
+        term = torch.where(bad32[:, None], torch.zeros_like(term), term)
+        bad = bad | bad32
+        nrm = torch.where(bad, torch.zeros_like(amax), term.norm(dim=-1))
         g = torch.stack([bad.sum().double(), big.sum().double(), torch.tensor(float(len(bad)), dtype=torch.float64, device=bad.device), torch.where(bad, torch.zeros_like(amax), amax).max()])
         self._guard = g if self._guard is None else torch.stack([self._guard[0] + g[0], self._guard[1] + g[1], self._guard[2] + g[2], torch.maximum(self._guard[3], g[3])])
+        kap = self._last_kappa
+        rows = []
+        for lo, hi in zip(self.KAPPA_BINS[:-1], self.KAPPA_BINS[1:]):
+            m = (kap >= lo) & (kap < hi)
+            masked = torch.where(m, nrm, torch.zeros_like(nrm))
+            rows.append(torch.stack([masked.max(), kap[masked.argmax()]]))
+        bm = torch.stack(rows)                                                                         # (bins, 2): max ||term|| and kappa of the max
+        self._binmax = bm if self._binmax is None else torch.where((bm[:, 0] > self._binmax[:, 0])[:, None], bm, self._binmax)
+        if self.kappa_max is not None:                                                                # diagnostics only: max ||raw term|| that the cut removed, per kappa bin
+            raw = self._last_raw.norm(dim=-1)
+            raw = torch.where(torch.isfinite(raw), raw, torch.zeros_like(raw))
+            dm = torch.stack([torch.where((kap > self.kappa_max) & (kap >= lo) & (kap < hi), raw, torch.zeros_like(raw)).max() for lo, hi in self.CUT_BINS])
+            self._diagmax = dm if self._diagmax is None else torch.maximum(self._diagmax, dm)
         self._step += 1
         if self._step % self.stats_every == 0:
             self._update_stats(term, target, version)
         return (t, xt), target + self.gamma * term.to(target)
 
+    CUT_BINS = ((0.99, 0.999), (0.999, 1.0 + 1e-6))
     KAPPA_BINS = (0.0, 0.1, 0.7, 1.0 + 1e-6)
 
     @torch.no_grad()
@@ -1041,8 +1065,8 @@ class AdjointVEDivisionMatcher(AdjointVEDiracMatcher):
         """ per kappa bin [0, 0.1), [0.1, 0.7), [0.7, 1]: fraction of the sampled t, mean ||gamma term|| / ||grad g|| (mean of the per-sample ratios), and the variance watch of the
             weights s_i = sum_k s_k(x1_i, x_t_i) of the batch: effective sample size / n (ESS = (sum s)^2 / sum s^2) and the max-weight fraction max s / sum s. """
         st = self._stats
-        active = version >= 0
-        st["warmup_frac"] = float((~active).float().mean())
+        active = (version >= 0) & self._last_lam
+        st["warmup_frac"] = float((version < 0).float().mean())
         kappa, logS = self._last_kappa, self._last_logS
         gn = target.norm(dim=-1).clamp(min=1e-12)
         tn = (self.gamma * term).norm(dim=-1)
@@ -1064,6 +1088,14 @@ class AdjointVEDivisionMatcher(AdjointVEDiracMatcher):
             nbad, nbig, n, amax = self._guard.tolist()
             out.update({"div/nonfinite_frac": nbad / max(n, 1.0), "div/clipped_frac": nbig / max(n, 1.0), "div/term_absmax": amax})
             self._guard = None
+        if self._diagmax is not None:
+            for (lo, hi), mx in zip(self.CUT_BINS, self._diagmax.tolist()):
+                out[f"div/cut_diag[{lo:g},{min(hi, 1.0):g}]/term_norm_max"] = mx
+            self._diagmax = None
+        if self._binmax is not None:
+            for (lo, hi), (mx, ka) in zip(zip(self.KAPPA_BINS[:-1], self.KAPPA_BINS[1:]), self._binmax.tolist()):
+                out[f"div/kappa[{lo:g},{min(hi, 1.0):g}]/term_norm_max"], out[f"div/kappa[{lo:g},{min(hi, 1.0):g}]/kappa_at_max"] = mx, ka
+            self._binmax = None
         out["div/version"] = float(self.current)
         out["div/gamma"] = self.gamma
         self._stats = {}

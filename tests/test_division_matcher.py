@@ -148,8 +148,32 @@ def test_guards():
     print(f"ok  guards: corrupted samples zeroed / rescaled and counted (nonfinite, clipped fractions > 0), target finite; clean batch: both counters 0, max |term| {st['div/term_absmax']:.1f}")
 
 
+def test_kappa_cut():
+    """ lambda(t) = 1{kappa_t <= kappa_max}: the target term is exactly 0 above kappa_max, unchanged below; the cut diagnostics see the removed term """
+    gen = torch.Generator().manual_seed(5)
+    m0, m1 = build(min_buffer=1000), build(min_buffer=1000)
+    m1.kappa_max = 0.5
+    for m in (m0, m1):
+        g = torch.Generator().manual_seed(5)
+        for _ in range(4):
+            insert(m, sample(1000, gmm.weights, g))
+    d0, d1 = data_of(m0, 3), data_of(m1, 3)
+    torch.manual_seed(1)
+    (t0, x0t), _ = m0.prepare_target(d0, "cpu")
+    torch.manual_seed(1)
+    (t1, x1t), _ = m1.prepare_target(d1, "cpu")
+    k = m1._last_kappa
+    assert torch.equal(k, m0._last_kappa) and (k > 0.5).any() and (k <= 0.5).any()
+    r0 = m0._last_raw
+    torch.manual_seed(1)
+    t_cut = m1.division_term(t1, d1['x0'], x1t, d1['x1'], d1['E1'], d1['version'])
+    assert (t_cut[k > 0.5] == 0).all() and torch.allclose(t_cut[k <= 0.5], r0[k <= 0.5]), "cut must zero kappa > kappa_max only"
+    print(f"ok  kappa cut: term exactly 0 for kappa > kappa_max ({int((k > 0.5).sum())} samples), unchanged for kappa <= kappa_max; raw term kept for the diagnostics")
+
+
 if __name__ == "__main__":
     test_versioning_and_warmup()
     test_guards()
+    test_kappa_cut()
     test_end_to_end_zero_mean()
     print("all passed")
