@@ -107,7 +107,10 @@ Single seed (0) unless stated. Pre-registered thresholds were never relaxed afte
   to 1e-13 vs 1024 angles; the degree-2 trig interpolation matches direct evaluation to 9e-13), 5 quenched basins, shrink eta = 0.2. Reference-fitted (fit and Gelfand-Dey on the 10 000 reference samples; best case, model error only):
   b_hat vs ref: triangle+pendant 0.408 vs 0.476 (|log| 0.155), path of 2 0.503 vs 0.410 (0.204), 2 disjoint pairs 0.046 vs 0.059 (0.260), K4 minus an edge 0.037 vs 0.049 (0.272), star 0.0067 vs 0.0057 (0.169). SD within basin of
   log q_bar_a + E/tau: 1.76 / 1.83 / 2.23 / 2.05 / 1.82 nats (in-sample); coverage mean 1.00, median 0.83, p5 0.019, p95 2.17. Even with reference parameters the three largest basins are off by 0.155-0.26 > 0.1: the Gaussian
-  (harmonic) basin model is too coarse for the quartic wells. The AS-fitted part (the go rule proper) was NOT run: the AS samples (ed8bb67) are on the cluster.
+  (harmonic) basin model is too coarse for the quartic wells. **AS-fitted part (go rule proper; AS run `dw4_as_states_e1500`, ed8bb67, 10 000 model samples, 100 % quench-converged; basin n: 4335 / 3746 / 1134 / 622 / 163): VERDICT NO-GO.**
+  b_hat(AS-fit) vs ref vs AS weight: triangle+pendant 0.629 / 0.476 / 0.434 (|log b/ref| 0.278 vs AS 0.094); path of 2 0.289 / 0.410 / 0.375 (0.351 vs 0.090); 2 disjoint pairs 0.0064 / 0.059 / 0.113 (2.231 vs 0.650);
+  K4 minus an edge 0.067 / 0.049 / 0.062 (0.305 vs 0.239); star 0.0097 / 0.0057 / 0.0163 (0.533 vs 1.051). (1) |log b_hat/ref| <= 0.1 for the three largest basins: False (0.28, 0.35, 2.23); (2) closer to ref than AS for all five: False
+  (worse in four of five; better only for the star). The estimator from AS samples is worse than the AS weights themselves; DW-4 division stops here, as pre-registered.
 
 ## Methodology notes
 
