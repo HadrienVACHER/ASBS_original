@@ -1,0 +1,23 @@
+#!/bin/bash
+#PBS -N dw4_div_em
+#PBS -P gs_ccds_haidang.dau
+#PBS -q gpu_as
+#PBS -l walltime=02:00:00
+#PBS -l select=1:ncpus=6:ngpus=1:mem=16gb
+#PBS -j oe
+
+# DW-4 division, étape 1 (hors ligne, CPU, ni matcher ni entraînement) : ajustement des modèles de bassin par EM (variable latente = élément du groupe).
+# Règle pré-enregistrée dans l'en-tête de scripts/dw4_division_em.py (commitée avant ce job).
+# Le cluster n'accepte que des jobs GPU : 1 GPU demandé, non utilisé (le script est CPU).
+# Échantillons AS : run ed8bb67 UNIQUEMENT (results/dw4_as_states_e1500/seed0/samples_final.pt est le run 94252 : ne pas l'utiliser).
+cd "${PBS_O_WORKDIR}" || exit 1
+export PYTHONUNBUFFERED=1 OMP_NUM_THREADS=6
+module purge
+module load anaconda/2025
+eval "$(/usr/local/anaconda2025/bin/conda shell.bash hook)"
+conda activate BMS
+git log --oneline -1
+S=results/dw4_e1500_ed8bb67_samples.pt
+[ -f "$S" ] || { echo "manque $S"; exit 1; }
+echo "échantillons AS : $S"
+python scripts/dw4_division_em.py --samples "$S"
