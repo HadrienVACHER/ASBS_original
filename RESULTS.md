@@ -173,6 +173,15 @@ Single seed (0) unless stated. Pre-registered thresholds were never relaxed afte
   c_a (rule of step 1', model only, EM fit 40 iterations 43 s; scripts/dw4_division_trunc_params.json committed before the evaluation): max E over the box at c = 1.5 is -7.4 / -9.6 / -9.2 / -8.4 / -8.0 against E_min + 6 = -19.3 / -19.8 / -18.4 / -17.5 / -15.1: NO c in {1.5, 2, 2.5, 3} satisfies the rule in any basin
   (c = 2: +11.8, +11.5, +4.0, +9.7, +6.1). By the declared default c = 1.5 for all five basins, flagged. The box corners are at Mahalanobis radius c sqrt(6) = 3.7 at c = 1.5, which is where the 12-18 nats of E come from.
 
+- **DW-4 division, step 1' (truncated components, `scripts/dw4_division_trunc.py`, cluster job 95634, AS samples ed8bb67; rule, c_a and eta_a committed before the run: b4f26a4): FAIL (k_hat < 0.5 for every basin not met).**
+  Unit tests PASS (committed parameters == the file written by the preparation job: True): T1 normalisation |z| <= 1.46; T2 convolution identity |z| <= 2.70 (36 points, 2 components, kappa 0.2 / 0.5 / 0.8); T3 exact zero mean of r_a - r_b under the toy target |z| <= 1.53; positive control |z| = 5.94 at kappa 0.7 (psi = 1) but only 0.96 at kappa 0.3, so the control clears the declared threshold of 5 once of four (thin margin).
+  c_a = 1.5 in all five basins (flagged: the rule has no solution), eta_a = 0.6, 0.3, 0.8, 0.8, 0.8. Fraction of AS samples of basin a inside the box of a: 71.3 %, 74.4 %, 73.0 %, 77.2 %, 81.9 % (so 18-29 % of own-basin samples carry u_a = 0).
+  Pareto k_hat of u_a over ALL AS samples: triangle+pendant -0.170, path of 2 -0.206, two disjoint pairs 2.353, K4- 3.410, star 6.480 (n(u>0) 2991 / 2840 / 885 / 468 / 164): the same three basins fail. sup u / mean u (log): empirical max over the AS samples 2.9 / 2.6 / 5.7 / 5.5 / 6.8; model bound N_trunc(0) e^{E_max,box}: 28.2 / 25.5 / 27.6 / 28.7 / 28.5 (finite by construction, e^28 = 1e12: not informative).
+  Report only: b_hat vs ref_B, |log b/ref| = 0.117, 0.143, 0.058, 0.131, 0.191, sum 0.640 (step 1 untruncated EM: 0.618; raw AS 1.995).
+  Reading (post hoc): u_a is now bounded by construction, yet k_hat for the three small basins is still far above 0.5 (and larger than in step 1: 2.4 / 3.4 / 6.5 against 4.4 / 1.2 / 1.2, with fewer positive values). So the heavy-tail diagnostic is not caused by the unbounded far tail of e^{E} against a Gaussian, and
+  truncation does not repair it; together with the top-10 diagnostic (the weight sits on a few tens of ordinary in-basin samples, within-basin sd of log u 5-8 nats) the evidence points to the mismatch of a single Gaussian shape with e^{-E} inside the basin, not to the far tail. Also, the GPD k_hat on 'the top 20 % of ALL samples' is a crude
+  estimator on bounded, concentrated, multi-basin data (the finite-sample fit of a bounded variable can exceed 0.5); no alternative estimator was run. Stop after step 1' as instructed: no matcher work.
+
 ## Methodology notes
 
 - Pair arms by seed: arms sharing a seed share their excursions, so seed-paired differences are the low-noise statistic.
