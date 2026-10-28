@@ -164,6 +164,15 @@ Single seed (0) unless stated. Pre-registered thresholds were never relaxed afte
   Observation (not tested): K4- and star have the SAME k_hat as in the old model (1.165 vs 1.140, identical to each other); with k_hat over all AS samples but in-basin k_hat of -0.02 / 0.25, the heavy tail of u_a for these basins comes from samples of OTHER basins (or from a single dominant sample, which makes the GPD fit degenerate), not from the basin itself. Not diagnosed: which samples.
   Per the user's instruction: stop after step 1, no matcher work.
 
+- **DW-4 division, step 1', preparation job (cluster, AS samples ed8bb67): post hoc top-10 diagnostic of the step-1 tail (report only) and choice of c_a (model only).**
+  Top-10 (untruncated EM model, step-1 eta_a), for the three failing basins. The user's prediction (high-energy samples with a stretched pair distance, well beyond 5.5) is NOT confirmed: the AS samples have max pair distance 6.31 overall (median 5.59, p99 6.05) and no sample is stretched;
+  the top-u_a samples are ordinary, low-energy members of their own basin: two disjoint pairs top 100 in own basin 100 %, E -21.9 (median), max pair distance 5.55, share of sum_i u_a carried by top 1 / 10 / 100 = 0.028 / 0.227 / 0.776; K4-: 100 %, E -22.4, 5.01, 0.025 / 0.185 / 0.818;
+  star: 95 % (5 of the top 100 are path-of-2 samples), E -19.9, 5.45, 0.093 / 0.593 / 0.999. Top 10 with max pair distance > 5.5: 5 / 0 / 0.
+  Reading (post hoc): in the AS data, the weight of u_a is carried by a few tens of in-basin samples (sd of log u within basin 5-8 nats), not by far outliers; the far tail (e^{c d^4} vs e^{-d^2}) that the user's argument predicts is not sampled by AS at all (no pair distance beyond 6.3),
+  so it cannot be what the empirical k_hat (fitted on the top 20 % of ALL AS samples, a mixture of in-basin and other-basin samples) measures here. The argument itself (E_pi[u_a^2] = infinity) is untested by these data.
+  c_a (rule of step 1', model only, EM fit 40 iterations 43 s; scripts/dw4_division_trunc_params.json committed before the evaluation): max E over the box at c = 1.5 is -7.4 / -9.6 / -9.2 / -8.4 / -8.0 against E_min + 6 = -19.3 / -19.8 / -18.4 / -17.5 / -15.1: NO c in {1.5, 2, 2.5, 3} satisfies the rule in any basin
+  (c = 2: +11.8, +11.5, +4.0, +9.7, +6.1). By the declared default c = 1.5 for all five basins, flagged. The box corners are at Mahalanobis radius c sqrt(6) = 3.7 at c = 1.5, which is where the 12-18 nats of E come from.
+
 ## Methodology notes
 
 - Pair arms by seed: arms sharing a seed share their excursions, so seed-paired differences are the low-noise statistic.
