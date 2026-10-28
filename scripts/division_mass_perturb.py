@@ -17,6 +17,10 @@
 
     PRE-REGISTERED PASS: cos > 0.5 at every kappa in the list for ALL 3 perturbed draws (direction preserved => the correction still points to the right weights).
     If the control delta = 0 fails to give cos > 0.9 at some kappa, the Monte Carlo is too noisy at that kappa and the verdict there is "inconclusive" (declared now), not pass.
+    AMENDMENT (user-approved after the first run, declared before the rerun): the draw count only, 400 x_t x 600 exact posterior draws per kappa (`--draws 600`); the pass rule
+    (cos > 0.5 for all 3 draws at every kappa) and the control ceiling (control cos >= 0.9) are unchanged. The first run (60 draws, 24000 per kappa) was INCONCLUSIVE (control cos 0.66-0.83).
+    Secondary, report only: the noise-debiased cosine cos_corr = <e, c*> / (||c*|| sqrt(||e||^2 - tr Var_hat(e))) with the estimator variance already used for R (c* is exact, only ||e||^2 is biased),
+    reported for the control and the 3 draws at 60 and at 600 draws per x_t.
     Additional, report only (not in the pass): D = K = 36 (the experimental setting), `--dim 36`.
 
       python scripts/division_mass_perturb.py [--dim 12]
@@ -73,7 +77,11 @@ def mean_term(par, energy, xt, x1d, kap, v, nu1t):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--dim", type=int, default=12)
-    D = ap.parse_args().dim
+    ap.add_argument("--draws", type=int, default=60)
+    a = ap.parse_args()
+    D = a.dim
+    global N_DRAW
+    N_DRAW = a.draws
     g = GMM(dim=D, K=D, seed=0, layout="spread", weight_law="loguniform", weight_ratio=20.0, radius=4.25)
     energy = DistEnergy(g)
     mu, w = g.means.double(), g.weights.double()
@@ -89,7 +97,7 @@ def main():
         deltas[f"draw {s} (delta = +-0.5)"] = 0.5 * (2 * torch.randint(0, 2, (D,), generator=gd).double() - 1)
     pars = {n: make_params(mu, cov, L0 + d, 0.8) for n, d in deltas.items()}
     print(f"D = K = {D}; q: w^{POWER} normalised (max w'/w ratio {float((wq / w).max() / (wq / w).min()):.2f}); {N_XT} x_t x {N_DRAW} draws per kappa; nu_1 = {nu1:.3f}")
-    print(f"{'kappa':>6} {'|c*|_F':>8} | " + " | ".join(f"{n[:22]:>22}: cos  scale  med" for n in deltas) + " | q=pi: R (control, draws)")
+    print(f"{'kappa':>6} {'|c*|_F':>8} | " + " | ".join(f"{n[:22]:>22}: cos  corr scale med" for n in deltas) + " | q=pi: R (control, draws)")
     passed, inconclusive = True, False
     for kap in KAPPAS:
         v = nu1 * kap * (1 - kap)
@@ -103,12 +111,14 @@ def main():
         xtp, x1p = draw_xt_x1(g, mu, w, kap, v, gen2)
         row, rs = [], []
         for n, par in pars.items():
-            e, _ = mean_term(par, energy, xt, x1d, kap, v, nu1t)
+            e, var_e = mean_term(par, energy, xt, x1d, kap, v, nu1t)
             ip = (e * cstar).sum()
             cos = float(ip / (e.norm() * cstar.norm()))
             scale = float(ip / (cstar ** 2).sum())
             med = float(torch.nn.functional.cosine_similarity(e, cstar, dim=-1).median())
-            row.append(f"{cos:7.3f} {scale:6.2f} {med:6.2f}")
+            den = float((e ** 2).sum() - var_e.sum())
+            ccorr = float(ip / (cstar.norm() * math.sqrt(den))) if den > 0 else float("nan")
+            row.append(f"{cos:6.3f} {ccorr:6.3f} {scale:5.2f} {med:5.2f}")
             ep, varp = mean_term(par, energy, xtp, x1p, kap, v, nu1t)
             rs.append(f"{float((ep ** 2).sum() / varp.sum()):.2f}")
             if n.startswith("control"):
@@ -116,7 +126,7 @@ def main():
                     inconclusive = True
             elif cos <= 0.5:
                 passed = False
-        print(f"{kap:6.2f} {float(cstar.norm()):8.3f} | " + " | ".join(f"{r:>31}" for r in row) + " | " + ", ".join(rs))
+        print(f"{kap:6.2f} {float(cstar.norm()):8.3f} | " + " | ".join(f"{r:>38}" for r in row) + " | " + ", ".join(rs))
     ver = "PASS" if passed and not inconclusive else ("INCONCLUSIVE (control cos <= 0.9 at some kappa)" if passed else "FAIL")
     print(f"PRE-REGISTERED RULE (cos > 0.5 at every kappa for all 3 draws): {'met' if passed else 'not met'}; control ceiling ok: {not inconclusive}  =>  {ver}")
 
