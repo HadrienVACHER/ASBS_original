@@ -138,6 +138,15 @@ Single seed (0) unless stated. Pre-registered thresholds were never relaxed afte
   With the AS-fitted proposal (the realistic one) IS gives no gain (1.892 vs 1.995, star dominates; without the star 0.631 vs 1.102). Basin-level reweighting with the AS-fitted model: 1.095 total, best on the big basins (0.069 / 0.110) and still bad on the two disjoint pairs (0.476).
   ESS caveat: the ref-fitted ESS was 6292 on the cluster but 329 (1.6 %) in a local run with the same seed and the same fit (b_hat equal to 4 digits); with k_hat ~ 0.6-0.7 the ESS is dominated by a few weights and depends on the torch random stream, so treat it as one noisy estimate.
 
+- **Division, masses-perturbation hypothesis, step 0 (GMM D = K = 12, `scripts/division_mass_perturb.py`, local CPU 4 s; rule committed before the run): INCONCLUSIVE (declared rule: control cos <= 0.9).**
+  Setting: oracle shapes and centres, L_k = -log w_k + delta_k (delta = +-0.5, draws 0-2) and a control delta = 0, wrong-weight buffer w^0.3 (w'/w ratio 5.6), 400 x_t x 60 exact posterior draws (24000) per kappa, c* = (M* - M^q)/nu_{1|t} exact.
+  Pooled cos(E_q[term|x_t], c*) (scale = projection coefficient, 1 = exact correction), kappa = 0.05 / 0.1 / 0.2 / 0.3 / 0.5 / 0.7:
+  control 0.66 / 0.68 / 0.72 / 0.76 / 0.79 / 0.83 (scale 0.95-1.02); draw 0 0.60 / 0.62 / 0.64 / 0.68 / 0.71 / 0.75 (scale 0.89 -> 0.74); draw 1 0.71 / 0.74 / 0.76 / 0.80 / 0.81 / 0.84 (scale 1.17 -> 1.04); draw 2 0.62 / 0.63 / 0.66 / 0.70 / 0.72 / 0.74 (scale 1.15 -> 0.92).
+  q = pi check: R = ||e||^2 / (estimator variance) = 0.92-1.06 for the control and the three draws at every kappa, i.e. E_pi[term | x_t] = 0 within noise for any L.
+  Reading: the pre-registered cos > 0.5 holds for all draws at all kappa, but the control (delta = 0) itself only reaches cos 0.66-0.83 (< 0.9): the Monte-Carlo noise of 60 draws per x_t caps the pooled cos, so by the rule declared before the run the verdict is inconclusive, not pass.
+  Post hoc (not a rule): cos(draw) / cos(control) = 0.90-0.91 (draw 0), 1.08-1.10 (draw 1), 0.93-0.89 (draw 2), i.e. within ~10 % of the noise ceiling at every kappa, and the scale stays within [0.74, 1.19] of the exact correction. This is suggestive of the direction being preserved, not established.
+  Step 1 (DW-4 refit) NOT run: it is conditional on a pass. A rerun with more draws per x_t (e.g. 400 x 600, seconds on CPU) would remove the noise ceiling; it needs a declared amendment of the 24000-draw protocol.
+
 ## Methodology notes
 
 - Pair arms by seed: arms sharing a seed share their excursions, so seed-paired differences are the low-noise statistic.
