@@ -147,6 +147,14 @@ Single seed (0) unless stated. Pre-registered thresholds were never relaxed afte
   Post hoc (not a rule): cos(draw) / cos(control) = 0.90-0.91 (draw 0), 1.08-1.10 (draw 1), 0.93-0.89 (draw 2), i.e. within ~10 % of the noise ceiling at every kappa, and the scale stays within [0.74, 1.19] of the exact correction. This is suggestive of the direction being preserved, not established.
   Step 1 (DW-4 refit) NOT run: it is conditional on a pass. A rerun with more draws per x_t (e.g. 400 x 600, seconds on CPU) would remove the noise ceiling; it needs a declared amendment of the 24000-draw protocol.
 
+- **Division, masses-perturbation hypothesis, step 0 RERUN (400 x_t x 600 draws per kappa; amendment = draw count only, declared in the commit before the run; pass rule and control ceiling unchanged): PASS.**
+  Pooled cos (debiased cos_corr, report only; scale) at kappa = 0.05 / 0.1 / 0.2 / 0.3 / 0.5 / 0.7:
+  control 0.940 / 0.947 / 0.953 / 0.964 / 0.972 / 0.981 (corr 1.000-1.003; scale 0.98-1.00); draw 0 0.851 / 0.854 / 0.865 / 0.879 / 0.889 / 0.914 (corr 0.904-0.935; scale 0.86 -> 0.76); draw 1 0.924 / 0.930 / 0.932 / 0.944 / 0.948 / 0.953 (corr 0.962-0.968; scale 1.14 -> 1.08);
+  draw 2 0.858 / 0.861 / 0.868 / 0.885 / 0.895 / 0.900 (corr 0.909-0.922; scale 1.12 -> 0.97). Control cos >= 0.94 > 0.9 at every kappa (ceiling ok); every perturbed draw has cos > 0.85 > 0.5 at every kappa. q = pi: R = 0.94-1.06 (zero mean within noise).
+  Debiased cosine at 60 draws (report only): control 0.986-1.021, draws 0.885-0.993, i.e. consistent with the 600-draw values (the 60-draw cos was the noise ceiling, as diagnosed).
+  The residual loss of direction for L perturbed by +-0.5 is real (cos_corr 0.90-0.97, not 1) and the scale moves by about -25 % / +16 %: the correction still points to the right weights but is not invariant to the masses (hence cos < 1), as the argument predicts through pi_hat.
+  Step 1 (DW-4 refit) follows.
+
 ## Methodology notes
 
 - Pair arms by seed: arms sharing a seed share their excursions, so seed-paired differences are the low-noise statistic.
