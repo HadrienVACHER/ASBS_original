@@ -155,6 +155,15 @@ Single seed (0) unless stated. Pre-registered thresholds were never relaxed afte
   The residual loss of direction for L perturbed by +-0.5 is real (cos_corr 0.90-0.97, not 1) and the scale moves by about -25 % / +16 %: the correction still points to the right weights but is not invariant to the masses (hence cos < 1), as the argument predicts through pi_hat.
   Step 1 (DW-4 refit) follows.
 
+- **DW-4 division, step 1 (EM refit of the single-Gaussian G-averaged basin models, `scripts/dw4_division_em.py`, cluster job, AS samples ed8bb67; rule committed in 60f4107 before the run): FAIL (k_hat < 0.5 for every basin not met).**
+  EM: 40 iterations (stopping tolerance 1e-4 not reached: last max change 2.1e-4, mean log-lik moves by < 3e-4 per iteration after iteration 30, dominated by the star basin), 49 s. Mean log-lik per basin, aligned initialisation -> EM: -7.244 -> -6.801 (triangle+pendant), -6.769 -> -6.355 (path of 2), -7.662 -> -6.591 (two disjoint pairs), -6.902 -> -6.163 (K4-), -7.061 -> -6.125 (star): the ML fit is much better than the hard-aligned one.
+  eta_a (EM model, variant-B rule): 0.6, 0.3, 0.8 (flagged), 0.8, 0.8 (flagged).
+  Pareto k_hat of u_a over ALL AS samples (EM / old aligned model): triangle+pendant -0.133 / 0.180, path of 2 0.088 / 0.216, two disjoint pairs 4.383 / 6.955, K4- 1.165 / 1.140, star 1.165 / 1.140: FAILS for the three small basins. In basin (diagnostic): -0.172, 0.223, 0.746, -0.024, 0.252.
+  SD of log N_bar_a + E/tau on the AS samples (EM / old): 3.32 / 2.74, 1.90 / 2.74, 8.08 / 15.76, 7.17 / 13.53, 4.78 / 12.61 (on reference half B, EM model: 2.66, 1.68, 6.69, 6.46, 3.30): the EM fit cuts the spread of the three small basins by 2-3x but leaves it at 5-8 nats.
+  Report only: b_hat (EM, AS-fitted, leakage-corrected) vs ref_B, |log b/ref|: 0.114, 0.139, 0.055, 0.127, 0.184, sum 0.618 (old aligned model 1.095, raw AS 1.995); SE 0.001-0.006. Improvement mostly on the small basins (two disjoint pairs 0.476 -> 0.055, K4- 0.179 -> 0.127, star 0.261 -> 0.184), the two big basins slightly worse than the old model (0.114 / 0.139 vs 0.069 / 0.110) and slightly worse than raw AS on path of 2 (0.139 vs 0.073).
+  Observation (not tested): K4- and star have the SAME k_hat as in the old model (1.165 vs 1.140, identical to each other); with k_hat over all AS samples but in-basin k_hat of -0.02 / 0.25, the heavy tail of u_a for these basins comes from samples of OTHER basins (or from a single dominant sample, which makes the GPD fit degenerate), not from the basin itself. Not diagnosed: which samples.
+  Per the user's instruction: stop after step 1, no matcher work.
+
 ## Methodology notes
 
 - Pair arms by seed: arms sharing a seed share their excursions, so seed-paired differences are the low-noise statistic.
