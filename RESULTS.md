@@ -129,6 +129,15 @@ Single seed (0) unless stated. Pre-registered thresholds were never relaxed afte
   is closer to the reference than the ref-fitted one on the two big basins. The small, anharmonic basins (SD 10-16 nats) are where the single Gaussian breaks down. The AS file used here (AS weights 0.420 / 0.382 / 0.121 / 0.061 / 0.017)
   differs from `dw4_as_states_e1500/seed0` used in step 0 (0.434 / 0.375 / 0.113 / 0.062 / 0.016). Resolved: `results/dw4_as_states_e1500/seed0/samples_final.pt` was overwritten by run 94252 (same output folder), so the "AS-fitted" column of the FIRST division step 0 (`dw4_division_step0.py`, NO-GO) used AS run 94252, not ed8bb67; variant B used ed8bb67.
 
+- **DW-4 division, post-hoc baselines (`scripts/dw4_division_b_baseline.py`, job 95510; report only, no rule, no training; AS samples ed8bb67, reference half B, N = 20000 exact draws from the step-4 proposal, 500-bootstrap SE).**
+  IS reweighting (weights e^{-E}/proposal, draws quenched), |log p/ref| per basin [triangle+pendant, path of 2, two disjoint pairs, K4-, star], next to |log AS/ref| = 0.119, 0.073, 0.664, 0.246, 0.893 (sum 1.995):
+  - ref-fitted proposal: Pareto k_hat 0.630, ESS 6292 (31.5 %). p_IS 0.403 / 0.488 / 0.064 / 0.040 / 0.0053 (SE 0.006 / 0.006 / 0.005 / 0.003 / 0.0006); |log p_IS/ref| 0.161, 0.173, 0.031, 0.170, 0.285 (sum 0.819).
+  - AS-fitted proposal: Pareto k_hat 0.724 (> 0.7: ESS 2273 / 11.4 % unreliable). p_IS 0.408 / 0.474 / 0.057 / 0.037 / 0.025 (SE 0.010 / 0.010 / 0.004 / 0.004 / 0.015); |log p_IS/ref| 0.148, 0.143, 0.096, 0.244, 1.261 (sum 1.892). The star value is 1 draw-weight-dominated tail (SE 0.015 on 0.025), not a result.
+  Basin-level reweighting of the AS samples (p_a = b_hat_a, leakage-corrected Gelfand-Dey, no IS): |log b_hat/ref| = 0.069, 0.110, 0.476, 0.179, 0.261 (sum 1.095) with the AS-fitted model; 0.174, 0.161, 0.066, 0.047, 0.596 (sum 1.043) with the ref-fitted model.
+  Reading (post hoc, not a rule): with the ref-fitted proposal, IS cuts the summed error from 1.995 (AS) to 0.82 and fixes the 'two disjoint pairs' basin (0.664 -> 0.031), but it is WORSE than raw AS on the two big basins (0.161 / 0.173 vs 0.119 / 0.073) whose bias exceeds the tiny bootstrap SE (0.006): the bootstrap only sees draw noise, not the model/fit error, so those SEs are not a measure of accuracy.
+  With the AS-fitted proposal (the realistic one) IS gives no gain (1.892 vs 1.995, star dominates; without the star 0.631 vs 1.102). Basin-level reweighting with the AS-fitted model: 1.095 total, best on the big basins (0.069 / 0.110) and still bad on the two disjoint pairs (0.476).
+  ESS caveat: the ref-fitted ESS was 6292 on the cluster but 329 (1.6 %) in a local run with the same seed and the same fit (b_hat equal to 4 digits); with k_hat ~ 0.6-0.7 the ESS is dominated by a few weights and depends on the torch random stream, so treat it as one noisy estimate.
+
 ## Methodology notes
 
 - Pair arms by seed: arms sharing a seed share their excursions, so seed-paired differences are the low-noise statistic.
