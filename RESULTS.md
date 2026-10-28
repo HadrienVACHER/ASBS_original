@@ -49,7 +49,7 @@ Single seed (0) unless stated. Pre-registered thresholds were never relaxed afte
 - **Checks.** End-to-end exact zero-mean test under the training law of x_t (tests/test_dw4_end_to_end.py): max |z| = 1.24 over 20 kappa x 3 test functions; positive control (v_t x 1.2 in the Barker factor only) 17.3; the diagnostic's own generator 1.99. State-level flux Delta_b(kappa) has the right sign for every class at every kappa <= 0.7 (z up to 12, `dw4_flux_kappa.py`), and is compatible with 0 on the reference. Involution, |det J| = 1 on the zero-CoM subspace, equivariance, detailed balance (tests/test_dw4_reflections.py). The pool-based vector diagnostic (alignment of E[h | x_t] with the exact correction) was dropped: its estimator has a non-vanishing residual that is not in kappa / v / the x_t generator.
 - **Structural explanation (conjecture, not tested).** The weight information sits at intermediate-to-large kappa, where a reflection move costs dE ~ 4 and has ~1 % flux; at small kappa the term is a vector field that vanishes by symmetry.
 
-## 5. Division (Gelfand-Dey) control variate, isotropic GMM (branch `div`; step 1 done, step 2 run done: numerical failure)
+## 5. Division (Gelfand-Dey) control variate, isotropic GMM (branch `div`; GMM d = 36 closed: first run numerical failure, clean relaunch matches Barker; DW-4 closed: no-go)
 
 - **Method.** term = sum_k exp(-L_k + log Q_k - log C_k + log N_k(x1) + E(x1)/tau) (M_hat - m_k) / nu_{1|t}, with N_k the shrunk and q_k the unshrunk Gaussian of mode k, C_k and Q_k their smoothed marginals,
   m_k the posterior mean of x1 under q_k, pi_hat = softmax(-L + log Q), M_hat = sum_k pi_hat_k m_k (`adjoint_samplers/utils/division_cv.py`, `AdjointVEDivisionMatcher`). Zero mean under pi(. | x_t) for ANY frozen
@@ -181,6 +181,12 @@ Single seed (0) unless stated. Pre-registered thresholds were never relaxed afte
   Reading (post hoc): u_a is now bounded by construction, yet k_hat for the three small basins is still far above 0.5 (and larger than in step 1: 2.4 / 3.4 / 6.5 against 4.4 / 1.2 / 1.2, with fewer positive values). So the heavy-tail diagnostic is not caused by the unbounded far tail of e^{E} against a Gaussian, and
   truncation does not repair it; together with the top-10 diagnostic (the weight sits on a few tens of ordinary in-basin samples, within-basin sd of log u 5-8 nats) the evidence points to the mismatch of a single Gaussian shape with e^{-E} inside the basin, not to the far tail. Also, the GPD k_hat on 'the top 20 % of ALL samples' is a crude
   estimator on bounded, concentrated, multi-basin data (the finite-sample fit of a bounded variable can exceed 0.5); no alternative estimator was run. Stop after step 1' as instructed: no matcher work.
+
+- **CONCLUSION, division CV on DW-4 (closed by the user after step 1'; no further DW-4 work).** Single-Gaussian G-averaged basin models (hard-aligned, EM, truncated) give weights u_a = N_bar_a e^{E/tau} with a within-basin SD of log u of 5-8 nats in the small basins (two disjoint pairs, K4 minus an edge, star),
+  and Pareto k_hat far above 0.5 there in all three variants (4.4 / 1.2 / 1.2 EM, 2.4 / 3.4 / 6.5 truncated); the basin-reweighting error stays at 0.62-0.64 (EM, truncated) against 1.10 (aligned) and 1.99 (raw AS), without ever reaching the pre-registered passes. The far-tail hypothesis (e^{E} quartic against a Gaussian) is refuted by the
+  top-10 diagnostic (no stretched samples) and by the truncated run (bounded u_a, same failure). Division requires convolution-tractable mode models that dominate pi pointwise, and this fails for anharmonic basins.
+- **POSITIVE FINDING, GMM mass robustness of the division correction (offline, `scripts/division_mass_perturb.py`; oracle shapes and centres, masses perturbed by +-0.5 nat, wrong-weight buffer, 24000 x 10 exact posterior draws per kappa; amendment: 600 draws per x_t, declared before the rerun):** the direction of E_q[term | x_t] stays
+  within the exact Tweedie correction c* up to the declared tolerance, cos_corr = 0.90-0.97 (pooled cos 0.85-0.95; control cos >= 0.94), scale -25 % / +16 %, kappa 0.05-0.7, 3 independent perturbations; E_pi[term | x_t] = 0 within noise for any masses. So the correction does not need exact masses on the GMM (basin reweighting, by contrast, inherits the mass error directly).
 
 ## Methodology notes
 
