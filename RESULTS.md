@@ -197,6 +197,10 @@ Single seed (0) unless stated. Pre-registered thresholds were never relaxed afte
   With perturbed masses c = 1 is no longer exact (Bc(1)/Bc(0) = 0.12-0.19 draw 0, 0.09-0.13 draw 1, 0.18-0.28 draw 2); the fitted M is lower than c = 1 in draws 0 and 2 (0.10-0.15 and 0.08-0.16) but higher in draw 1 and in the control: no consistent benefit, no claim.
   Conclusion: a learned coefficient is not worth it here: it gains at most a few % of regression variance and costs part of the bias correction. The derived coefficient 1 is kept. Not tested: a coefficient trained on a bias-aware objective (needs pi samples).
 
+- **Portability note (found while preparing the DW-4 inflated-proposal test):** the V-coordinates (mu_a, Sigma_a) stored in `scripts/dw4_division_trunc_params.json` (and any fit made with `scripts/dw4_division_step0.py`) depend on the basis `B` of the zero-CoM subspace, taken from `torch.linalg.eigh` of a projector with a degenerate eigenvalue: this basis is machine/library dependent.
+  On a local machine, E(mu_a) of the committed EM means is 101 / 52 / -5 / 89 / 61 instead of ~ -25 (a different B maps the same coordinates to other configurations). All the cluster results (steps 1, 1', unit tests) were produced and evaluated in the same environment and are internally consistent; a local run of `dw4_is_inflate.py` aborts on a sanity check.
+  A local 2000-draw smoke test of that script (ESS ~ 3 of 2000) was run with this wrong basis before the check existed: it is meaningless and is not a result.
+
 ## Methodology notes
 
 - Pair arms by seed: arms sharing a seed share their excursions, so seed-paired differences are the low-noise statistic.
