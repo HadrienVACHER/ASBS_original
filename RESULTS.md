@@ -201,6 +201,15 @@ Single seed (0) unless stated. Pre-registered thresholds were never relaxed afte
   On a local machine, E(mu_a) of the committed EM means is 101 / 52 / -5 / 89 / 61 instead of ~ -25 (a different B maps the same coordinates to other configurations). All the cluster results (steps 1, 1', unit tests) were produced and evaluated in the same environment and are internally consistent; a local run of `dw4_is_inflate.py` aborts on a sanity check.
   A local 2000-draw smoke test of that script (ESS ~ 3 of 2000) was run with this wrong basis before the check existed: it is meaningless and is not a result.
 
+- **DW-4, post-hoc IS / independence-MH on endpoints with an ENCOMPASSING proposal (`scripts/dw4_is_inflate.py`, run LOCALLY after the cluster access was lost; rule committed in 808350a before the run; components refitted here by EM on the AS samples ed8bb67 with the new deterministic basis, commit after 808350a):**
+  Proposal = mixture of G-averaged basin components (mixture weights = AS basin frequencies), Gaussian N(mu_a, s Sigma_a) or t5 with scale s Sigma_a; N = 20000 draws, w = e^{-E}/r. Pre-registered usable iff ESS > 50 % and k_hat < 0.5.
+  Gauss s = 1 / 1.5 / 2 / 3: ESS 60.6 / 46.1 / 29.8 / 13.9 %, k_hat 0.128 / -0.040 / -0.013 / 0.348, IMH acceptance 0.64 / 0.45 / 0.33 / 0.21; t5 s = 1 / 1.5 / 2: ESS 61.6 / 46.2 / 32.5 %, k_hat -0.091 / -0.361 / -0.246.
+  USABLE: gauss s = 1 and t5 s = 1 (2 of 7): an encompassing proposal IS usable on DW-4 by the pre-registered rule. Inflation does not help (ESS falls with s, as expected once the proposal already dominates pi).
+  Basin proportions (sum_a |log p / ref_B|, raw AS 1.995): IS 0.579 / 0.577 / 0.546 / 0.508 (gauss) and 0.631 / 0.638 / 0.623 (t5); IMH 0.611 / 0.703 / 0.674 / 0.445 and 0.631 / 0.653 / 0.721. Per basin (gauss s = 1, IS): 0.146, 0.163, 0.011, 0.205, 0.053 (bootstrap SE of p_IS 0.001-0.005).
+  Observation (not tested): the IS estimates of the two big basins (about 0.40 / 0.49) are stable across proposals and across this run and the earlier fitted-proposal IS (0.4025 / 0.4878), with ESS up to 60 % and SE 0.005, yet differ from ref_B (0.473 / 0.410) by 0.15-0.17 in log: far above the bootstrap SE and the reference sampling error (~0.015).
+  This suggests that the reference MCMC proportions of the two dominant basins may not match e^{-E}/Z (or that every proposal misses the same region); the small basins (two disjoint pairs 0.064 vs 0.062, star 0.0053 vs 0.0070) agree with the reference. This is a hypothesis to check before using ref_B as the truth for the big basins.
+  Change of the basis: `dw4_division_step0.basis()` is now deterministic (Helmert), so any fit made from here on is portable; the cluster JSON of step 1' is not valid in the new basis (it stays as the record of those cluster runs; all their results are basis independent).
+
 ## Methodology notes
 
 - Pair arms by seed: arms sharing a seed share their excursions, so seed-paired differences are the low-noise statistic.
