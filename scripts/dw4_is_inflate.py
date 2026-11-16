@@ -30,6 +30,7 @@ import torch
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import dw4_division_b as b  # noqa: E402
 import dw4_division_step0 as s0  # noqa: E402
+import dw4_division_trunc as tr  # noqa: E402
 from adjoint_samplers.utils.dw4_quench import quench  # noqa: E402
 from adjoint_samplers.utils.dw4_states import KEYS, NAMES, state_ids  # noqa: E402
 
@@ -99,12 +100,20 @@ def props(counts_fn, K=5):
 
 
 def main():
+    import argparse
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--samples", default=None, help="AS samples (model_samples): the EM components are then FITTED here (deterministic basis) instead of read from the params JSON")
+    args = ap.parse_args()
     ref, q, lab_r, types, mu8 = b.load_reference()
     names = [NAMES[KEYS[k]] for k in types]
     Bi = torch.arange(1, len(ref), 2)
     refB = torch.stack([(lab_r[Bi] == k).double().mean() for k in types])
-    pj = json.loads((ROOT / "scripts" / "dw4_division_trunc_params.json").read_text())
-    comps = [(torch.tensor(pj[n]["mu"], dtype=torch.float64), torch.tensor(pj[n]["Sigma"], dtype=torch.float64)) for n in names]
+    if args.samples:
+        fit = tr.load_as_fit(args.samples)["fit"]                                                  # same EM as scripts/dw4_division_em.py, on the AS samples
+        comps = [fit[k] for k in types]
+    else:
+        pj = json.loads((ROOT / "scripts" / "dw4_division_trunc_params.json").read_text())
+        comps = [(torch.tensor(pj[n]["mu"], dtype=torch.float64), torch.tensor(pj[n]["Sigma"], dtype=torch.float64)) for n in names]
     # the V-coordinates (mu_a, Sigma_a) of the params file depend on the basis s0.B = eigh of a degenerate projector, which is machine dependent: they are only valid where they were produced (the cluster)
     e_mu = [float(s0.energy((mu @ s0.B.T)[None])[0]) for mu, _ in comps]
     if max(e_mu) > -5.0:

@@ -36,10 +36,16 @@ PERMS = list(itertools.permutations(range(4)))                                  
 
 
 def basis():
-    """ B (8, 6): orthonormal basis of the zero-CoM subspace of R^8 (4 particles x 2) """
-    P = torch.eye(8) - torch.kron(torch.ones(4, 4) / 4, torch.eye(2))
-    w, V = torch.linalg.eigh(P)
-    return V[:, w > 0.5]
+    """ B (8, 6): orthonormal basis of the zero-CoM subspace of R^8 (4 particles x 2), DETERMINISTIC (Helmert vectors; flat index = 2 * particle + coordinate).
+        (Up to the commit that introduced it, B came from eigh of the projector, whose basis inside the degenerate eigenspace is machine dependent: the (mu, Sigma) saved from a cluster run were then not portable.) """
+    cols = []
+    for k in range(1, 4):
+        for c in range(2):
+            v = torch.zeros(8, dtype=torch.get_default_dtype())
+            v[[2 * j + c for j in range(k)]] = 1.0
+            v[2 * k + c] = -float(k)
+            cols.append(v / v.norm())
+    return torch.stack(cols, 1)
 
 
 B = basis()
