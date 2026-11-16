@@ -210,6 +210,14 @@ Single seed (0) unless stated. Pre-registered thresholds were never relaxed afte
   This suggests that the reference MCMC proportions of the two dominant basins may not match e^{-E}/Z (or that every proposal misses the same region); the small basins (two disjoint pairs 0.064 vs 0.062, star 0.0053 vs 0.0070) agree with the reference. This is a hypothesis to check before using ref_B as the truth for the big basins.
   Change of the basis: `dw4_division_step0.basis()` is now deterministic (Helmert), so any fit made from here on is portable; the cluster JSON of step 1' is not valid in the new basis (it stays as the record of those cluster runs; all their results are basis independent).
 
+- **DW-4, path-space importance weights of the AS controller (`scripts/dw4_path_weights.py`, local CPU 89 s; rule committed before the run; controller = AS run 94252, NOT ed8bb67 whose controller was overwritten; report only):**
+  Exact discrete-time Girsanov weights of the simulated paths against P* = pi(x1) B_disc(path | x1) (99 Euler steps, 10000 paths). Unit test passed first (toy 2-D, |z| <= 2.02 for the exact formula; control with the sign of <u, xi> flipped: |z| = 335).
+  log w: sd 1.10, range 9.3; ESS 3403 / 10000 (34.0 %); Pareto k_hat 0.320; max weight share 0.0024; independence-MH acceptance 0.469 (100 chains x 99 steps).
+  Pre-registered (usable iff ESS > 50 % and k_hat < 0.5): NOT usable (ESS 34 %, k_hat passes). Informative anyway: sum_a |log p / ref_B| = 1.860 (raw samples) -> 0.809 (IS) / 0.707 (MH). Per basin [tri+pendant, path of 2, two disjoint pairs, K4-, star], |log p / ref_B|: raw 0.090, 0.094, 0.664, 0.191, 0.820; IS 0.138, 0.132, 0.107, 0.143, 0.289; MH 0.124, 0.087, 0.184, 0.061, 0.251.
+  p_IS = 0.412 / 0.468 / 0.0695 / 0.0411 / 0.0093 (SE 0.008-0.009 on the big two), p_MH = 0.418 / 0.448 / 0.075 / 0.050 / 0.0090, ref_B = 0.473 / 0.410 / 0.062 / 0.047 / 0.0070, raw = 0.432 / 0.373 / 0.121 / 0.057 / 0.0159.
+  The path-space weights fix the two small basins that AS gets wrong (two disjoint pairs 0.664 -> 0.107, star 0.820 -> 0.289) with no fitted density and no basin model, while the two dominant basins move from the reference (0.09 -> 0.13) exactly as in the endpoint IS with an encompassing proposal.
+  Consistency (observation): the path-space IS (0.412 / 0.468) and the endpoint IS (0.40 / 0.49, all fitted proposals) are two independent estimators of the basin proportions of e^{-E}/Z that agree with each other and differ from ref_B on the two big basins (0.473 / 0.410), by 7 bootstrap SE: the reference proportions of the dominant pair may not be those of e^{-E}/Z; this has not been tested (it would need an independent long MCMC or a high-ESS estimate).
+
 ## Methodology notes
 
 - Pair arms by seed: arms sharing a seed share their excursions, so seed-paired differences are the low-noise statistic.
