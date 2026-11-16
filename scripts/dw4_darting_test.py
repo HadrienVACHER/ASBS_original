@@ -61,26 +61,55 @@ Usage:
 import argparse, itertools, time
 import numpy as np
 
-# ----------------------------------------------------------------------------- energy (REPLACE BY REPO'S)
+# ----------------------------------------------------------------------------- energy (the repo's convention, asserted against the repo)
 B_, C_, D0, TAU = -4.0, 0.9, 4.0, 1.0
 PAIRS = list(itertools.combinations(range(4), 2))
+
+
+EPS_D = 1e-8                                     # the repo's convention: d = sqrt(|r|^2 + 1e-8) (adjoint_samplers/utils/dw4_quench.py, the DW-4 energy of the benchmark)
 
 
 def pair_e(d):
     return B_ * (d - D0) ** 2 + C_ * (d - D0) ** 4
 
 
+def _dist(r):
+    return np.sqrt((r ** 2).sum(-1) + EPS_D)
+
+
 def energy(X):                                   # X (n, 4, 2) -> (n,)
-    return sum(pair_e(np.linalg.norm(X[:, i] - X[:, j], axis=-1)) for i, j in PAIRS) / TAU
+    return sum(pair_e(_dist(X[:, i] - X[:, j])) for i, j in PAIRS) / TAU
 
 
 def grad(X):                                     # (n, 4, 2)
     g = np.zeros_like(X)
     for i, j in PAIRS:
-        r = X[:, i] - X[:, j]; d = np.linalg.norm(r, axis=-1, keepdims=True)
+        r = X[:, i] - X[:, j]; d = _dist(r)[..., None]
         de = 2 * B_ * (d - D0) + 4 * C_ * (d - D0) ** 3
         g[:, i] += de * r / d; g[:, j] -= de * r / d
     return g / TAU
+
+
+def check_energy_against_repo(ref_flat):
+    """ asserts agreement (1e-8) of energy() and grad() with the repo's DoubleWellEnergy (energy and autograd) and with its analytic dw4_quench.energy_grad_hess on the first 100 reference samples; returns the max errors """
+    import sys, pathlib
+    sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
+    import torch
+    from adjoint_samplers.energies.double_well_energy import DoubleWellEnergy
+    from adjoint_samplers.utils.dw4_quench import energy_grad_hess
+    x = torch.tensor(ref_flat[:100], dtype=torch.float64)
+    en = DoubleWellEnergy(dim=8, n_particles=4)
+    xt = x.clone().requires_grad_(True)
+    E_repo = en.eval(xt)
+    E_repo.sum().backward()
+    E2, G2, _ = energy_grad_hess(x)
+    X = ref_flat[:100].reshape(100, 4, 2)
+    errs = dict(E_vs_DoubleWellEnergy=float(np.abs(energy(X) - E_repo.detach().numpy()).max()),
+                grad_vs_autograd=float(np.abs(grad(X).reshape(100, 8) - xt.grad.numpy()).max()),
+                E_vs_dw4_quench=float(np.abs(energy(X) - E2.numpy()).max()),
+                grad_vs_dw4_quench=float(np.abs(grad(X).reshape(100, 8) - G2.numpy()).max()))
+    assert max(errs.values()) < 1e-8, errs
+    return errs
 
 
 # ----------------------------------------------------------------------------- geometry
@@ -171,6 +200,13 @@ def quench_precise(X, gd_iters=3000, lr=0.015, newton=8, gtol=1e-10):
     return X
 
 
+GTOL_STRICT = 1e-8                               # exactness of the kernel rests on a precise quench: ||grad|| < 1e-8 (checked; non-converged samples are excluded, non-converged landings are invalid)
+
+
+def converged(Q):
+    return np.linalg.norm(grad(Q).reshape(len(Q), 8), axis=1) < GTOL_STRICT
+
+
 def label(Q):                                    # short-pair graph signature of quenched minima
     out = []
     for x in Q:
@@ -194,6 +230,21 @@ def frame(mu):                                   # tangent u, vib eigvecs (6, 5)
 
 
 # ----------------------------------------------------------------------------- kernel
+REPO_NAMES = ["triangle + pendant", "path of 2 (3 particles)", "2 disjoint pairs", "K4 minus an edge", "star (3 edges)"]
+
+
+def check_labels(Q, lab):
+    """ the script's label (short-pair graph of the quenched minimum: edges + sorted degrees) against the repo's basin names (dw4_states.state_ids / NAMES) on the quenched reference:
+        returns the contingency table and asserts a one-to-one mapping ORDER[i] <-> REPO_NAMES[i] on every sample whose script label is one of the 5 types """
+    from adjoint_samplers.utils.dw4_states import KEYS, NAMES, state_ids
+    import torch
+    rn = np.array([NAMES[KEYS[k]] for k in state_ids(torch.tensor(Q.reshape(len(Q), 8))).numpy()])
+    table = {(s, n): int(np.sum((lab == s) & (rn == n))) for s in ORDER for n in REPO_NAMES}
+    bad = sum(c for (s, n), c in table.items() if REPO_NAMES[ORDER.index(s)] != n)
+    assert bad == 0, {k: v for k, v in table.items() if v and REPO_NAMES[ORDER.index(k[0])] != k[1]}
+    return {s: int(np.sum(lab == s)) for s in ORDER}
+
+
 ORDER = ["4e3221", "2e2110", "2e1111", "5e3322", "3e3111"]   # triangle+pendant, 2-edge path, two pairs, K4-, star
 
 
@@ -236,11 +287,14 @@ def evaluate(X, pairs, K, kappas, nu1, rng, roundtrip=0):
     """Per sample: probability of moving to each type (K x len(kappas)), plus diagnostics."""
     Q = quench_precise(X); lab = label(Q)
     a_of = np.array([ORDER.index(s) if s in ORDER else -1 for s in lab])
-    ok = a_of >= 0
+    ok = (a_of >= 0) & converged(Q)
+    print(f"   quench: {int(converged(Q).sum())}/{len(Q)} samples with ||grad|| < {GTOL_STRICT:g}; {int((a_of < 0).sum())} outside the 5 types; kept {int(ok.sum())}", flush=True)
     X, Q, a_of = X[ok], Q[ok], a_of[ok]
     props = [proposals(X[n], Q[n], a_of[n], pairs, K) for n in range(len(X))]
     flat = [p for pr in props for p in pr]
     QY = quench_precise(np.stack([p["y"] for p in flat])) if flat else np.zeros((0, 4, 2))
+    QY_ok = converged(QY) if flat else np.zeros(0, bool)
+    print(f"   landing quench: {int(QY_ok.sum())}/{len(QY)} converged to ||grad|| < {GTOL_STRICT:g}", flush=True)
     probs = np.zeros((len(X), K, len(kappas)))
     k = 0; valid_all = []; rt = []; omegas = []
     E_x = energy(X)
@@ -255,7 +309,7 @@ def evaluate(X, pairs, K, kappas, nu1, rng, roundtrip=0):
             pp, ff, th = p["g"]
             on_orbit = np.abs(rc(g_apply((pp, ff, procrustes(pp, ff, P["tgt"], qy)), P["tgt"])[None])[0] - qy).max() < 1e-4
             same_angle = abs(np.angle(np.exp(1j * (procrustes(pp, ff, P["tgt"], p["y"]) - th)))) < 1e-8
-            valid = on_orbit and same_angle
+            valid = bool(on_orbit and same_angle and QY_ok[k - 1])
             valid_all.append(valid)
             if not valid:
                 continue
@@ -285,9 +339,9 @@ def evaluate(X, pairs, K, kappas, nu1, rng, roundtrip=0):
 def load(path, n, rng):
     if path.endswith(".pt"):
         import torch
-        obj = torch.load(path, map_location="cpu")
+        obj = torch.load(path, map_location="cpu", weights_only=False)
         if isinstance(obj, dict):
-            obj = obj.get("samples", next(iter(obj.values())))
+            obj = obj["model_samples"] if "model_samples" in obj else obj.get("samples", next(iter(obj.values())))      # AS samples = model_samples (the first key of the dumps is buffer_x1)
         arr = obj.detach().cpu().numpy() if hasattr(obj, "detach") else np.asarray(obj)
     else:
         arr = np.load(path)
@@ -304,10 +358,13 @@ def main():
     ap.add_argument("--nboot", type=int, default=300)
     args = ap.parse_args(); rng = np.random.default_rng(args.seed); t0 = time.time()
     kappas = [0.0, 0.1, 0.3, 0.5, 0.7]
+    errs = check_energy_against_repo(np.load(args.ref, allow_pickle=True).astype(np.float64).reshape(-1, 8))
+    print("[energy] repo convention (d = sqrt(|r|^2 + 1e-8)); max |diff| vs the repo's DoubleWellEnergy / its autograd / dw4_quench.energy_grad_hess on 100 reference samples: " + ", ".join(f"{k} {v:.1e}" for k, v in errs.items()), flush=True)
 
     # minima: lowest-energy quenched representative of each type, from the reference
     R = load(args.ref, args.n_ref, rng)
     QR = quench_precise(R); LR = label(QR); ER = energy(QR)
+    print("[labels] script label == repo name on the quenched reference (one-to-one, 0 mismatches); counts:", check_labels(QR, LR), flush=True)
     minima = {s: QR[LR == s][np.argmin(ER[LR == s])] for s in ORDER}
     pairs, maxerr = build_model(minima); K = len(ORDER)
     print(f"[T0] max |M_ba M_ab - Id_slice| = {maxerr:.2e}   ({time.time()-t0:.0f}s)", flush=True)
