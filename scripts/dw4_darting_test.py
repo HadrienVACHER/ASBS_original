@@ -332,7 +332,7 @@ def evaluate(X, pairs, K, kappas, nu1, rng, roundtrip=0):
                     xr = rc(g_apply(g2, Pr["tgt"] + (BV @ (Pr["M"] @ d)).reshape(4, 2))[None])[0]
                     best = min(best, np.abs(xr - X[n]).max())
                 rt.append(best)
-    return dict(a=a_of, probs=probs, valid=np.mean(valid_all) if valid_all else np.nan,
+    return dict(keep=np.where(ok)[0], a=a_of, probs=probs, valid=np.mean(valid_all) if valid_all else np.nan,
                 rt=np.array(rt), omega=np.mean(omegas) if omegas else np.nan)
 
 
