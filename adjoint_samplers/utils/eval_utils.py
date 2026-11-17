@@ -3,6 +3,7 @@
 import torch
 from scipy.optimize import linear_sum_assignment
 
+import numpy as np
 import PIL
 from matplotlib import pyplot as plt
 
@@ -17,11 +18,10 @@ def get_fig_axes(ncol, nrow=1, ax_length_in=2.0):
 def fig2img(fig):
     """Convert a Matplotlib figure to a PIL Image and return it"""
     # https://stackoverflow.com/a/61756899
-    return PIL.Image.frombytes(
-        'RGB',
-        fig.canvas.get_width_height(),
-        fig.canvas.tostring_rgb()
-    )
+    # `tostring_rgb` was removed in matplotlib 3.10: read the RGBA buffer instead (same image)
+    fig.canvas.draw()
+    rgba = np.asarray(fig.canvas.buffer_rgba())
+    return PIL.Image.fromarray(rgba[..., :3].copy(), 'RGB')
 
 
 # from https://gist.github.com/bougui505/e392a371f5bab095a3673ea6f4976cc8
