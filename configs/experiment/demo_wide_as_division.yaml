@@ -1,0 +1,11 @@
+# @package _global_
+
+# demo_as_division on the WIDE 1D target (modes at -5 and +5, weights 0.1 / 0.9, scale 0.5). sigma_max = 6: about 2x the std of this target (3.1), the same rule as the original demo (4 = ~2x 1.87).
+
+defaults:
+  - demo_as_division
+  - override /problem: demo_wide
+
+exp_name: demo_wide_as_division
+
+sigma_max: 6

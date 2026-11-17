@@ -1,0 +1,15 @@
+# @package _global_
+
+# === problem === 1D demo target with the two modes further apart: modes at -5 and +5 (scale 0.5, weights 0.1 / 0.9)
+dim: 1
+
+energy:
+  _target_: adjoint_samplers.energies.dist_energy.DistEnergy
+  dist:
+    _target_: adjoint_samplers.utils.dist_utils.GMM1D
+    loc: [-5.0, 5.0]
+    scale: [0.5, 0.5]
+    weights: [0.1, 0.9]
+
+evaluator:
+  _target_: adjoint_samplers.components.evaluator.DemoEvaluator

@@ -13,17 +13,19 @@ from torch import distributions
 class GMM1D(distributions.Distribution):
     """ A simple bi-modal Gaussian mixtures in 1D for demo purposes
     """
-    def __init__(self, device="cpu") -> None:
+    def __init__(self, device="cpu", loc=(-3.0, 3.0), scale=(0.5, 0.5), weights=(0.1, 0.9)) -> None:
+        # defaults = the original demo target (modes at -3 and +3, scale 0.5, weights 0.1 / 0.9); `loc` / `scale` / `weights` allow a wider variant (configs/problem/demo_wide.yaml)
         super().__init__()
 
         self.dim = 1
         self.name = "gmm1d"
-        self.weights = torch.tensor([.1, .9], dtype=torch.float)
+        self._loc, self._scale = tuple(loc), tuple(scale)
+        self.weights = torch.tensor(list(weights), dtype=torch.float)
         self._initialize_distr(device)
 
     def _initialize_distr(self, device) -> None:
-        loc = torch.tensor([-3, 3], device=device, dtype=torch.float).reshape(2, 1)
-        scale = torch.tensor([.5, .5], device=device, dtype=torch.float).reshape(2, 1)
+        loc = torch.tensor(list(self._loc), device=device, dtype=torch.float).reshape(2, 1)
+        scale = torch.tensor(list(self._scale), device=device, dtype=torch.float).reshape(2, 1)
         weights = self.weights.to(device)
 
         modes = distributions.Independent(
