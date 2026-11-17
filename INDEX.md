@@ -10,7 +10,7 @@ Conventions de travail : règles pré-enregistrées dans l'en-tête du script ou
 |---|---|---|---|
 | GMM isotrope (d = 24, 36) | Barker (orbite, γ = 3, centres par seuil) | **Marche** : −86 % (d = 24, 0,235 → 0,034) et −68 % (d = 36, 0,351 → 0,112) sur mean\|log R̄\|, 3 graines, meilleur à chaque graine | RESULTS §1 |
 | GMM isotrope d = 36, graine 0 | Division (Gelfand-Dey) | Égale Barker : 0,106 contre 0,117 (AS 0,389) ; pas de succès au seuil fixé (0,058). Un premier run avait échoué (NaN à t = 0 exactement, corrigé) | RESULTS §5 |
-| GMM 1D à deux modes (poids 0,1 / 0,9) | AS contre AS + Barker / MH (relance locale, 1000 époques, graine 0) | AS garde 0,48 de masse sur le mode de poids 0,1 (W&B : 0,41 à 0,64) ; Barker 0,09, MH 0,12 : cible atteinte en ~100 époques | RESULTS §« Démo 1D à deux modes », `figures/demo1d_*.png` |
+| GMM 1D à deux modes (poids 0,1 / 0,9) | AS contre AS + Barker, + division (et + MH) (relance locale, 1000 époques, graine 0) | AS garde 0,48 de masse sur le mode de poids 0,1 (W&B : 0,41 à 0,64) ; Barker 0,09, division 0,11, MH 0,12 : cible atteinte en ~100 époques ; les paramètres de la division y sont exacts (meilleur cas) | RESULTS §« Démo 1D à deux modes », `figures/demo1d_*.png` |
 | GMM isotrope | Division : robustesse aux masses | Positif : une erreur de ±0,5 nat sur les masses garde la direction de la correction (cos_corr 0,90 à 0,97) | RESULTS §5 |
 | GMM hétérogène | Barker | Aucune géométrie informative : abandonné | RESULTS §2 |
 | ManyWell-32 | Barker | Fermé : AS ne visite pas les puits légers de la moitié des coordonnées, Barker ne l'améliore pas | RESULTS §3 |

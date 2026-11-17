@@ -15,7 +15,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from adjoint_samplers.utils.dist_utils import GMM1D  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1] / "results" / "demo1d"
-LABEL = {"demo_as": "AS", "demo_as_barker": "AS + Barker", "demo_as_mh": "AS + MH"}
+LABEL = {"demo_as": "AS", "demo_as_barker": "AS + Barker", "demo_as_division": "AS + division", "demo_as_mh": "AS + MH"}
 
 
 def evals(run):
@@ -31,7 +31,7 @@ def evals(run):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--runs", nargs="+", default=["demo_as", "demo_as_barker", "demo_as_mh"])
+    ap.add_argument("--runs", nargs="+", default=["demo_as", "demo_as_barker", "demo_as_division"])
     ap.add_argument("--seed", type=int, default=0)
     a = ap.parse_args()
     g = GMM1D()
