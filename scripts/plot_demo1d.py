@@ -23,15 +23,16 @@ LABEL = {"as": "AS", "as_barker": "AS + Barker", "as_division": "AS + division"}
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--wide", action="store_true")
+    ap.add_argument("--narrow", action="store_true", help="modes at -1 and +1, plain AS only: one image of the final samples (same form as the others)")
     ap.add_argument("--seed", type=int, default=0)
     a = ap.parse_args()
-    pre, tag, loc, R = ("demo_wide_", "demo1d_wide", (-5.0, 5.0), 8) if a.wide else ("demo_", "demo1d", (-3.0, 3.0), 6)
+    pre, tag, loc, R = ("demo_wide_", "demo1d_wide", (-5.0, 5.0), 8) if a.wide else ("demo_narrow_", "demo1d_narrow", (-1.0, 1.0), 4) if a.narrow else ("demo_", "demo1d", (-3.0, 3.0), 6)
     runs = [(k, ROOT / f"{pre}{k}_s{a.seed}") for k in LABEL if (ROOT / f"{pre}{k}_s{a.seed}" / "samples_final.pt").exists()]
     g = GMM1D(loc=loc)
     xs = torch.linspace(-R, R, 800)
     dens = torch.exp(g.log_prob(xs[:, None]).reshape(-1)).numpy()
     ev = json.loads((ROOT / "leftmass_evals.json").read_text())
-    ymax = 0.75 if not a.wide else 0.8
+    ymax = 0.75 if not (a.wide or a.narrow) else 0.8
     samples = {k: torch.load(d / "samples_final.pt", map_location="cpu", weights_only=False)["model_samples"].reshape(-1).numpy() for k, d in runs}
 
     def panel(ax, k, x):
@@ -41,6 +42,16 @@ def main():
         ax.set_xlabel("x")
         ax.set_title(f"{LABEL[k]}: left mass {float((x < 0).mean()):.2f} (target 0.10)", fontsize=9)
 
+    if a.narrow:                                                                                   # plain AS only: the image of the final samples (the evolution figures come from plot_demo1d_evolution.py)
+        for k, d in runs:
+            f1, a1 = plt.subplots(figsize=(4.2, 3.2))
+            panel(a1, k, samples[k])
+            a1.set_ylabel("density")
+            a1.legend(fontsize=8)
+            f1.tight_layout()
+            f1.savefig(ROOT / f"{tag}_{'AS' if k == 'as' else k.replace('as_', '')}.png", dpi=200)
+            print(f"{LABEL[k]:14} final-sample left mass {float((samples[k] < 0).mean()):.3f} (10 000 samples)")
+        return
     fig, axes = plt.subplots(1, len(runs), figsize=(4.2 * len(runs), 3.2), sharey=True)
     for ax, (k, d) in zip(np.atleast_1d(axes), runs):
         panel(ax, k, samples[k])
