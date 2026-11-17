@@ -363,6 +363,9 @@ def main(cfg):
 
                     if "hist_img" in eval_dict:
                         eval_dict["hist_img"].save(eval_dir / "gen.png")
+                    if cfg.get("dump_eval_samples", False):                                   # optional (off by default): keep the samples of every evaluation, to plot the evolution of the model distribution
+                        Path("eval_samples").mkdir(exist_ok=True)
+                        torch.save(samples.cpu(), f"eval_samples/ep{epoch:05d}.pt")
 
                     writer.log(eval_dict, step=epoch)
                     print({k: v for k, v in eval_dict.items() if isinstance(v, float)})

@@ -1,0 +1,11 @@
+# @package _global_
+
+# demo_as (plain Adjoint Sampling, NO control variate) on the NARROW 1D target (modes at -1 and +1, weights 0.1 / 0.9, scale 0.5). sigma_max = 1.6: about 2x the std of this target (0.78), the same rule as the original demo.
+
+defaults:
+  - demo_as
+  - override /problem: demo_narrow
+
+exp_name: demo_narrow_as
+
+sigma_max: 1.6
