@@ -1,0 +1,14 @@
+# @package _global_
+
+# demo_as with the DIVISION (Gelfand-Dey) control variate in the regression target (AdjointVEDivisionMatcher), 1D two-mode demo target (GMM1D, weights 0.1 / 0.9).
+# Matcher parameters = the defaults of configs/matcher/adjoint_ve_division.yaml (gamma 1, shrink 0.8, refresh every 5, kappa_max 0.99, min_buffer 2000): no tuning for this target.
+
+defaults:
+  - demo_as
+  - override /matcher@adjoint_matcher: adjoint_ve_division
+
+exp_name: demo_as_division
+
+
+# === training ===
+num_epochs: 2000
