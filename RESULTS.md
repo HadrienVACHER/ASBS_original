@@ -377,3 +377,15 @@ S contre p_PT (20 dernières évaluations, graine 1 ; γ = 0 est C1, γ = 3 est 
 Erreurs |log(p̄/p_PT)| (Q), γ = 3 / 10 / 30 (C1) : chemin de 2 0,206 / 0,090 / 0,040 (0,476) ; deux paires 0,401 / 0,330 / 0,246 (0,475) ; étoile 0,686 / 0,557 / 0,402 (0,738) ; triangle + pendant 0,068 / 0,000 / 0,012 (0,195) ; K4 moins une arête 0,470 / 0,270 / 0,078 (0,809). Les trois petits bassins sont meilleurs que C1 à tout γ.
 Sanité de stabilité : pertes finies (γ = 30 : 6,8–7,6, plus haut qu'à γ = 3 car le terme est plus grand) ; eq_w2 0,516 (γ = 10) et 0,550 (γ = 30) contre C1 0,614 : ≤ 1,5 × C1 ; energy_w2 0,248 et 0,231 contre 0,345. Dose mesurée, ‖terme‖/‖grad‖ par plage de κ ([0,0,1] / [0,1,0,7] / [0,7,1]) : γ = 3 0,026 / 0,037 / 0,004 ; γ = 10 0,087 / 0,119 / 0,014 ; γ = 30 0,255 / 0,350 / 0,041. La dose augmente avec γ, et à κ > 0,7 elle reste très en dessous du seuil de 0,5 de la règle : pas d'instabilité signalée.
 Énoncé permis : sur la graine 1, S décroît avec γ en R et en Q et la dose mesurée augmente avec γ. Une seule graine pour γ = 10 et 30 : aucun verdict de méthode. Le chemin de 2 et les quatre autres bassins se rapprochent de p_PT en même temps ; le bassin star reste le plus éloigné (0,40 en log à γ = 30).
+
+## Plancher de S et repères IS dans la métrique S (local, rapport seulement ; scripts `dw4_floor_S.py`, `dw4_is_S_*.py`, commit 07b422f)
+
+a) Plancher : S d'un sampler parfait, c'est-à-dire 20 évaluations de 5000 tirages avec remise dans le pool PT à T = 1 (64 chaînes × 1600 états), moyennées puis comparées à p_PT (moyenne du pool), 50 répétitions. Q : médiane **0,0034**, p5 0,0014, p95 0,0060 ; R : médiane 0,0036, p5 0,0022, p95 0,0070. Avec l'incertitude de p_PT elle-même (pool rééchantillonné par chaînes, vérité inchangée) : Q 0,0058 (p5 0,0023, p95 0,0132) ; R 0,0069 (0,0034 ; 0,0136). Le plancher est donc d'environ 0,004 à 0,007 ; les tirages iid du pool ignorent l'autocorrélation des chaînes (limite).
+b) IS dans la même métrique (un seul lot de N échantillons pondérés, donc plus bruité que 20 × 5000 ; SD bootstrap entre parenthèses) :
+| estimateur | N, ESS | S_Q | S_R |
+|---|---|---|---|
+| IS d'endpoint, gaussienne s = 1 | 20000, 61 % | 0,0112 (0,0072) | 0,0156 (0,0069) |
+| IS d'endpoint, t5 s = 1 | 20000, 62 % | 0,0143 (0,0079) | 0,0141 (0,0076) |
+| IS de chemin (contrôleur 94252) | 12000, 32 % | 0,0111 (0,0090) | 0,0136 (0,0095) |
+| échantillons bruts du contrôleur 94252 (non pondérés) | 12000 | 0,2087 | 0,2147 |
+Rappel : darting γ = 30 (graine 1) 0,048 (Q) / 0,061 (R) ; AS C1 0,363 / 0,367, C2 0,203 / 0,210. Les estimateurs IS sont proches du plancher (0,01 à 0,015 contre 0,004 à 0,007) ; le darting γ = 30 est environ 12 fois au-dessus du plancher et 4 à 5 fois au-dessus des IS, et environ 4 fois en dessous des échantillons bruts de départ. Les propositions IS sont ajustées sur les échantillons AS ed8bb67 (voir plus haut) ; l'IS de chemin n'utilise aucune densité ajustée.
