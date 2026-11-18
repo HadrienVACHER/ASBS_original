@@ -16,9 +16,9 @@ Lecture, pour chaque variante et chaque graine :
 5. Sanité : perte finie ; energy_w2 et eq_w2 des deux dernières évaluations contre C(s) ; statistiques du matcher (`dart/kappa[...]/term_over_gradg`, `outflux`, propositions valides par échantillon).
 Mots autorisés dans le rapport : « Δ négatif / positif sur 2 graines sur 2 », « Δ dans / hors du bruit ». Pas de « démontré ».
 
-## Phase 2 : dose-réponse, γ = 10 et γ = 30, graines 1 et 2 (4 runs)
-Noms : `dw4_cont_D10`, `dw4_cont_D30` (`adjoint_matcher.gamma=10.0` / `30.0`), mêmes graines. Lancée seulement sur ordre de l'utilisateur et avec confirmation du coût ; la lecture ne dépend pas des résultats de la phase 1 (aucun γ n'est choisi d'après la phase 1).
-Lecture : pour chaque graine, S (R et Q) en fonction de γ ∈ {3, 10, 30} avec la valeur AS de la graine comme γ = 0 ; l'énoncé « S décroît avec γ » est donné par graine (vrai/faux, sans test). Sanité de stabilité : perte finie, eq_w2 ≤ 1,5 × celui de C(s), `term_over_gradg` par plage de κ (le terme à κ > 0,7 doit rester petit devant le gradient ; s'il dépasse 0,5, c'est rapporté comme instabilité probable). La mesure de la dose est `term_over_gradg` : si elle n'augmente pas avec γ, l'absence d'effet ne dit rien sur la méthode.
+## Phase 2 : dose-réponse, γ = 10 et γ = 30, graine 1 SEULEMENT (2 runs ; décision de l'utilisateur le 2026-11-18, amendement écrit avant le lancement : la version initiale prévoyait les graines 1 et 2)
+Noms : `dw4_cont_D10`, `dw4_cont_D30` (`adjoint_matcher.gamma=10.0` / `30.0`), graine 1 (témoin AS : C1 ; le darting γ = 3 de la graine 1 est D3 de la phase 1). Lancée seulement sur ordre de l'utilisateur et avec confirmation du coût ; la lecture ne dépend pas des résultats de la phase 1 (aucun γ n'est choisi d'après la phase 1).
+Lecture : pour la graine 1, S (R et Q) en fonction de γ ∈ {3, 10, 30} avec C1 comme γ = 0 (avec une seule graine, la différence entre deux γ plus petite que le bruit d'exécution du darting, ≈ 0,05, n'est pas interprétable) ; l'énoncé « S décroît avec γ » est donné (vrai/faux, sans test). Sanité de stabilité : perte finie, eq_w2 ≤ 1,5 × celui de C(s), `term_over_gradg` par plage de κ (le terme à κ > 0,7 doit rester petit devant le gradient ; s'il dépasse 0,5, c'est rapporté comme instabilité probable). La mesure de la dose est `term_over_gradg` : si elle n'augmente pas avec γ, l'absence d'effet ne dit rien sur la méthode.
 
 ## Ce qui ne sera PAS fait
-Pas de seuil d'effet, pas de réglage de γ après coup, pas d'AS supplémentaire (C1 et C2 servent de témoins), pas de graines autres que 1 et 2.
+Pas de seuil d'effet, pas de réglage de γ après coup, pas d'AS supplémentaire (C1 et C2 servent de témoins), pas de graines autres que 1 et 2 (phase 2 : graine 1 seule).

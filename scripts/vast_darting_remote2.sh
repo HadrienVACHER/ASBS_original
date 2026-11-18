@@ -1,7 +1,7 @@
 #!/bin/bash
 # Runs on the Vast.ai instance (not on the user's machine). Protocol: rules_darting_seeds_gamma.md. Same continuation protocol as C1 / C2 WITH fast_sampling, fast_train, buffer_on_device.
 #   bash vast_darting_remote2.sh phase1   -> D3 seeds 1, 2 in parallel
-#   bash vast_darting_remote2.sh phase2   -> D10 and D30, seeds 1, 2 (4 runs in parallel)
+#   bash vast_darting_remote2.sh phase2   -> D10 and D30, seed 1 only (2 runs in parallel)
 # Logs: /workspace/asbs/results/<name>_s<seed>/stdout.log ; status in /workspace/status.txt (DONE or FAILED). WANDB_API_KEY comes from the environment of the launching ssh session.
 set -e
 PHASE=${1:?phase1 or phase2}
@@ -25,7 +25,7 @@ run() { name=$1; seed=$2; gamma=$3; D=results/${name}_s${seed}; mkdir -p $D
 if [ "$PHASE" = "phase1" ]; then
   run dw4_cont_D3 1 3.0; run dw4_cont_D3 2 3.0
 else
-  run dw4_cont_D10 1 10.0; run dw4_cont_D10 2 10.0; run dw4_cont_D30 1 30.0; run dw4_cont_D30 2 30.0
+  run dw4_cont_D10 1 10.0; run dw4_cont_D30 1 30.0   # seed 1 only (user decision 2026-11-18)
 fi
 fail=0
 for p in "${pids[@]}"; do wait "$p" || fail=1; done
