@@ -434,3 +434,31 @@ Différence pairée D30 − C (SE = racine de la somme des carrés des deux SE ;
 | moyenne des graines 2-4 | −0,109 (0,028, z −3,84) | +0,045 (0,067, z +0,67) |
 | (graine 1 contre C1 du cluster, hors moyenne : graine utilisée pour choisir γ) | −0,168 (0,032, −5,34) | −0,043 (0,123, −0,35) |
 Lecture : D30 n'est PAS systématiquement plus haut que C en eq_w2 (signes +, −, +, aucun |z| > 2 ; moyenne +0,045 ± 0,067). En energy_w2, D30 est plus BAS que C sur les trois graines (même signe, |z| > 2 sur 2 graines sur 3, moyenne −0,109 ± 0,028). Les valeurs de eq_w2 sont à environ 0,3 du plancher de ce W2 à n = 2000 (0,31) : peu discriminant. Le seuil de (iii) est donc franchi sur la graine 2 par un écart de bruit sur deux évaluations. Cela ne change pas le verdict écrit.
+
+## Exploration locale avant les pistes D100 / t_focus (report-only ; `dw4_S_trajectory.py`, `dw4_darting_flux.py`, `dw4_tfocus_check.py`)
+
+**1a. S par évaluation (époques 0 à 490) et pente sur 300-490.** Attention : S d'UNE évaluation (5000 échantillons) est plus grand que le S de la moyenne des 20 évaluations (métrique des règles) : plancher d'une évaluation d'un sampler parfait 0,016 (Q) / 0,017 (R), p95 0,034 / 0,036. S moyen des évaluations de 300 à 490, Q (R très proche) : D30 graines 1 à 4 : 0,118 / 0,118 / 0,128 / 0,132 ; C1 (cluster) 0,365 ; C2 relancé 0,225 ; C3 0,265 ; C4 0,229.
+Pente de S sur 300-490 (régression linéaire, unité S par 100 époques ; SE corrigée de l'autocorrélation AR(1) des résidus) :
+| bras | pente (SE, z) Q | pente (SE, z) R |
+|---|---|---|
+| D30 s1 | +0,017 (0,035, +0,48) | +0,015 (0,034, +0,43) |
+| D30 s2 | +0,000 (0,026, 0,00) | −0,005 (0,026, −0,20) |
+| D30 s3 | −0,008 (0,030, −0,27) | −0,010 (0,030, −0,33) |
+| D30 s4 | −0,025 (0,031, −0,79) | −0,023 (0,032, −0,71) |
+| C1 (cluster) | +0,022 (0,046, +0,48) | +0,020 (0,045, +0,45) |
+| C2 relancé | +0,030 (0,023, +1,29) | +0,027 (0,021, +1,27) |
+| C3 | −0,006 (0,034, −0,17) | −0,002 (0,032, −0,06) |
+| C4 | +0,025 (0,038, +0,66) | +0,026 (0,037, +0,70) |
+Moyenne des pentes : D30 −0,004 (Q) / −0,006 (R) par 100 époques (SD entre bras 0,017 / 0,016) ; AS +0,018 / +0,018 (SD 0,016 / 0,013). Aucune pente n'est distinguable de zéro (|z| < 1,3) : D30 est sur un PLATEAU sur 300-490, pas en convergence lente. Moyennes par blocs de 100 époques (Q) D30 s1 : 0,125, 0,138, 0,132, 0,097, 0,139 ; les quatre D30 sont déjà à 0,12-0,15 dans les 100 premières époques (les AS : 0,21-0,27). Limite : la précision de la pente est de ±0,03 à ±0,05 par 100 époques, soit 25-40 % du niveau de S par évaluation : une dérive lente ne serait pas détectée.
+
+**1b. Flux du noyau de darting par bassin** (probabilité par pas ; `out` = masse qui quitte le bassin, `in` = masse reçue par unité de masse du bassin, `net` = in − out ; échantillons PT stratifiés (6645 états) et AS ed8bb67 (10 000 échantillons) ; κ = 0, 0,5, 0,7 ; x_t = κ x1 + √v ξ, moyenne de 20 tirages de ξ).
+| basin | out κ=0 | out κ=0,5 | out κ=0,7 | net κ=0 sur PT | net κ=0 sur AS |
+|---|---|---|---|---|---|
+| triangle + pendant | 0,154 | 0,0038 | 0,0003 | −0,000 | +0,016 |
+| chemin de 2 | 0,132 | 0,0023 | 0,0001 | −0,001 | +0,063 |
+| deux paires disjointes | 0,344 | 0,0057 | 0,0002 | −0,004 | −0,139 |
+| K4 moins une arête | 0,523 | 0,0191 | 0,0016 | +0,011 | −0,114 |
+| étoile | 0,789 | 0,0854 | 0,0105 | +0,038 | −0,420 |
+Sur les échantillons PT (donc ~π), le flux est équilibré à κ = 0 (|net| ≤ 0,004 sur les trois premiers bassins ; étoile +0,038 sur 645 états, du bruit d'échantillonnage). Sur les échantillons AS (qui ont trop de petits bassins : étoile 0,017 contre 0,0063, deux paires 0,121 contre 0,064, K4− 0,061 contre 0,037), le noyau retire de la masse de l'étoile (−0,42), des deux paires (−0,14) et de K4− (−0,11) et en donne aux deux bassins dominants (+0,06 au chemin de 2) : c'est le sens correcteur. À κ = 0,5, seule l'étoile garde un flux notable (0,085) ; les deux paires tombent à 0,006 et K4− à 0,019 ; à κ = 0,7 tout est ≤ 0,0105 (étoile) et ≤ 0,0016 (les autres). Le noyau agit donc surtout aux petits κ (< 0,3), très peu aux deux paires dès κ = 0,5.
+
+**1c. t_focus / t_focus_max.** Les deux paramètres existent dans la classe de base `AdjointVEMatcher` (signature `t_focus: float = 0.0, t_focus_max: float = 0.15`) ; le matcher de darting en hérite (`sample_t` hérité, `prepare_target` appelle `super().prepare_target`). Ils ne sont PAS dans les YAML `adjoint_ve.yaml` ni `adjoint_ve_dw4_darting.yaml` : il faut les passer avec un « + » (`+adjoint_matcher.t_focus=...`). Un instant « focalisé » est t × t_focus_max (uniforme sur [0, t_focus_max]) avec probabilité t_focus. Avec le schéma AS (sigma_max 2, sigma_min 0,001) : t(κ = 0,1) = 0,0069, t(0,5) = 0,0456, t(0,7) = 0,0792, t(0,9) = 0,1515 ; donc t_focus_max = 0,08 donne κ < 0,704 (0,15 donne κ < 0,898). Fraction des instants avec κ dans [0,1 ; 0,7] (aujourd'hui, t uniforme : 7,2 % ; [0, 0,1] 0,7 % ; [0,7, 1] 92,1 %) : avec t_focus_max = 0,08 et t_focus = 0,25 / 0,5 / 0,7 / 0,9 : 28 % / 49 % / 65 % / 82 % (dans [0,7, 1] : 69 % / 47 % / 28 % / 10 %) ; avec t_focus_max = 0,15 : 18 % / 28 % / 36 % / 44 %.
