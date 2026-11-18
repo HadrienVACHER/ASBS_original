@@ -470,3 +470,49 @@ Quatre bras, graine 1, continuation de 500 époques depuis 94252, même protocol
 Fraction des instants de régression avec κ dans [0,1 ; 0,5] : **40,6 %** avec t_focus = 0,5 et t_focus_max = 0,05 (dans [0, 0,1] 7,3 %, dans [0,5, 1] 52,1 %), contre **3,9 %** avec le réglage par défaut (t uniforme ; [0, 0,1] 0,7 %, [0,5, 1] 95,4 %). Pour comparaison : t_focus_max = 0,08 donnerait 26,1 %, 0,15 donnerait 14,8 %.
 Mise en œuvre : `+adjoint_matcher.t_focus=0.5 +adjoint_matcher.t_focus_max=0.05` (les clés ne sont pas dans les YAML) ; la composition de la configuration a été vérifiée localement pour le matcher de darting et pour AS.
 Plafond de dépense : 0,20 $ (au-delà, arrêt et demande). Avec une seule graine, l'écart minimal interprétable reste d'environ 0,05 (bruit d'exécution du darting) ; rien n'est conclu en dessous.
+
+## Exploration sur la graine 1 : résultats (lecture descriptive, SANS verdict ; `scripts/dw4_explore_analysis.py`, choix écrits en 8e12df6 avant le lancement)
+
+Exécution : 4 runs en parallèle sur Vast.ai, l'offre 57084432 n'étant plus disponible, remplacée par l'offre équivalente autorisée 60226930 (RTX 3080, Core i9-10850K, 0,136 $/h annoncé, 0,1417 $/h facturé avec le stockage) ; 500 époques, 50 évaluations par run, `eq_w2` à CHAQUE évaluation (`eq_w2_every=10`), pertes finies, aucun NaN ; `torch.compile` en repli non compilé (pas de compilateur C) ; coût réel ≈ **0,147 $** (crédit 9,517 → 9,370 ; plafond 0,20 $) ; instance détruite après récupération des 4 logs (`results/explore/`). Avec une seule graine, l'écart minimal interprétable reste d'environ 0,05 ; rien n'est conclu en dessous.
+
+**S (moyenne 300-490) et pente.** Pente de S par évaluation sur 300-490, par 100 époques, SE corrigée AR(1) (z entre parenthèses) :
+| bras | S_Q | S_R | pente (SE, z) |
+|---|---|---|---|
+| C1 (AS, cluster) | 0,363 | 0,367 | +0,022 (0,046, +0,48) |
+| D3 | 0,179 | 0,184 | +0,042 (0,031, +1,36) |
+| D10 | 0,083 | 0,097 | +0,030 (0,026, +1,14) |
+| D30 | 0,048 | 0,061 | +0,017 (0,035, +0,48) |
+| **D100** | 0,090 | 0,097 | +0,064 (0,055, +1,17) |
+| **D30 + focus** (D30F) | 0,069 | 0,083 | +0,013 (0,028, +0,45) |
+| **AS + focus** (CF, témoin) | 0,276 | 0,282 | +0,001 (0,036, +0,03) |
+| **D100 + focus** (D100F) | 0,050 | 0,059 | +0,069 (0,048, +1,42) |
+Plancher d'un sampler parfait : 0,0034 (Q), 0,0036 (R). Aucune pente n'est distinguable de zéro (|z| < 1,5 ; précision ±0,03 à ±0,06 par 100 époques). S par évaluation par blocs de 100 époques (Q) : D30 0,125 / 0,138 / 0,132 / 0,097 / 0,139 ; D100 0,215 / 0,198 / 0,169 / 0,171 / 0,268 ; D100F 0,349 / 0,223 / 0,253 / 0,192 / 0,242 ; D30F 0,174 / 0,132 / 0,154 / 0,151 / 0,140 ; CF 0,273 / 0,306 / 0,348 / 0,275 / 0,286. À γ = 100 le S de la moyenne est petit mais S par évaluation est plus grand qu'à γ = 30 (0,17-0,27 contre 0,10-0,14) : la dispersion d'une évaluation à l'autre est plus grande.
+
+**Erreur |log(p̄/p_PT)| par bassin (Q ; p̄ entre parenthèses ; p_PT : chemin de 2 0,4792, deux paires 0,0644, étoile 0,0063, triangle + pendant 0,4127, K4− 0,0374) :**
+| bras | chemin de 2 | deux paires | étoile | triangle + pendant | K4 moins une arête |
+|---|---|---|---|---|---|
+| C1 | 0,476 | 0,475 | 0,738 | 0,195 | 0,809 |
+| D30 | 0,040 | 0,246 | 0,402 | 0,012 | 0,078 |
+| D100 | 0,042 (0,4999) | 0,291 | 0,314 | 0,110 (0,3699) | 0,053 |
+| D30F | 0,064 | 0,288 | 0,517 | 0,011 | 0,204 |
+| CF | 0,339 | 0,593 | 0,841 | 0,092 | 0,697 |
+| D100F | 0,005 | 0,224 | 0,385 | 0,062 | 0,078 |
+(D3 : 0,206 / 0,401 / 0,686 / 0,068 / 0,470 ; D10 : 0,090 / 0,330 / 0,557 / 0,000 / 0,270.) L'étoile et les deux paires restent les bassins les plus éloignés de p_PT dans tous les bras darting (étoile 0,31-0,52 ; deux paires 0,22-0,29).
+
+**Moyennes temporelles sur 300-490 (SE par moyennes de 4 lots de 5 évaluations ; `eq_w2` : 20 valeurs dans les nouveaux bras, 3 dans C1, D3, D10, D30 où SD/√3) :**
+| bras | energy_w2 (SE) | eq_w2 (SE) |
+|---|---|---|
+| C1 | 0,445 (0,011) | 0,613 (0,074) |
+| D30 | 0,277 (0,029) | 0,570 (0,098) |
+| D100 | 0,324 (0,047) | 0,707 (0,063) |
+| D30F | 0,385 (0,079) | 0,523 (0,014) |
+| CF | 0,423 (0,039) | 0,536 (0,012) |
+| D100F | 0,299 (0,035) | 0,671 (0,015) |
+
+**Instabilité et dose.** Aucune perte non finie, aucun NaN. Les niveaux de perte ne sont pas comparables entre bras avec et sans focus (les instants focalisés ont des cibles plus grandes : CF 11,5 contre ≈ 6 pour C1) : D3 5,8, D10 6,0, D30 6,9, D100 15,2, D30F 14,1, CF 11,5, D100F 29,8 (dernière époque). ‖terme‖/‖grad‖ par plage de κ ([0, 0,1] / [0,1, 0,7] / [0,7, 1]) : D30 0,255 / 0,349 / 0,041 ; **D100 0,798 / 1,143 / 0,132** ; D30F 0,246 / 0,317 / 0,039 ; D100F 0,802 / 1,037 / 0,127 : à γ = 100 le terme est du même ordre que le gradient (≥ 1 sur [0,1, 0,7]), et reste à 0,13 sur κ > 0,7 (seuil de 0,5 de la règle de la phase 2 non atteint). Fractions des instants dans les trois plages : sans focus 0,007 / 0,072 / 0,921 ; avec focus 0,073 / 0,467 / 0,460 (0,406 dans [0,1, 0,5]). Propositions valides par échantillon ≈ 8,0.
+
+**Constats descriptifs (aucun au-dessous de 0,05 n'est interprété).**
+- Le focus change l'AS lui-même : S_Q(CF) = 0,276 contre 0,363 pour C1 (écart −0,087, au-dessus de 0,05 mais C1 vient du cluster et il n'y a qu'une graine) ; les comparaisons avec focus se font donc contre CF. Contre leur témoin de même focus : D30F − CF = −0,207, D100F − CF = −0,226 (S_Q) ; sans focus : D30 − C1 = −0,315, D100 − C1 = −0,274.
+- Entre bras darting : D100 − D30 = +0,042, D30F − D30 = +0,021, D100F − D100 = −0,040 (S_Q) : tous sous 0,05, non interprétables. D100F a le plus petit S_Q des bras avec focus (0,050), au niveau de D30 (0,048).
+- eq_w2 : D100 et D100F sont plus hauts que leur témoin ou que CF (D100F − CF = +0,135 pour des SE de 0,015 et 0,012 ; D100 0,707 contre C1 0,613 ± 0,074) ; D30F est au niveau de CF (−0,013). energy_w2 : D100 et D100F plus bas que CF (0,324 et 0,299 contre 0,423) ; D30F plus haut en bruit (0,385 ± 0,079).
+- Pas de pente significative à 300-490 dans aucun bras (précision limitée).
