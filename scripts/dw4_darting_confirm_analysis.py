@@ -38,7 +38,7 @@ def S(X, tag):
 
 import wandb  # noqa: E402
 runs = list(wandb.Api(timeout=120).runs("CCDS_NTU/as", per_page=200, order="-created_at"))
-r = [x for x in runs if x.name == "dw4_cont_C2" and x.config.get("git_commit", "")[:7] == rp.COMMIT][0]
+r = [x for x in runs if x.name == "dw4_cont_C2" and (x.config.get("git_commit") or "")[:7] == rp.COMMIT][0]
 K11 = list(range(K))
 h = r.history(samples=6000, x_axis="_step", keys=["basin_tv"] + [f"basin/{k}" for k in K11] + [f"state/{k}" for k in K11]).dropna(subset=["basin_tv"]).set_index("_step").iloc[-20:]
 C_CLUSTER = {2: dict(Q=h[[f"basin/{k}" for k in K11]].values, R=h[[f"state/{k}" for k in K11]].values,

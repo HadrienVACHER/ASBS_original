@@ -389,3 +389,26 @@ b) IS dans la même métrique (un seul lot de N échantillons pondérés, donc p
 | IS de chemin (contrôleur 94252) | 12000, 32 % | 0,0111 (0,0090) | 0,0136 (0,0095) |
 | échantillons bruts du contrôleur 94252 (non pondérés) | 12000 | 0,2087 | 0,2147 |
 Rappel : darting γ = 30 (graine 1) 0,048 (Q) / 0,061 (R) ; AS C1 0,363 / 0,367, C2 0,203 / 0,210. Les estimateurs IS sont proches du plancher (0,01 à 0,015 contre 0,004 à 0,007) ; le darting γ = 30 est environ 12 fois au-dessus du plancher et 4 à 5 fois au-dessus des IS, et environ 4 fois en dessous des échantillons bruts de départ. Les propositions IS sont ajustées sur les échantillons AS ed8bb67 (voir plus haut) ; l'IS de chemin n'utilise aucune densité ajustée.
+
+## Test de CONFIRMATION du darting γ = 30 (graines 2, 3, 4), `rules_darting_confirm.md` (règle commitée en 07b422f, amendée en 8ec415b avant la location)
+
+Runs : D30 graines 2, 3, 4 et AS C2 (RELANCÉ), C3, C4, 6 runs en parallèle sur une instance Vast.ai (RTX 3080 + EPYC 7542, offre 57084432), mêmes options rapides, `torch.compile` en repli non compilé pour TOUS les bras (pas de compilateur C) ; 500 époques et 50 évaluations par run, pertes finies, aucun NaN ; durée ≈ 55 min ; coût réel ≈ **0,149 $** (crédit 9,666 → 9,517 ; plafond 0,35 $) ; instance détruite après récupération des 6 logs (`results/confirm/`). Écarts : amendements 1 et 2 (C2 relancé comme témoin de la graine 2, (iii) contre le max des C), tous deux écrits avant la location ; correction après coup d'un bug de lecture dans le script d'analyse (config W&B sans `git_commit` pour les nouveaux runs ; n'affecte ni la règle ni les chiffres).
+
+| graine | S_Q D30 | S_Q C | Δ_Q | S_R D30 | S_R C | Δ_R |
+|---|---|---|---|---|---|---|
+| 2 | 0,0604 | 0,1970 | −0,137 | 0,0723 | 0,2047 | −0,132 |
+| 3 | 0,0922 | 0,2555 | −0,163 | 0,0972 | 0,2614 | −0,164 |
+| 4 | 0,0502 | 0,2206 | −0,170 | 0,0613 | 0,2256 | −0,164 |
+Plancher (sampler parfait) : Q 0,0034, R 0,0036 ; repères IS : 0,011 à 0,014 en Q. Les D30 sont à 15 à 27 fois le plancher et 4 à 8 fois les IS, les C à 58 à 75 fois le plancher. Le C2 du cluster (rapporté seulement) : S_Q 0,2029, S_R 0,2099, eq_w2 0,589, energy_w2 0,329 : proche du C2 relancé (0,1970 / 0,2047), ce qui n'indique pas d'effet de plateforme.
+
+Verdict écrit d'avance :
+- (i) S_Q(D30_s) < S_Q(C_s) − 0,05 : VRAI sur les 3 graines (Δ −0,14, −0,16, −0,17).
+- (ii) médiane S_Q(D30) 0,0604 < min(S_Q(C2, C3, C4)) 0,1970 : VRAI.
+- (iii) eq_w2 et energy_w2 de D30_s ≤ 1,1 × max des C (eq_w2 max 0,574 → seuil 0,631 ; energy_w2 max 0,421 → seuil 0,463) : **FAUX sur la graine 2** : eq_w2(D30_s2) = 0,655 > 0,631 (energy_w2 0,261, correct) ; VRAI sur les graines 3 (0,416 ; 0,369) et 4 (0,556 ; 0,142).
+- **VERDICT : « non confirmé »** (condition (iii) violée sur la graine 2, de 0,024 en eq_w2 ; pas de relâchement après coup).
+Observation, hors règle : eq_w2 est très bruité d'une évaluation à l'autre (D30_s2 : 0,454 à 0,677 ; C2 : 0,439 à 0,706 ; D30_s4 : 0,300 à 0,812), plus que la marge de 10 % ; le garde-fou (iii) tel qu'écrit est donc sensible au bruit de cette mesure (la moyenne des deux dernières valeurs). Cela n'annule pas le verdict, mais en dit la nature : les conditions portant sur S (i, ii) sont satisfaites avec une marge de 2,7 à 3,4 fois le seuil de 0,05, et l'échec porte sur un contrôle de sanité bruité.
+Tableau par bassin (erreur |log(p̄/p_PT)|, Q ; D30 / C) :
+- graine 2 : chemin de 2 0,063 / 0,230 ; deux paires 0,248 / 0,613 ; étoile 0,568 / 0,839 ; triangle + pendant 0,002 / 0,017 ; K4− 0,177 / 0,569.
+- graine 3 : 0,101 / 0,310 ; 0,277 / 0,618 ; 0,364 / 0,671 ; 0,031 / 0,080 ; 0,234 / 0,621.
+- graine 4 : 0,026 / 0,262 ; 0,255 / 0,560 ; 0,471 / 0,720 ; 0,032 / 0,073 ; 0,067 / 0,496.
+D30 bat son témoin sur les cinq bassins à chaque graine (15 comparaisons sur 15). Dose mesurée (‖terme‖/‖grad‖ par plage de κ) : 0,24–0,25 / 0,35 / 0,04 sur les trois graines, identique à la graine 1 ; propositions valides par échantillon 8,03.
