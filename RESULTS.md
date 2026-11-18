@@ -412,3 +412,25 @@ Tableau par bassin (erreur |log(p̄/p_PT)|, Q ; D30 / C) :
 - graine 3 : 0,101 / 0,310 ; 0,277 / 0,618 ; 0,364 / 0,671 ; 0,031 / 0,080 ; 0,234 / 0,621.
 - graine 4 : 0,026 / 0,262 ; 0,255 / 0,560 ; 0,471 / 0,720 ; 0,032 / 0,073 ; 0,067 / 0,496.
 D30 bat son témoin sur les cinq bassins à chaque graine (15 comparaisons sur 15). Dose mesurée (‖terme‖/‖grad‖ par plage de κ) : 0,24–0,25 / 0,35 / 0,04 sur les trois graines, identique à la graine 1 ; propositions valides par échantillon 8,03.
+
+### Test de confirmation : verdict maintenu, erreur de conception déclarée, et eq_w2 / energy_w2 en moyenne temporelle (report-only, `scripts/dw4_confirm_w2_timeavg.py`)
+
+**Verdict : « non confirmé »**, tel qu'écrit dans `rules_darting_confirm.md` (amendé en 8ec415b) et appliqué sans relâchement : (i) et (ii) vrais, (iii) faux sur la graine 2 (eq_w2 0,655 > 0,631).
+**Erreur de conception de la règle (celle de la proposition de l'utilisateur, pas de l'exécution) :** le garde-fou (iii) ne précisait ni la moyenne temporelle de eq_w2 ni une marge calibrée sur le bruit de eq_w2. La valeur 0,655 est la moyenne de DEUX évaluations isolées (époques 400 et 490 : 0,677 et 0,634, convention « deux dernières valeurs » du script d'analyse, héritée de `rules_darting_run.md`), pas une moyenne sur les époques 300 à 490 ; eq_w2 n'est évalué qu'aux époques 0, 100, 200, 300, 400 et 490, donc 3 valeurs seulement dans la fenêtre 300-490.
+
+Moyennes temporelles sur les époques 300 à 490 (energy_w2 : 20 évaluations, SE par moyennes de 4 lots de 5 évaluations consécutives ; eq_w2 : 3 valeurs, SE = SD/√3, grossière) :
+| bras | energy_w2 (SE) | eq_w2 (SE) |
+|---|---|---|
+| D30 graine 2 / 3 / 4 | 0,297 (0,033) / 0,335 (0,022) / 0,215 (0,030) | 0,588 (0,068) / 0,499 (0,083) / 0,627 (0,164) |
+| C2 / C3 / C4 (relancés) | 0,398 (0,018) / 0,483 (0,039) / 0,294 (0,054) | 0,569 (0,012) / 0,553 (0,038) / 0,458 (0,024) |
+| graine 1 : D3 / D10 / D30 (locaux) | 0,333 / 0,290 / 0,277 | 0,452 / 0,501 / 0,570 |
+| C1 (cluster) | 0,445 (0,011) | 0,613 (0,074) |
+Différence pairée D30 − C (SE = racine de la somme des carrés des deux SE ; hypothèse d'indépendance conservatrice) :
+| graine | Δ energy_w2 (SE, z) | Δ eq_w2 (SE, z) |
+|---|---|---|
+| 2 | −0,101 (0,038, −2,68) | +0,019 (0,069, +0,28) |
+| 3 | −0,148 (0,045, −3,27) | −0,054 (0,091, −0,60) |
+| 4 | −0,079 (0,062, −1,27) | +0,170 (0,166, +1,02) |
+| moyenne des graines 2-4 | −0,109 (0,028, z −3,84) | +0,045 (0,067, z +0,67) |
+| (graine 1 contre C1 du cluster, hors moyenne : graine utilisée pour choisir γ) | −0,168 (0,032, −5,34) | −0,043 (0,123, −0,35) |
+Lecture : D30 n'est PAS systématiquement plus haut que C en eq_w2 (signes +, −, +, aucun |z| > 2 ; moyenne +0,045 ± 0,067). En energy_w2, D30 est plus BAS que C sur les trois graines (même signe, |z| > 2 sur 2 graines sur 3, moyenne −0,109 ± 0,028). Les valeurs de eq_w2 sont à environ 0,3 du plancher de ce W2 à n = 2000 (0,31) : peu discriminant. Le seuil de (iii) est donc franchi sur la graine 2 par un écart de bruit sur deux évaluations. Cela ne change pas le verdict écrit.
