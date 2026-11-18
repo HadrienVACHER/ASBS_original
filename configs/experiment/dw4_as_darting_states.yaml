@@ -1,0 +1,12 @@
+# @package _global_
+
+# DW-4, AS + the minimum-to-minimum DARTING control variate (gamma = 3), seed 0. EXACTLY the config of dw4_as_states (sigma_max 2, EGNN, lr 1e-4, clip 100); only the matcher changes.
+
+defaults:
+  - dw4_as_states
+  - override /matcher@adjoint_matcher: adjoint_ve_dw4_darting
+
+exp_name: dw4_as_darting_states
+
+adjoint_matcher:
+  gamma: 3.0

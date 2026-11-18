@@ -905,6 +905,92 @@ class AdjointVEDW4BarkerMatcher(AdjointVEMatcher):
         return out
 
 
+class AdjointVEDW4DartingMatcher(AdjointVEMatcher):
+    """ AS on DW-4 with the minimum-to-minimum DARTING control variate in the regression target (adjoint_samplers/utils/dw4_darting.py; offline validation: scripts/dw4_darting_test.py, tests/test_dw4_darting.py):
+
+            target = - (∇E + ∇log p^base_1)(X1) + γ h / ν_{1|t},   h = Σ_{(b, g)} ω_{b,g} / ((K - 1) n_a) (Y_{b,g} - X1),   ω = sigmoid(log R),
+            log R = -E(Y) + E(X1) + log Jac + log(n_a / n_b) + (|x_t - κ X1|² - |x_t - κ Y|²) / (2 v_t),   κ_t = ν_t / ν_1,  v_t = ν_1 κ_t (1 - κ_t).
+
+        The proposals Y (one per target type b != a and per matching group element g), their validity (the landing of the quench must be on the orbit of the target, with the same angle), the Jacobian and the energies are
+        deterministic functions of X1 alone: they are computed ONCE when the sample enters the buffer and stored (dart_y, dart_base, dart_w); only the Gaussian factor depends on x_t. Each move is an involution-compatible
+        Metropolis-Hastings (Barker) proposal with the Hastings ratio and the Jacobian, so E_π[h | x_t] = 0 exactly (detailed balance of every move): the fixed point of the regression is unchanged. Under the model posterior h is the net flux
+        between the short-pair states (out-flux of the dominant basins ≈ 15 % at κ = 0, 6 % at κ = 0.7, against ≈ 1 % for the 24 reflections).
+    """
+    def __init__(self, gamma: float = 3.0, stats_every: int = 10, **kwargs):
+        super().__init__(**kwargs)
+        from adjoint_samplers.energies.double_well_energy import DoubleWellEnergy
+        energy = self.grad_term_cost.energy
+        mdw = getattr(energy, "multi_double_well", None)
+        assert isinstance(energy, DoubleWellEnergy) and energy.n_particles == 4 and energy.n_spatial_dim == 2
+        assert (mdw._a, mdw._b, mdw._c, mdw._offset) == (0.9, -4, 0, 4), "the darting kernel is built for the benchmark's DW-4 potential"
+        self.gamma, self.stats_every = gamma, stats_every
+        self.v_scale = 1.0  # test hook: multiplies v_t inside the Gaussian factor ONLY; 1.0 in all runs
+        self._stats, self._step, self._ins = {}, 0, {"n": 0, "valid": 0.0, "untyped": 0.0}
+
+    def _nu(self, t):
+        return self.sde.ref_sde._pt_gauss_param(t, torch.zeros_like(t))[1]
+
+    def populate_buffer(self, x0, timesteps, is_asbs_init_stage):
+        from adjoint_samplers.utils import dw4_darting as dd
+        (x0, x1) = sdeint(self.sde, x0, timesteps, only_boundary=True)
+        adjoint1 = self._compute_adjoint1(x1, is_asbs_init_stage).clone()
+        self._check_buffer_sample_shape(x0, x1, adjoint1)
+        pr = dd.proposals(x1.detach().cpu().double())
+        B = len(x1)
+        self._ins["n"] += B
+        self._ins["valid"] += float((pr["weight"] > 0).sum(1).double().sum())
+        self._ins["untyped"] += float((pr["type"] < 0).double().sum())
+        self.buffer.add({
+            "x0": x0.to("cpu"), "x1": x1.to("cpu"), "adjoint1": adjoint1.to("cpu"),
+            "dart_y": pr["y"].reshape(B, -1), "dart_base": pr["base"], "dart_w": pr["weight"],
+        })
+
+    def darting_term(self, t, x0, xt, x1, y, base, w):
+        """ γ h / ν_{1|t} (B, 8) and the weights ω (B, P) """
+        from adjoint_samplers.utils import dw4_darting as dd
+        nut, nu1 = self._nu(t), self._nu(torch.ones_like(t))
+        kappa, nu1t = nut / nu1, (nu1 - nut).clamp(min=1e-12)
+        v = nu1 * kappa * (1 - kappa)
+        h, omega = dd.darting_h(x1, xt - (1 - kappa) * x0, kappa, v * self.v_scale, y.reshape(len(x1), dd.P_SLOTS, 8), base, w)
+        return self.gamma * h / nu1t.double(), omega
+
+    def prepare_target(self, data, device):
+        (t, xt), target = super().prepare_target(data, device)
+        x0, x1 = data["x0"].to(device), data["x1"].to(device)
+        y, base, w = data["dart_y"].to(device), data["dart_base"].to(device), data["dart_w"].to(device)
+        term, omega = self.darting_term(t, x0, xt, x1, y, base, w)
+        self._step += 1
+        if self._step % self.stats_every == 0:
+            self._update_stats(t, omega, term, target, w)
+        self._check_target_shape(t, xt, term)
+        return (t, xt), target + term.to(target)
+
+    KAPPA_BINS = (0.0, 0.1, 0.7, 1.0 + 1e-6)
+
+    @torch.no_grad()
+    def _update_stats(self, t, omega, term, target, w):
+        nut, nu1 = self._nu(t), self._nu(torch.ones_like(t))
+        kappa = (nut / nu1).squeeze(-1)
+        ratio = term.norm(dim=-1) / target.norm(dim=-1).clamp(min=1e-12).double()
+        mass = (w * omega).sum(1)                                                               # total out-flux probability of the sample at this kappa
+        st = self._stats
+        for lo, hi in zip(self.KAPPA_BINS[:-1], self.KAPPA_BINS[1:]):
+            sel = (kappa >= lo) & (kappa < hi)
+            if bool(sel.any()):
+                for key, val in (("frac_t", float(sel.float().mean())), ("term_over_gradg", float(ratio[sel].mean())), ("outflux", float(mass[sel].mean()))):
+                    a, n = st.get(f"dart/kappa[{lo:g},{min(hi, 1.0):g}]/{key}", (0.0, 0))
+                    st[f"dart/kappa[{lo:g},{min(hi, 1.0):g}]/{key}"] = (a + val, n + 1)
+
+    def pop_stats(self):
+        out = {k: a / n for k, (a, n) in self._stats.items()}
+        out["dart/gamma"] = self.gamma
+        if self._ins["n"]:
+            out["dart/valid_proposals_per_sample"] = self._ins["valid"] / self._ins["n"]
+            out["dart/untyped_frac"] = self._ins["untyped"] / self._ins["n"]
+        self._stats, self._ins = {}, {"n": 0, "valid": 0.0, "untyped": 0.0}
+        return out
+
+
 class AdjointVEDivisionMatcher(AdjointVEDiracMatcher):
     """ AS from a Dirac X0 with the DIVISION (Gelfand-Dey) control variate in the regression target (adjoint_samplers/utils/division_cv.py):
 

@@ -1,0 +1,11 @@
+_target_: adjoint_samplers.components.matcher.AdjointVEDW4DartingMatcher
+
+gamma: 3.0 # free scale of a zero-mean term (any value keeps E_pi[h | x_t] = 0); 3 = the value of the frozen Barker method, chosen in advance, not tuned on DW-4
+stats_every: 10
+
+grad_state_cost:
+  _target_: adjoint_samplers.components.state_cost.ZeroGradStateCost
+
+buffer:
+  _target_: adjoint_samplers.components.buffer.BatchBuffer
+  buffer_size: ${adjoint_matcher.buffer_size}
