@@ -2,7 +2,7 @@
 # Runs on the Vast.ai instance (not on the user's machine). Protocol: rules_darting_seeds_gamma.md. Same continuation protocol as C1 / C2 WITH fast_sampling, fast_train, buffer_on_device.
 #   bash vast_darting_remote2.sh phase1   -> D3 seeds 1, 2 in parallel
 #   bash vast_darting_remote2.sh phase2   -> D10 and D30, seed 1 only (2 runs in parallel)
-#   bash vast_darting_remote2.sh confirm  -> rules_darting_confirm.md: D30 seeds 2,3,4 (darting gamma 30) + AS controls C3, C4 (seeds 3, 4), 5 runs in parallel
+#   bash vast_darting_remote2.sh confirm  -> rules_darting_confirm.md: D30 seeds 2,3,4 (darting gamma 30) + AS controls C2 (re-run), C3, C4 (seeds 2, 3, 4), 6 runs in parallel
 # Logs: /workspace/asbs/results/<name>_s<seed>/stdout.log ; status in /workspace/status.txt (DONE or FAILED). WANDB_API_KEY comes from the environment of the launching ssh session.
 set -e
 PHASE=${1:?phase1 or phase2}
@@ -26,7 +26,7 @@ run() { name=$1; seed=$2; gamma=$3; D=results/${name}_s${seed}; mkdir -p $D
 run_as() { name=$1; seed=$2; D=results/${name}_s${seed}; mkdir -p $D
   python train.py experiment=dw4_as_states seed=${seed} exp_name=${name} hydra.run.dir=$D ${COMMON} > $D/stdout.log 2>&1 & pids+=($!); }
 if [ "$PHASE" = "confirm" ]; then
-  run dw4_cont_D30 2 30.0; run dw4_cont_D30 3 30.0; run dw4_cont_D30 4 30.0; run_as dw4_cont_C3 3; run_as dw4_cont_C4 4
+  run dw4_cont_D30 2 30.0; run dw4_cont_D30 3 30.0; run dw4_cont_D30 4 30.0; run_as dw4_cont_C2 2; run_as dw4_cont_C3 3; run_as dw4_cont_C4 4
 elif [ "$PHASE" = "phase1" ]; then
   run dw4_cont_D3 1 3.0; run dw4_cont_D3 2 3.0
 else
