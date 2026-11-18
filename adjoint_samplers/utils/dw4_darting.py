@@ -4,7 +4,8 @@
       1. m = quench(x) to ||grad|| < 1e-8 (deterministic function of x); the type a is the state of m.
       2. For every element g0 = (perm, flip) of the 48-element group such that m lies on the rotation orbit of g0(src_ab) (n_a elements = the stabiliser of the type), the angle theta_x is the PROCRUSTES angle of g0(src_ab) onto x itself
          (not onto m), g = (g0, theta_x), z = g^{-1} x, d = z - src_ab, d' = M_ab d, y = g(tgt_ab + d'). Jacobian of x -> y: |det M_ab| f_tgt(d') / f_src(d), f_mu(d) = |mu| + <d, mu> / |mu|.
-      3. The move is valid only if quench(y) lies on the orbit of g0(tgt_ab) AND the Procrustes angle of y onto g0(tgt_ab) equals theta_x (and both quenches converge to ||grad|| < 1e-8); invalid moves have weight 0.
+      3. The move is valid only if quench(y) lies on the orbit of g0(tgt_ab) AND the Procrustes angle of y onto g0(tgt_ab) equals theta_x (and both quenches converge to ||grad|| < 1e-8) AND the polar chart is valid at x and at y
+         (f_src(d) > 0 and f_tgt(d') > 0: the Jacobian is then positive; the condition is symmetric under reversal); invalid moves have weight 0 and finite placeholders.
       4. Barker weight with the Hastings ratio, at the bridge x_t | x ~ N(kappa x, v I) in the zero-CoM subspace:
             log R = -E(y) + E(x) + log Jac + log(n_a / n_b) + (|x_t - kappa x|^2 - |x_t - kappa y|^2) / (2 v),    omega = sigmoid(log R)
          proposal probability 1 / ((K - 1) n_a) per (b, g0).   h(x) = sum_{b, g0} omega / ((K - 1) n_a) (y - x),   term = gamma h / nu_{1|t}.
@@ -149,7 +150,9 @@ def proposals(x8, tol_orbit=1e-4, tol_angle=1e-8, gtol=1e-8):
         d8 = z - ss
         dp8 = (Ms @ d8.reshape(-1, 8, 1)).reshape(-1, 4, 2)
         y = recentre(g_apply(e, th_x, ts + dp8))
-        logjac = logdet[j] + torch.log(f_vol(ts, dp8)) - torch.log(f_vol(ss, d8))
+        fs, ft = f_vol(ss, d8), f_vol(ts, dp8)
+        chart_ok = (fs > 0) & (ft > 0)                                                           # the polar chart (angle x 5-dim slice) must be valid at x and at y: symmetric under reversal (the same d, d')
+        logjac = logdet[j] + torch.log(ft.clamp(min=1e-300)) - torch.log(fs.clamp(min=1e-300))
         qy8, gy = quench_precise(y.reshape(-1, 8))
         qy = qy8.reshape(-1, 4, 2)
         Yt = elem_images(ts)[torch.arange(len(e)), e]                                            # g0(tgt)
@@ -157,9 +160,11 @@ def proposals(x8, tol_orbit=1e-4, tol_angle=1e-8, gtol=1e-8):
         on_orbit = (rot(Yt, th_q) - qy).abs().amax((-1, -2)) < tol_orbit
         th_y = fit_angle(Yt, y)
         same_angle = torch.atan2(torch.sin(th_y - th_x), torch.cos(th_y - th_x)).abs() < tol_angle
-        valid = on_orbit & same_angle & (gy < gtol)
         Ey = energy(y.reshape(-1, 8))
         base = -Ey + Ex[idx][j] + logjac + torch.log(n_a[j] / n_b[j])
+        valid = on_orbit & same_angle & (gy < gtol) & chart_ok & torch.isfinite(base) & torch.isfinite(y.reshape(-1, 8)).all(-1)
+        base = torch.where(valid, base, torch.zeros_like(base))                                   # invalid moves: finite placeholders, weight 0 (never NaN * 0)
+        y = torch.where(valid[:, None, None], y, xs)
         slot = b * SLOTS + rank
         gi = idx[j]
         y_out[gi, slot] = y.reshape(-1, 8)

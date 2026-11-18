@@ -3,6 +3,7 @@
 import warnings
 from collections import defaultdict
 
+import os
 import torch
 from torch.func import grad
 from torch.utils.data import DataLoader
@@ -937,6 +938,11 @@ class AdjointVEDW4DartingMatcher(AdjointVEMatcher):
         self._check_buffer_sample_shape(x0, x1, adjoint1)
         pr = dd.proposals(x1.detach().cpu().double())
         B = len(x1)
+        if os.environ.get("DART_DEBUG"):
+            bad = (~torch.isfinite(pr["y"]).all(-1).all(-1)) | (~torch.isfinite(pr["base"]).all(-1)) | (~torch.isfinite(pr["weight"]).all(-1)) | (~torch.isfinite(x1.cpu()).all(-1))
+            print(f"[DART_DEBUG] insertion of {B} samples: non-finite x1 {int((~torch.isfinite(x1.cpu()).all(-1)).sum())}, non-finite y/base/weight {int(bad.sum())}", flush=True)
+            if bad.any():
+                torch.save(dict(x1=x1.cpu(), bad=bad), os.environ["DART_DEBUG"])
         self._ins["n"] += B
         self._ins["valid"] += float((pr["weight"] > 0).sum(1).double().sum())
         self._ins["untyped"] += float((pr["type"] < 0).double().sum())
@@ -959,6 +965,11 @@ class AdjointVEDW4DartingMatcher(AdjointVEMatcher):
         x0, x1 = data["x0"].to(device), data["x1"].to(device)
         y, base, w = data["dart_y"].to(device), data["dart_base"].to(device), data["dart_w"].to(device)
         term, omega = self.darting_term(t, x0, xt, x1, y, base, w)
+        if os.environ.get("DART_DEBUG") and not torch.isfinite(term).all():
+            nb = int((~torch.isfinite(term).all(-1)).sum())
+            print(f"[DART_DEBUG] prepare_target: {nb} samples with non-finite term; non-finite t {int((~torch.isfinite(t)).sum())}, xt {int((~torch.isfinite(xt)).sum())}, x1 {int((~torch.isfinite(x1)).sum())}, y {int((~torch.isfinite(y)).sum())}, base {int((~torch.isfinite(base)).sum())}, w {int((~torch.isfinite(w)).sum())}", flush=True)
+            i = int((~torch.isfinite(term).all(-1)).nonzero()[0])
+            print("   example: t", float(t[i]), "base finite", bool(torch.isfinite(base[i]).all()), "omega finite", bool(torch.isfinite(omega[i]).all()), "kappa", float(self._nu(t[i:i+1]) / self._nu(torch.ones(1, 1))), flush=True)
         self._step += 1
         if self._step % self.stats_every == 0:
             self._update_stats(t, omega, term, target, w)

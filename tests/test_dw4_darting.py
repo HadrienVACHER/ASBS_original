@@ -24,6 +24,13 @@ t0 = time.time()
 pr = dd.proposals(x)
 print(f"proposals for {len(x)} PT states: {time.time() - t0:.1f} s; valid proposals per state {float((pr['weight'] > 0).sum(1).double().mean()):.2f}; types -1: {int((pr['type'] < 0).sum())}")
 
+# 0. far-from-minimum configurations (the polar chart can fail there): everything stays finite, invalid moves have weight 0 and finite placeholders
+xf = x[:3000] + 1.5 * torch.randn(3000, 8, dtype=torch.float64)
+prf = dd.proposals(xf)
+nonf = int((~torch.isfinite(prf["base"])).sum() + (~torch.isfinite(prf["y"])).sum() + (~torch.isfinite(prf["weight"])).sum())
+print(f"0. 3000 PT states perturbed by N(0, 1.5^2): non-finite entries {nonf}; valid proposals per state {float((prf['weight'] > 0).sum(1).double().mean()):.2f}; types -1: {int((prf['type'] < 0).sum())}")
+assert nonf == 0
+
 # 1. round trip
 xs = dd.recentre(x.reshape(-1, 4, 2)).reshape(-1, 8)
 rows = (pr["weight"][:300] > 0).nonzero()
