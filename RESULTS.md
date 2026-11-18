@@ -361,3 +361,19 @@ Lecture écrite d'avance (S contre p_PT, 20 dernières évaluations, comparaison
 3. Réplication, graine 1 sans / avec options rapides : S_R 0,1374 / 0,1838, S_Q 0,1222 / 0,1787, soit un bruit d'exécution du darting de 0,046 / 0,057 à graine égale (même ordre que Δ de la graine 2).
 4. Sanité : eq_w2 (deux dernières évaluations) 0,455 / 0,540 contre C1 0,614 / C2 0,589 ; energy_w2 0,266 / 0,334 contre 0,345 / 0,329 ; propositions valides par échantillon 8,32 / 8,30 ; ‖terme‖/‖grad‖ par plage de κ 0,026 / 0,037 / 0,004 (graine 1), 0,027 / 0,037 / 0,004 (graine 2), identique au run précédent ; flux sortant 0,18 / 0,14 / 0,004.
 Énoncé permis : Δ négatif sur 2 graines sur 2, plus petit ou égal au bruit sur l'une. Aucun verdict de méthode (règle sans seuil d'effet, 2 graines).
+
+## Darting, dose-réponse en γ, graine 1 (phase 2 de `rules_darting_seeds_gamma.md`, amendée graine 1 seule, commit 15c1453)
+
+Runs `dw4_cont_D10` et `dw4_cont_D30` (graine 1, même protocole et mêmes options rapides que la phase 1 ; `torch.compile` en repli non compilé comme avant), Vast.ai RTX 3080 + EPYC 7542, 2 runs en parallèle, ≈ 3,4 s par époque, ≈ 30 min ; coût ≈ 0,090 USD (crédit 9,756 → 9,666) ; instance détruite après récupération (`results/dw4_cont_D{10,30}_seed1_fast/`). 500 époques, 50 évaluations, pertes finies, aucun NaN.
+
+S contre p_PT (20 dernières évaluations, graine 1 ; γ = 0 est C1, γ = 3 est D3 graine 1 de la phase 1) :
+| γ | S (R) | S (Q) |
+|---|---|---|
+| 0 (AS, C1) | 0,3672 | 0,3632 |
+| 3 | 0,1838 | 0,1787 |
+| 10 | 0,0972 | 0,0830 |
+| 30 | 0,0612 | 0,0482 |
+« S décroît avec γ » : VRAI en R et en Q (graine 1, sans test). Les pas de 3 → 10 (−0,087 R, −0,096 Q) et de 10 → 30 (−0,036 R, −0,035 Q) dépassent ou égalent le bruit d'exécution du darting (≈ 0,05) pour le premier, pas pour le second (à ne pas interpréter).
+Erreurs |log(p̄/p_PT)| (Q), γ = 3 / 10 / 30 (C1) : chemin de 2 0,206 / 0,090 / 0,040 (0,476) ; deux paires 0,401 / 0,330 / 0,246 (0,475) ; étoile 0,686 / 0,557 / 0,402 (0,738) ; triangle + pendant 0,068 / 0,000 / 0,012 (0,195) ; K4 moins une arête 0,470 / 0,270 / 0,078 (0,809). Les trois petits bassins sont meilleurs que C1 à tout γ.
+Sanité de stabilité : pertes finies (γ = 30 : 6,8–7,6, plus haut qu'à γ = 3 car le terme est plus grand) ; eq_w2 0,516 (γ = 10) et 0,550 (γ = 30) contre C1 0,614 : ≤ 1,5 × C1 ; energy_w2 0,248 et 0,231 contre 0,345. Dose mesurée, ‖terme‖/‖grad‖ par plage de κ ([0,0,1] / [0,1,0,7] / [0,7,1]) : γ = 3 0,026 / 0,037 / 0,004 ; γ = 10 0,087 / 0,119 / 0,014 ; γ = 30 0,255 / 0,350 / 0,041. La dose augmente avec γ, et à κ > 0,7 elle reste très en dessous du seuil de 0,5 de la règle : pas d'instabilité signalée.
+Énoncé permis : sur la graine 1, S décroît avec γ en R et en Q et la dose mesurée augmente avec γ. Une seule graine pour γ = 10 et 30 : aucun verdict de méthode. Le chemin de 2 et les quatre autres bassins se rapprochent de p_PT en même temps ; le bassin star reste le plus éloigné (0,40 en log à γ = 30).
