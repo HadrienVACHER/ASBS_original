@@ -30,7 +30,12 @@ def frac(lo, hi, tmax, f):
     return (1 - f) * pu + f * pf
 print("\nfraction of regression times with kappa in [0.1, 0.7] (and in [0, 0.1], [0.7, 1]):")
 print(f"  t_focus = 0 (uniform t, today): [0,0.1] {frac(0, 0.1, 1, 0):.3f}  [0.1,0.7] {frac(0.1, 0.7, 1, 0):.3f}  [0.7,1] {frac(0.7, 1, 1, 0):.3f}")
-for tmax in (0.08, 0.15):
+for tmax in (0.05, 0.08, 0.15):
     print(f"  t_focus_max = {tmax}: all focused times have kappa < {np.interp(tmax, tt, kap):.3f};  within the focus interval: [0,0.1] {frac(0, 0.1, tmax, 1):.3f}  [0.1,0.7] {frac(0.1, 0.7, tmax, 1):.3f}")
     for f in (0.25, 0.5, 0.7, 0.9):
         print(f"      t_focus = {f}: [0,0.1] {frac(0, 0.1, tmax, f):.3f}  [0.1,0.7] {frac(0.1, 0.7, tmax, f):.3f}  [0.7,1] {frac(0.7, 1, tmax, f):.3f}")
+
+print("\nfraction of regression times with kappa in [0.1, 0.5] (explore plan: t_focus = 0.5, t_focus_max = 0.05):")
+print(f"  default (t_focus = 0, uniform t): [0.1,0.5] {frac(0.1, 0.5, 1, 0):.4f}  ([0,0.1] {frac(0, 0.1, 1, 0):.4f}, [0.5,1] {frac(0.5, 1, 1, 0):.4f})")
+for tmax in (0.05, 0.08, 0.15):
+    print(f"  t_focus = 0.5, t_focus_max = {tmax}: [0.1,0.5] {frac(0.1, 0.5, tmax, 0.5):.4f}  ([0,0.1] {frac(0, 0.1, tmax, 0.5):.4f}, [0.5,1] {frac(0.5, 1, tmax, 0.5):.4f}, kappa(t_focus_max) = {np.interp(tmax, tt, kap):.3f})")
