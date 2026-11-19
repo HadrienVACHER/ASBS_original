@@ -84,6 +84,7 @@ class GMM(distributions.Distribution):
         energy_scale: float = 1.0,
         radius: float | None = None,
         device: str = "cpu",
+        weights=None,
     ) -> None:
         super().__init__()
 
@@ -113,6 +114,9 @@ class GMM(distributions.Distribution):
         elif weight_law == "exponential":
             E = -energy_scale * torch.log1p(-torch.rand(K, generator=g)) # Exponential, mean energy_scale
             U = torch.exp(-E)
+        elif weight_law == "fixed":
+            assert weights is not None and len(weights) == K, "weight_law=fixed needs `weights` of length K"
+            U = torch.tensor([float(w) for w in weights])
         else:
             raise ValueError(f"unknown weight_law {weight_law}")
         self.weights = U / U.sum()

@@ -17,6 +17,7 @@ radius: 4.25
 weight_law: loguniform
 weight_ratio: 20
 energy_scale: 1.0
+weights: null # explicit weights, used only with weight_law=fixed (e.g. weights=[0.8,0.15,0.05])
 
 energy:
   _target_: adjoint_samplers.energies.dist_energy.DistEnergy
@@ -30,6 +31,7 @@ energy:
     weight_ratio: ${weight_ratio}
     energy_scale: ${energy_scale}
     radius: ${radius}
+    weights: ${weights}
 
 evaluator:
   _target_: adjoint_samplers.components.evaluator.GMMEvaluator

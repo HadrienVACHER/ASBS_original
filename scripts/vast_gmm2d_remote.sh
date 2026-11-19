@@ -12,8 +12,8 @@ echo "running" > /workspace/status.txt
 COMMIT=$(cat /workspace/code_commit.txt 2>/dev/null || echo unknown)
 pids=()
 for R in ${RADII:-2 4 6}; do
-  D=results/gmm2d_r${R}_s0; mkdir -p $D
-  python train.py experiment=gmm_as dim=2 K=3 radius=${R} seed=0 num_epochs=1000 eval_freq=50 project=gmm2d_radius exp_name=gmm2d_r${R} dump_final=true use_wandb=true +code_commit=${COMMIT} hydra.run.dir=$D ~lancher > $D/stdout.log 2>&1 & pids+=($!)
+  D=results/gmm2d${TAG}_r${R}_s0; mkdir -p $D
+  python train.py experiment=gmm_as dim=2 K=3 radius=${R} seed=0 num_epochs=1000 eval_freq=50 project=gmm2d_radius exp_name=gmm2d${TAG}_r${R} dump_final=true use_wandb=true +code_commit=${COMMIT} hydra.run.dir=$D ~lancher ${EXTRA} > $D/stdout.log 2>&1 & pids+=($!)
 done
 fail=0; for p in "${pids[@]}"; do wait "$p" || fail=1; done
 if [ $fail = 0 ]; then echo "DONE" > /workspace/status.txt; else echo "FAILED training" > /workspace/status.txt; fi
