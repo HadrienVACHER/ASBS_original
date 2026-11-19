@@ -12,7 +12,8 @@ echo "setup" > /workspace/status.txt
 COMMIT=$(cat /workspace/code_commit.txt 2>/dev/null || echo unknown)
 COMMON="experiment=gmm_dk_as project=gmm_dk dump_final=true dump_n_samples=10000 +dump_eval_samples=true buffer_on_device=true fast_train=true fast_sampling=true use_wandb=true +code_commit=${COMMIT} ~lancher"
 pids=()
-run() { d=$1; K=$2; D=$3; s=$4; shift 4; N=gmmdk_d${d}_K${K}_D${D}_s${s}${SUF}; DIR=results/$N; mkdir -p $DIR
+run() { while [ $(jobs -rp | wc -l) -ge ${MAXP:-7} ]; do sleep 5; done   # at most MAXP runs on the 8 GB GPU (19 at once failed: CUDA graph capture)
+  d=$1; K=$2; D=$3; s=$4; shift 4; N=gmmdk_d${d}_K${K}_D${D}_s${s}${SUF}; DIR=results/$N; mkdir -p $DIR
   python train.py ${COMMON} dim=$d K=$K delta=$D seed=$s exp_name=$N hydra.run.dir=$DIR "$@" > $DIR/stdout.log 2>&1 & pids+=($!); }
 echo "running" > /workspace/status.txt
 if [ "$PHASE" = "smoke" ]; then
