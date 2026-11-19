@@ -533,3 +533,30 @@ Confrontation avec les prédictions (écrites avant) : (32, 8, 4) est dans toute
 Réserves : une graine, 1500 époques, sigma_max dépend de (d, Δ) par construction, β calculé sur les seuls modes couverts (K = 2 : pas de SE ; 3 modes en (32, 8, 8)). À Δ = 8 en d ≥ 8 AS perd des modes (le mode léger de K = 2 a une proportion de 0,000 en d = 8), alors qu'en 2D (K = 3, Δ jusqu'à 10,4) tous les modes sont couverts et les poids sont aplatis vers 1/3 : le comportement change entre d = 2 et d ≥ 8 (non expliqué).
 
 **Lecture du pilote (HYPOTHÈSE, pas un résultat ; formulée par l'utilisateur, non testée).** Deux régimes : (proche) tous les modes trouvés et poids justes ; (éloigné) modes perdus, avec concentration sur les modes lourds à d = 32 (β = +3 sur 3 modes couverts) au lieu de l'aplatissement vers l'égalité observé en 2D (K = 3). Une graine, 5 cellules : ce n'est pas établi ; le balayage en Δ et l'ablation de sigma_max (lot suivant) servent à la mettre à l'épreuve.
+
+## AS en fonction de (d, K, Δ) : balayage en Δ et ablation de sigma_max (une graine ; rapport seul ; addendum 1 de `predictions_dk.md`, commit b95fd97, écrit avant)
+
+Protocole du pilote (1500 époques, 10 dernières évaluations sur 5000 échantillons, sigma_max = 2√(1 + Δ²/(2d)) sauf ablation). 15 runs nouveaux + 5 réutilisés du pilote + 4 ablations. Figure : `figures/gmm_dk_sweep.png` (couverture, β, ESS de l'IS en fonction de Δ) ; chiffres : `figures/gmm_dk_sweep_analysis_part{1,2}.json`. Premier essai avec 19 runs en parallèle : échec immédiat (le GPU de 8 Go sature, erreur de capture de graphe CUDA) ; relance avec au plus 7 runs en parallèle, protocole inchangé, perte finie partout. **L'IS de chemin n'a été calculé que pour les 5 runs du pilote** (le plafond de coût était atteint) : la panneau « ESS » de la figure n'a donc que ces 5 points.
+
+Couverture (modes couverts / K), TV (plancher), β ± SE (K = 2 : pas de SE ; « n.d. » = moins de 2 modes couverts) :
+| Δ | (8, 2) | (8, 8) | (32, 2) | (32, 8) |
+|---|---|---|---|---|
+| 4 | 2/2, 0,010, −0,04 | 8/8, 0,022, −0,03 ± 0,01 | 2/2, 0,009, −0,04 | 8/8, 0,028, −0,07 ± 0,02 |
+| 5 | 2/2, 0,007, −0,03 | 8/8, 0,028, −0,03 ± 0,01 | 2/2, 0,004, −0,01 | 8/8, 0,037, −0,06 ± 0,04 |
+| 6 | 2/2, 0,012, −0,04 | 8/8, 0,046, −0,05 ± 0,05 | 2/2, 0,034, +0,21 | 7/8 (perdu : mode 8, 0,031), 0,161, +0,20 ± 0,27 |
+| 7 | 2/2, 0,112, −0,41 | 8/8, 0,077, −0,22 ± 0,05 | 2/2, 0,048, +0,35 | 3/8, 0,323, −0,10 ± 0,75 |
+| 8 | 1/2, 0,091, n.d. | 6/8, 0,160, −0,20 ± 0,12 | 1/2, 0,075, n.d. | 3/8, 0,433, +3,04 ± 0,75 |
+Planchers de TV : 0,002–0,003 (K = 2), 0,014 (K = 8).
+
+Ablation de sigma_max (règle ; × 0,5 ; × 2) :
+| (d, K, Δ) | sigma_max (règle, ×0,5, ×2) | règle : couverture, TV, β | × 0,5 | × 2 |
+|---|---|---|---|---|
+| (8, 8, 8) | 4,472 ; 2,236 ; 8,944 | 6/8, 0,160, −0,20 ± 0,12 | 8/8, 0,153, −0,34 ± 0,12 | 2/8, 0,535, +0,58 (sans SE) |
+| (32, 8, 6) | 2,500 ; 1,250 ; 5,000 | 7/8, 0,161, +0,20 ± 0,27 | 8/8, 0,082, −0,02 ± 0,06 | 1/8, 0,694, n.d. |
+
+Confrontation avec les prédictions de l'addendum (écrites avant) :
+- Δ de la première perte de mode : (8, 2) prédit 7 (6–8), observé 8 ; (8, 8) prédit 7 (6–8), observé 8 ; (32, 2) prédit 7 (5–8), observé 8 ; (32, 8) prédit 6 (5–7), observé 6. Les quatre sont dans la fourchette ; deux à l'unité près au-dessus de ma valeur centrale (j'ai prédit la perte un cran trop tôt pour trois cellules).
+- Zone « tous les modes trouvés et β < −0,3 » à d = 32 : prédite absente, observée absente (β ∈ [−0,07 ; +0,35] là où tous les modes sont trouvés). À d = 8 : (8, 2, 7) donne β = −0,41 avec tous les modes trouvés (sans SE) ; (8, 8, 7) donne −0,22 ± 0,05 (> −0,3) ; zone d'aplatissement faible présente en d = 8 pour K = 2 à Δ = 7 seulement.
+- **sigma_max : prédiction FAUSSE, effet de signe contraire.** Prédit : × 2 augmente la couverture, × 0,5 la diminue. Observé : × 0,5 donne 8/8 aux deux cellules (contre 6/8 et 7/8 avec la règle) et × 2 provoque un quasi-effondrement (2/8 et 1/8, TV 0,54 et 0,69). L'explication « base trop étroite » est contredite par cette ablation (une graine, deux cellules). Conséquence pour la lecture du pilote : la perte de modes à Δ = 8 dépend de sigma_max, donc les « régimes » décrits plus haut sont confondus avec la règle sigma_max (qui croît avec Δ) ; la règle × 2 de l'écart-type est peut-être trop grande pour ces cibles. Aucune explication testée.
+- Temps et coût : 0,41–0,50 s par époque avec 7 runs en parallèle (prédit 0,5–0,9) ; 19 runs en parallèle impossibles sur 8 Go. Coût du lot : l'instance a tourné de 18:25 à 19:34 (69 min) à 0,1339 $/h, soit environ 0,154 $, **légèrement au-dessus du plafond de 0,15 $** (le premier essai de 19 runs en parallèle et mes tentatives SSH bloquées y ont ajouté du temps). Instance détruite à la fin.
+Réserves : une graine ; une seule cellule (8, 2, 7) montre β < −0,3 avec tous les modes trouvés, et sans SE ; IS de chemin du balayage non calculé.

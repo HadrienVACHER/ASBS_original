@@ -69,7 +69,7 @@ def analyse(run, n_is, do_is):
 
 
 if __name__ == "__main__":
-    ap = argparse.ArgumentParser(); ap.add_argument("runs", nargs="+"); ap.add_argument("--n_is", type=int, default=20000); ap.add_argument("--no_is", action="store_true")
+    ap = argparse.ArgumentParser(); ap.add_argument("runs", nargs="+"); ap.add_argument("--n_is", type=int, default=20000); ap.add_argument("--no_is", action="store_true"); ap.add_argument("--out", default="gmm_dk_analysis.json")
     a = ap.parse_args()
     res = [analyse(r, a.n_is, not a.no_is) for r in a.runs]
     for r in res:
@@ -77,4 +77,4 @@ if __name__ == "__main__":
         print(f"    p      {r['p']}\n    p_hat  {r['p_hat']}\n    ratios {r['ratios']}")
         if "is_ess_frac" in r:
             print(f"    path IS (N={r['is_n']}): ESS frac {r['is_ess_frac']:.4g}, khat {r['is_khat']:.2f}, TV weighted {r['is_tv_weighted']:.3f} (unweighted {r['is_tv_unweighted']:.3f})")
-    json.dump(res, open("gmm_dk_analysis.json", "w"), indent=1)
+    json.dump(res, open(a.out, "w"), indent=1)
