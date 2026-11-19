@@ -3,7 +3,7 @@
     RUN_DIR holds config.yaml, eval_samples/ep*.pt (dump_eval_samples), controller_final.pt. Report only; nothing here is a rule.
     Metrics: coverage (p_hat >= 0.25 p) and lost modes; TV = mean over the last 10 evaluations of the per-evaluation TV, with the exact-sampler floor;
     ratios p_hat/p and beta from p_hat averaged over the last 10 evaluations; path-space IS (adjoint_samplers/utils/girsanov.py): ESS fraction, khat (generalised Pareto fit,
-    scipy genpareto, shape c of the largest min(0.2 N, 3 sqrt N) weights), TV after reweighting. """
+    scipy genpareto, shape c of the largest min(0.2 N, 3 sqrt N) weights), TV after reweighting, log Z_hat +- SE (log w saved as is_logw.pt in the run directory). """
 import argparse, glob, json, math, sys
 from pathlib import Path
 import numpy as np
@@ -24,6 +24,13 @@ def khat(lw):
     return float(genpareto.fit(tail[tail > 0], floc=0)[0])
 
 
+def logz(lw):
+    """ log Z_hat = logsumexp(lw) - log N and its SE (delta method: SE = std(w) / (mean(w) sqrt N), w = exp(lw - max)). The target is normalised (E = -log p): log Z = 0. """
+    lw = lw.double(); n = len(lw)
+    w = torch.exp(lw - lw.max())
+    return dict(is_logz=float(torch.logsumexp(lw, 0) - math.log(n)), is_logz_se=float(w.std() / (w.mean() * math.sqrt(n))))
+
+
 def is_paths(run, d, K, delta, n_is, device):
     import train  # registers the resolvers of the configs
     import hydra
@@ -42,7 +49,9 @@ def is_paths(run, d, K, delta, n_is, device):
         B = min(5000, n_is - done)
         lw, x = girsanov.log_path_weights(sde, energy, torch.zeros(B, d, device=device), timesteps)
         lws.append(lw.cpu()); xs.append(x.cpu()); done += B
-    return torch.cat(lws), torch.cat(xs)
+    lw_all = torch.cat(lws)
+    torch.save(lw_all.float(), Path(run) / "is_logw.pt")   # log weights kept, so that log Z_hat can be recomputed without a GPU
+    return lw_all, torch.cat(xs)
 
 
 def analyse(run, n_is, do_is, is_only=False):
@@ -56,7 +65,7 @@ def analyse(run, n_is, do_is, is_only=False):
         lw, x = is_paths(run, d, K, delta, n_is, dev)
         w = torch.softmax(lw.double(), 0)
         out.update(is_n=n_is, is_ess_frac=float(1.0 / (w ** 2).sum() / len(w)), is_khat=khat(lw),
-                   is_tv_weighted=G.tv(G.proportions(x, d, K, delta, w), p), is_tv_unweighted=G.tv(G.proportions(x, d, K, delta), p))
+                   is_tv_weighted=G.tv(G.proportions(x, d, K, delta, w), p), is_tv_unweighted=G.tv(G.proportions(x, d, K, delta), p), **logz(lw))
         return out
     files = sorted(glob.glob(str(Path(run) / "eval_samples" / "ep*.pt")))
     last = files[-10:]
@@ -72,7 +81,7 @@ def analyse(run, n_is, do_is, is_only=False):
         lw, x = is_paths(run, d, K, delta, n_is, dev)
         w = torch.softmax(lw.double(), 0)
         out.update(is_n=n_is, is_ess_frac=float(1.0 / (w ** 2).sum() / len(w)), is_khat=khat(lw),
-                   is_tv_weighted=G.tv(G.proportions(x, d, K, delta, w), p), is_tv_unweighted=G.tv(G.proportions(x, d, K, delta), p))
+                   is_tv_weighted=G.tv(G.proportions(x, d, K, delta, w), p), is_tv_unweighted=G.tv(G.proportions(x, d, K, delta), p), **logz(lw))
     return out
 
 

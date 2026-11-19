@@ -70,3 +70,19 @@ Ce que les runs existants impliquent (déjà vus avant d'écrire ceci) : à d = 
 4. IS de chemin : ESS dans la fenêtre 0,1–0,4 à d = 32 et 0,3–0,6 à d = 8 (valeurs du pilote : 0,17 et 0,39) ; hors fenêtre (pertes) l'ESS peut rester non négligeable (0,066 observé à (32, 8, 8) avec 3/8 modes perdus) : je ne prédis pas de lien net ESS/couverture.
 5. Meilleur sigma_max par cellule (couverture maximale, puis TV minimal) : × 0,5 à × 0,75 pour les quatre cellules.
 6. Coût : instance à ≈ 0,134 $/h ; ≈ 45–60 min pour le lot 1 (16 runs, IS de 40 contrôleurs inclus) ≈ 0,10–0,13 $ ; le lot 2 ne tiendra probablement pas dans 0,15 $ au total : je m'arrêterai et demanderai.
+
+---
+# Addendum 4 : critère de choix de sigma_max sans vérité, fondé sur log Ẑ de l'IS de chemin (règle écrite et commitée AVANT tout calcul ; non évaluable aujourd'hui, voir ci-dessous)
+
+## Statut de disponibilité (constaté avant d'écrire la règle)
+Les log w de l'IS de chemin n'ont PAS été sauvegardés : les JSON ne contiennent que l'ESS, k̂ et deux TV (repondéré et non repondéré). log Ẑ ne peut donc pas être calculé sans relancer l'IS sur GPU, ce que l'utilisateur a exclu pour l'instant. Les contrôleurs finaux des 40 runs existent (24 du balayage dans `results/gmm_dk_sweep/`, 16 du lot dans `results/gmm_dk_window/w1_min.tar.gz`). `scripts/gmm_dk_analysis.py` a été modifié (sans relance) pour sauvegarder les log w (`is_logw.pt`) et calculer log Ẑ ± SE à la prochaine exécution.
+
+## Règle
+- Pour chaque contrôleur : log Ẑ = logsumexp(log w) − log N (N = 20 000 trajectoires, poids de `girsanov.log_path_weights`) ; SE par la méthode delta : SE = std(w) / (mean(w) √N), w = exp(log w − max log w).
+- Pour chaque cellule (d, K, Δ) du lot (graine 0, les 6 multiplicateurs de sigma_max) : sigma_max choisi = argmax de log Ẑ ; si un autre run est à moins de 2 SE du maximum (SE de la différence = √(SE_i² + SE_max²)), on prend, parmi les ex æquo, celui qui a le plus grand ESS (le TV, qui exige la vérité, n'entre pas en jeu).
+- Succès : dans chaque cellule où une couverture K/K existe dans la grille (attendues : (32, 8, 4), (32, 8, 6), (8, 8, 8) ; (32, 8, 8) n'en a pas), le sigma_max choisi a la couverture maximale de la cellule. Verdict « critère validé » si les trois cellules réussissent, « non validé » sinon (pas de relâchement) ; (32, 8, 8) est rapportée seule.
+- Remarque sur la cible : elle est normalisée (E = −log p), donc log Z = 0 exactement ; |log Ẑ| sera rapporté comme diagnostic, hors règle.
+
+## Prédiction de l'assistant
+Probabilité de « critère validé » : 65 %. Raisons : dans la fenêtre, les log Ẑ devraient être proches de 0 à l'intérieur de la SE (plusieurs égalités), le départage par l'ESS (qui décroît avec sigma_max) choisit alors le plus petit sigma_max de la fenêtre, qui a 8/8 ; les runs effondrés (couverture 1/8) ont un Ẑ typiquement sous-estimé (masse des modes absents) donc un log Ẑ plus bas, mais l'ESS élevé d'un run effondré (0,49 observé à (32, 8, 8) × 0,25) et la queue lourde (k̂ > 1 à (32, 8, 4) × 0,25) peuvent produire des log Ẑ bruités. Le point faible attendu est un × 0,25 effondré qui aurait un log Ẑ non significativement plus bas avec un grand ESS et passerait devant à l'égalité.
+Coût de l'évaluation (non lancée) : IS de 24 contrôleurs (4 cellules × 6 multiplicateurs) sur GPU ≈ 10–12 min plus une location (≈ 6 min d'installation), soit environ 0,04–0,05 $ à 0,134 $/h ; sur CPU : plus d'une minute par contrôleur, donc hors règle de calcul.
