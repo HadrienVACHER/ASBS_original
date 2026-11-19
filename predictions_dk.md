@@ -25,3 +25,19 @@ Base : 2D (r = 2, 4, 6, K = 3, β calculé sur les deux modes extrêmes : ≈ 0 
 | 32, 8, 8 | 5/8 (2–8), modes perdus = les plus légers | 0,35 (0,15–0,60) (0,014) | −0,8 sur les modes couverts | < 10⁻³, k̂ > 0,7 |
 | 32, 8, 4 | 8/8 | 0,04 (0,02–0,08) (0,014) | −0,1 (−0,3 à 0,1) | 0,05 (0,005–0,3) |
 Temps : 1,0–1,5 s par époque pour chacun des 5 runs en parallèle (soit 25–40 min), coût ≈ 0,10 $ (plafond 0,30 $). Calibrage visé : niveau « proche » = Δ = 4 si la cellule (32, 8, 4) est près du plancher ; niveau « éloigné » = Δ = 8 si tous les modes y sont encore trouvés (couverture complète à (8, 8, 8) et (32, 8, 8)), sinon un Δ intermédiaire (6) à proposer pour la grille.
+
+---
+# Addendum 1 (écrit et commité AVANT le lot « balayage en Δ + ablation de sigma_max »)
+
+## Règle sigma_max actuelle (inchangée) : sigma_max = 2·√(1 + Δ²/(2d)) (`gmm_dk.sigma_max_rule`)
+Valeurs exactes du balayage : d = 8 : Δ = 4, 5, 6, 7, 8 → 2,828 ; 3,202 ; 3,606 ; 4,031 ; 4,472. d = 32 : Δ = 4, 5, 6, 7, 8 → 2,236 ; 2,358 ; 2,500 ; 2,658 ; 2,828.
+Ablation (4 runs), sigma_max × 0,5 et × 2 par rapport à la règle : (d, K, Δ) = (8, 8, 8) : règle 4,472 → 2,236 et 8,944 ; (32, 8, 6) : règle 2,500 → 1,250 et 5,000.
+
+## Plan du lot (une graine, 0, même protocole que le pilote)
+Balayage Δ ∈ {4, 5, 6, 7, 8} pour (d, K) ∈ {8, 32} × {2, 8} : 20 cellules, dont les 5 du pilote sont réutilisées ((8,2,8), (8,8,8), (32,2,8), (32,8,8), (32,8,4)) ; 15 runs nouveaux. Ablation : 4 runs, noms avec suffixe `_sx0.5` / `_sx2`. Plafond 0,15 $ facturé pour ce lot. Rapport : même tableau que le pilote, plus la figure couverture et β en fonction de Δ (une courbe par (d, K)) et ESS de l'IS en fonction de Δ.
+
+## Prédictions de l'assistant
+1. Δ de la première perte de mode (première valeur du balayage avec couverture < K, seuil p̂ ≥ 0,25 p) : (8, 2) : Δ = 7 (fourchette 6–8, déjà perdu à 8) ; (8, 8) : Δ = 7 (6–8, déjà 6/8 à 8) ; (32, 2) : Δ = 7 (5–8, à 8 le ratio du mode léger est 0,18, juste sous le seuil) ; (32, 8) : Δ = 6 (5–7, 3/8 à 8). Appui : ancien balayage en d = K, transition de couverture vers Δ ≈ 6–7 en d ≥ 16.
+2. Zone « tous les modes trouvés et β < −0,3 » à d = 32 : prédite ABSENTE (probabilité que je lui donne : 75 %). Là où tous les modes sont trouvés à d = 32, je prédis β > −0,3 (poids presque justes, β ≈ −0,1 comme à Δ = 4), puis une bascule vers β > 0 en même temps que les premières pertes. Pour K = 2, β est calculé sur 2 points (sans SE) : un mode léger sous-représenté donne β > 0, un aplatissement donne β < 0. À d = 8, une zone d'aplatissement faible (β ≈ −0,2 à −0,5 avec tous les modes trouvés) est possible pour (8, 8) à Δ = 6–7 (probabilité 40 %).
+3. Ablation de sigma_max : sigma_max × 2 élargit la base (N(0, ν₁I)) : je prédis plus de modes couverts qu'avec la règle (à (8, 8, 8) : 7–8 modes sur 8 contre 6 avec la règle ; à (32, 8, 6) : +1 à +2 modes par rapport au run de la règle du balayage), et un TV plus faible si la couverture augmente, au prix d'un entraînement plus bruité. sigma_max × 0,5 : moins de modes couverts (à (8, 8, 8) : 4 sur 8 (3–6) ; à (32, 8, 6) : −1 à −2 modes) et β plus positif (concentration sur les modes lourds). Si l'effet de sigma_max est nul ou de signe contraire, l'explication « base trop étroite » est contredite.
+4. Temps et coût : 19 runs en parallèle ; je prédis 0,5–0,9 s par époque (contre 0,41 pour 5 runs), soit 13–23 min, plus 5–8 min d'IS de chemin pour 24 runs ; coût 0,05–0,10 $ pour le lot.
