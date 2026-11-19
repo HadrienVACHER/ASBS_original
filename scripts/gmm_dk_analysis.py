@@ -45,11 +45,19 @@ def is_paths(run, d, K, delta, n_is, device):
     return torch.cat(lws), torch.cat(xs)
 
 
-def analyse(run, n_is, do_is):
+def analyse(run, n_is, do_is, is_only=False):
     cfg = {l.split(":")[0].strip(): l.split(":")[1].strip() for l in open(Path(run) / "config.yaml") if l.split(":")[0].strip() in ("dim", "K", "delta") and not l.startswith(" ")}
     d, K, delta = int(cfg["dim"]), int(cfg["K"]), float(cfg["delta"])
     p = G.true_proportions(d, K, delta)
     floor = G.tv_floor(d, K, delta, p, n=5000, reps=100)
+    if is_only:                       # IS of the final controller only (no eval samples needed)
+        out = dict(run=Path(run).name, d=d, K=K, delta=delta, p=[round(float(x), 4) for x in p])
+        dev = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        lw, x = is_paths(run, d, K, delta, n_is, dev)
+        w = torch.softmax(lw.double(), 0)
+        out.update(is_n=n_is, is_ess_frac=float(1.0 / (w ** 2).sum() / len(w)), is_khat=khat(lw),
+                   is_tv_weighted=G.tv(G.proportions(x, d, K, delta, w), p), is_tv_unweighted=G.tv(G.proportions(x, d, K, delta), p))
+        return out
     files = sorted(glob.glob(str(Path(run) / "eval_samples" / "ep*.pt")))
     last = files[-10:]
     phs = [G.proportions(torch.load(f, weights_only=False), d, K, delta) for f in last]
@@ -69,10 +77,12 @@ def analyse(run, n_is, do_is):
 
 
 if __name__ == "__main__":
-    ap = argparse.ArgumentParser(); ap.add_argument("runs", nargs="+"); ap.add_argument("--n_is", type=int, default=20000); ap.add_argument("--no_is", action="store_true"); ap.add_argument("--out", default="gmm_dk_analysis.json")
+    ap = argparse.ArgumentParser(); ap.add_argument("runs", nargs="+"); ap.add_argument("--n_is", type=int, default=20000); ap.add_argument("--no_is", action="store_true"); ap.add_argument("--is_only", action="store_true"); ap.add_argument("--out", default="gmm_dk_analysis.json")
     a = ap.parse_args()
-    res = [analyse(r, a.n_is, not a.no_is) for r in a.runs]
+    res = [analyse(r, a.n_is, not a.no_is, a.is_only) for r in a.runs]
     for r in res:
+        if "n_evals" not in r:
+            print(f"{r['run']}: path IS (N={r['is_n']}): ESS frac {r['is_ess_frac']:.4g}, khat {r['is_khat']:.2f}, TV weighted {r['is_tv_weighted']:.3f} (unweighted {r['is_tv_unweighted']:.3f})"); continue
         print(f"{r['run']}: {r['n_evals']} evals | coverage {r['coverage']}/{r['K']} lost {r['lost']} | TV {r['tv']:.3f} (sd {r['tv_sd']:.3f}) floor {r['floor_median']:.3f} [{r['floor_p5']:.3f}-{r['floor_p95']:.3f}] | beta {r['beta']:+.2f} ± {r['beta_se']:.2f}")
         print(f"    p      {r['p']}\n    p_hat  {r['p_hat']}\n    ratios {r['ratios']}")
         if "is_ess_frac" in r:

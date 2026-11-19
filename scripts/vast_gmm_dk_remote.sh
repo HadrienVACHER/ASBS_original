@@ -2,6 +2,7 @@
 # Runs on the Vast.ai instance. Protocol: predictions_dk.md. AS only, (d, K, Delta) study, fast options.
 #   bash vast_gmm_dk_remote.sh pilot   -> (8,2,8) (8,8,8) (32,2,8) (32,8,8) (32,8,4), seed 0, 1500 epochs, in parallel
 #   bash vast_gmm_dk_remote.sh sweep   -> addendum 1: 15 sweep runs + 4 sigma_max ablation runs (19 in parallel)
+#   bash vast_gmm_dk_remote.sh custom d:K:Delta:seed:mult ... -> addendum 3 (sigma_max window), at most MAXP=7 concurrent
 #   bash vast_gmm_dk_remote.sh smoke   -> 2 epochs of (32,8,8)
 # Logs: /workspace/asbs/results/gmmdk_d<d>_K<K>_D<Delta>_s<seed>/stdout.log ; status in /workspace/status.txt
 set -e
@@ -18,6 +19,13 @@ run() { while [ $(jobs -rp | wc -l) -ge ${MAXP:-7} ]; do sleep 5; done   # at mo
 echo "running" > /workspace/status.txt
 if [ "$PHASE" = "smoke" ]; then
   run 32 8 8 0 num_epochs=2 eval_freq=1 use_wandb=false
+elif [ "$PHASE" = "custom" ]; then
+  # addendum 3: args "d:K:Delta:seed:mult" ; sigma_max = mult x 2 sqrt(1 + Delta^2/(2d)) ; mult != 1 -> name suffix _sx<mult>
+  shift
+  for spec in "$@"; do IFS=: read d K D s m <<< "$spec"
+    sig=$(python3 -c "import math; print(round($m*2*math.sqrt(1+$D**2/(2*$d)),6))")
+    if [ "$m" = "1" ]; then SUF="" run $d $K $D $s sigma_max=$sig; else SUF="_sx$m" run $d $K $D $s sigma_max=$sig; fi
+  done
 elif [ "$PHASE" = "sweep" ]; then
   # Addendum 1 of predictions_dk.md: Delta sweep (the 5 pilot cells already exist), 15 new runs + 4 sigma_max ablation runs
   for D in 4 5 6 7; do run 8 2 $D 0; run 8 8 $D 0; run 32 2 $D 0; done
