@@ -35,7 +35,7 @@ def is_paths(run, d, K, delta, n_is, device):
     ctrl = hydra.utils.instantiate(cfg.controller).to(device)
     ctrl.load_state_dict(torch.load(Path(run) / "controller_final.pt", map_location=device, weights_only=False)["controller"])
     sde = ControlledSDE(ref_sde, ctrl).to(device)
-    energy = hydra.utils.instantiate(cfg.energy).to(device) if hasattr(hydra.utils.instantiate(cfg.energy), "to") else hydra.utils.instantiate(cfg.energy)
+    energy = hydra.utils.instantiate(cfg.energy, device=str(device))   # DistEnergy moves its distribution to `device`
     timesteps = train_utils.get_timesteps(**cfg.timesteps).to(device)
     lws, xs, done = [], [], 0
     while done < n_is:
