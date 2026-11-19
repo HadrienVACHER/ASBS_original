@@ -579,3 +579,31 @@ Résultats (24 runs ; TV/plancher ; l'ν₁ du schéma Euler est ≈ 4 % au-dess
 - **À (d, K, Δ) fixés, ρ va dans le sens de l'hypothèse** : × 0,5 (ρ divisé par 2) retrouve tous les modes, × 2 les perd (ablation, 2 cellules).
 - Sous la règle sigma_max, ρ décroît quand Δ croît (d = 8 : 2,89 → 2,28 de Δ = 4 à 8 ; d = 32 : 4,56 → 2,89), alors que les pertes arrivent aux Δ élevés : c'était ma prédiction écrite avant (« seuil dépendant de Δ »).
 Réserves : une graine ; 24 points dont 6 à Δ = 8 et 4 ablations ; le critère est un compte d'erreurs de classification (pas un test statistique) ; K = 2 et K = 8 mélangés ; aucune grandeur de remplacement n'est testée ici.
+
+## Fenêtre de sigma_max en fonction de Δ (graine 0 ; rapport seul ; addendum 3 de `predictions_dk.md`, commit f581ea6, écrit avant)
+
+16 runs nouveaux (+ 8 réutilisés) : (d, K) = (32, 8), Δ ∈ {4, 6, 8}, et (8, 8, 8), sigma_max = m × règle, m ∈ {0,25 ; 0,5 ; 0,75 ; 1 ; 1,5 ; 2}, 1500 époques, 7 runs en parallèle (0,42–0,50 s par époque), perte finie partout. IS de chemin (20 000 trajectoires) sur les 16 nouveaux contrôleurs et sur les 24 contrôleurs du balayage en Δ. Tableau complet (d, K, Δ, graine, m, sigma_max, ρ, couverture, TV, β, ESS, k̂, TV après IS) : `figures/gmm_dk_window_table.json` ; figures `figures/gmm_dk_window_d32_K8.png` et `figures/gmm_dk_window_d8_K8.png` ; scripts `scripts/gmm_dk_window_report.py`, `scripts/gmm_dk_analysis.py --is_only`.
+**Lot 2 (graine 1) NON réalisé** : je l'ai lancé (7 runs) puis arrêté à 20:55 parce qu'il n'aurait pas fini avant le plafond de coût (0,95 s par époque avec l'IS en parallèle). Aucun résultat de graine 1 n'existe.
+
+Couverture (modes couverts / 8) en fonction du multiplicateur m (sigma_max entre parenthèses) :
+| cellule | × 0,25 | × 0,5 | × 0,75 | × 1 (règle) | × 1,5 | × 2 |
+|---|---|---|---|---|---|---|
+| (32, 8, Δ = 4) | 1 (0,56) | 8 (1,12) | 8 (1,68) | 8 (2,24) | 8 (3,35) | 8 (4,47) |
+| (32, 8, Δ = 6) | 1 (0,63) | 8 (1,25) | 7 (1,88) | 7 (2,50) | 7 (3,75) | 1 (5,00) |
+| (32, 8, Δ = 8) | 1 (0,71) | 1 (1,41) | 3 (2,12) | 3 (2,83) | 2 (4,24) | 1 (5,66) |
+| (8, 8, Δ = 8) | 1 (1,12) | 8 (2,24) | 8 (3,35) | 6 (4,47) | 2 (6,71) | 2 (8,94) |
+TV/plancher (plancher 0,014), β ± SE dans la fenêtre : (32, 8, 4) : 1,9 à 2,4 fois le plancher, β ∈ [−0,08 ; 0,00] pour m = 0,5 à 2 ; (32, 8, 6) : m = 0,5 : 5,8 fois, β = −0,02 ± 0,06 ; (8, 8, 8) : m = 0,5 : 11,1 fois, β = −0,34 ± 0,12 ; m = 0,75 : 8,7 fois, β = −0,09 ± 0,14.
+
+Meilleur sigma_max par (d, K, Δ) (graine 0 ; couverture maximale puis TV minimal ; cellules du lot) : (32, 8, 4) : × 0,75 (1,677), 8/8, TV 0,027, β = −0,03 ± 0,03, ratios 1,00 0,94 1,00 1,02 1,07 1,09 0,96 1,05 ; (32, 8, 6) : × 0,5 (1,25), 8/8, TV 0,082, β = −0,02 ± 0,06, ratios 1,18 0,90 0,80 0,98 0,95 0,98 1,12 1,01 ; (32, 8, 8) : × 0,75 ou × 1 (2,12 ou 2,83), 3/8 seulement, TV 0,611 / 0,433 (couverture égale ; le TV minimal est à × 1,5 avec 2/8 : 0,597 mais la règle maximise la couverture d'abord) : AUCUNE valeur de la grille ne couvre les 8 modes à Δ = 8 ; (8, 8, 8) : × 0,75 (3,354), 8/8, TV 0,120, β = −0,09 ± 0,14, ratios 1,15 0,75 0,72 0,97 1,66 0,84 1,31 0,96. Le tableau des autres cellules du balayage (Δ = 4 à 7, K = 2 ou 8, d = 8 ou 32, m = 1) est dans la sortie de `gmm_dk_window_report.py` et dans le JSON.
+
+IS de chemin : dans la fenêtre l'ESS est élevé et décroît quand sigma_max augmente (par exemple (32, 8, 4) : 0,875 à × 0,5, 0,50 à × 0,75, 0,25 à × 1, 0,056 à × 1,5, 0,011 à × 2 ; k̂ de 0,11 à 0,76). L'ESS n'est PAS un indicateur fiable de perte de mode : (32, 8, 8) × 0,25 (couverture 1/8) a un ESS de 0,49 et un TV après IS de 0,69 ; (32, 8, 4) × 0,25 (1/8) a un ESS de 0,001 et k̂ = 1,27. Là où des modes manquent mais sont visités, l'IS corrige en partie ((8, 8, 8) × 1 : TV 0,160 → 0,095 ; (32, 8, 6) × 1 : 0,161 → 0,049) ; quand un mode est totalement absent des trajectoires, il ne corrige rien.
+
+Confrontation avec les prédictions de l'addendum 3 (écrites avant) :
+- Première perte en montant : (8, 8, 8) × 1 prédit et observé ✓ ; (32, 8, 6) prédit × 1, observé × 0,75 (7/8, un cran plus tôt) ✗ ; (32, 8, 4) prédit × 1,5, **observé aucune perte jusqu'à × 2 (sigma_max = 4,47)** ✗ ; (32, 8, 8) prédit × 1 avec × 0,75 sans perte, **observé aucune valeur de la grille avec les 8 modes** ✗.
+- Critique bas (perte à × 0,25) : (32, 8, 8) oui ✓ ; (32, 8, 6) oui ✓ ; (8, 8, 8) oui ✓ ; (32, 8, 4) prédit non (60 %), **observé oui (1/8)** ✗. Les quatre cellules s'effondrent à × 0,25 (sigma_max entre 0,56 et 1,12).
+- Fenêtre contenant × 0,5 et × 0,75 : vraie pour (32, 8, 4) et (8, 8, 8), fausse pour (32, 8, 6) (× 0,75 perd un mode) et (32, 8, 8).
+- Hypothèse de travail « sigma_max critique haut dépend surtout de d, peu de Δ » : **contredite** à d = 32 : la fenêtre est large à Δ = 4 (m de 0,5 à 2, sigma_max de 1,1 à 4,5), étroite à Δ = 6 (m = 0,5 seulement sur la grille) et absente à Δ = 8. Ce qui est établi sur ces runs : la fenêtre en sigma_max se rétrécit quand Δ augmente et disparaît à Δ = 8 à d = 32 sur la grille testée (une graine).
+- Signe de β dans la fenêtre : d = 32 : β ≈ 0 ✓ (−0,08 à 0,00 pour Δ = 4 ; −0,02 pour Δ = 6) ; d = 8 : négatif ✓ (−0,34 à m = 0,5, −0,09 à m = 0,75). 
+- ESS prédit 0,1–0,4 à d = 32 et 0,3–0,6 à d = 8 : dans la fenêtre observé 0,25–0,88 (d = 32) et 0,47–0,57 (d = 8) : au-dessus pour d = 32 aux petits sigma_max.
+- Coût et temps : instance de 20:05 à 20:56 (50,6 min) à 0,1339 $/h, soit **environ 0,113 $, sous le plafond de 0,15 $** (ma prédiction 0,10–0,13 $ ✓) ; le lot 2 aurait fait dépasser le plafond.
+Réserves : une graine ; la grille de multiplicateurs est grossière (facteurs 1,33–2) ; à Δ = 8 les β (−3,4 ; +3,0 ; −5,5) portent sur 2–3 modes couverts et ne sont pas interprétables ; le critère de « meilleur sigma_max » est celui fixé par l'utilisateur et ne tient pas compte de l'ESS.
