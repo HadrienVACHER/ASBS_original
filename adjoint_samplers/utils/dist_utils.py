@@ -392,6 +392,19 @@ class HeteroGMM(GMM):
         return float(var.sqrt())
 
 
+class GMMDK(GMM):
+    """ (d, K, Delta) study target, defined in gmm_dk.py: K <= d unit-variance Gaussians on orthogonal axes at mutual distance Delta,
+        geometric weights (max / min = 10). `seed` is unused (the target is deterministic). """
+    def __init__(self, dim: int, K: int, delta: float, device: str = "cpu") -> None:
+        distributions.Distribution.__init__(self)
+        import gmm_dk
+        self.dim, self.K, self.seed, self.delta = dim, K, 0, delta
+        self.name = f"gmmdk{dim}d"
+        self.means = gmm_dk.means(dim, K, delta)
+        self.weights = gmm_dk.weights(K)
+        self.to(device)
+
+
 ########################################
 ######### Source Distributions #########
 ########################################

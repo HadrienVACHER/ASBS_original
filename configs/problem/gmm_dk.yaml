@@ -1,0 +1,22 @@
+# @package _global_
+
+# (d, K, Delta) study of Adjoint Sampling (gmm_dk.py): K <= d unit-variance Gaussians on orthogonal axes at mutual distance `delta`,
+# geometric weights (max/min = 10). Voronoi proportions are computed offline from the dumped evaluation samples (scripts/gmm_dk_analysis.py).
+dim: 8
+K: 4
+delta: 8.0
+
+energy:
+  _target_: adjoint_samplers.energies.dist_energy.DistEnergy
+  dist:
+    _target_: adjoint_samplers.utils.dist_utils.GMMDK
+    dim: ${dim}
+    K: ${K}
+    delta: ${delta}
+
+evaluator:
+  _target_: adjoint_samplers.components.evaluator.GMMEvaluator
+  w2_samples: 2000
+  cover_ratio: 0.1
+
+num_eval_samples: 5000

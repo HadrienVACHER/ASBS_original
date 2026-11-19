@@ -24,6 +24,14 @@ from omegaconf import OmegaConf
 OmegaConf.register_new_resolver(
     "gmm_std", lambda dim, factor=1, radius=None: factor * GMM.coord_std(dim, radius), replace=True,
 )
+def _dk_sigma(dim, delta):
+    import gmm_dk
+    return gmm_dk.sigma_max_rule(dim, delta)
+
+
+OmegaConf.register_new_resolver("dk_sigma", _dk_sigma, replace=True)
+
+
 def _hetero_std(dim, K, seed, radius_min, radius_max, scale_min, scale_max, weight_ratio, mult, min_sep=3.5,
                 layout="random", simplex_radius=4.25):
     from adjoint_samplers.utils.dist_utils import HeteroGMM
