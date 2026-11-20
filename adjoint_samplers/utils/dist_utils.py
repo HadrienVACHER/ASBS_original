@@ -406,7 +406,7 @@ class MoS(GMM):
         self.dim, self.K, self.seed = dim, K, 0
         self.name = f"mos{dim}d"
         self.means = torch.tensor(mu, dtype=torch.float32)
-        w = torch.full((K,), 1.0 / K) if weights is None else torch.tensor(weights, dtype=torch.float32)
+        w = torch.full((K,), 1.0 / K) if weights is None else torch.tensor([float(x) for x in weights], dtype=torch.float32)
         self.weights = w / w.sum()
         self._ct = math.lgamma((self.NU + 1) / 2) - math.lgamma(self.NU / 2) - 0.5 * math.log(self.NU * math.pi)
         self.to(device)

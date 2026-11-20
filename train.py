@@ -289,6 +289,8 @@ def main(cfg):
             if hasattr(matcher, "pop_stats"):
                 log_dict.update(matcher.pop_stats())
             writer.log(log_dict, step=epoch)
+            if (epoch + 1) in list(cfg.get("save_controller_epochs", []) or []) and distributed_mode.is_main_process():   # optional: controller snapshots (e.g. +save_controller_epochs=[100,200,300])
+                torch.save({"controller": {k: v.detach().cpu() for k, v in controller.state_dict().items()}, "epoch": epoch + 1}, f"controller_ep{epoch + 1}.pt")
 
             # Observer (no feedback into training): what the IMH correction would do to the current buffer
             if (cfg.get("correction_every") and stage == "adjoint" and distributed_mode.is_main_process()

@@ -1,0 +1,19 @@
+# @package _global_
+
+# MoS-w: the MoS of Beyond ELBOs (same means, t_2 components) with UNEQUAL weights log w ~ N(0, 1) (numpy default_rng(2026), renormalised), rules_mos_pilot.md. d = 50.
+dim: 50
+K: 10
+
+energy:
+  _target_: adjoint_samplers.energies.dist_energy.DistEnergy
+  dist:
+    _target_: adjoint_samplers.utils.dist_utils.MoS
+    dim: ${dim}
+    K: ${K}
+    weights: [0.037076454744, 0.104237910115, 0.012302201753, 0.33091988619, 0.155151078347, 0.061194487692, 0.059988643668, 0.111045493431, 0.062705194938, 0.065378649122]
+
+evaluator:
+  _target_: adjoint_samplers.components.evaluator.MoSEvaluator
+  p_path: figures/mog_mos_truth_mosw_d${dim}.json
+
+num_eval_samples: 5000

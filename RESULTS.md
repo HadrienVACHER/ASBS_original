@@ -842,3 +842,32 @@ Poids de la cible de 0,012 à 0,33. d = 50 : IS(n) TV 0,320, ESS 0,0006, k̂ 1,2
 
 ### Réserves
 Une graine, 300 époques (recette d'origine : 1500), grille de σ_max s'arrêtant au bord là où le seul 10/10 apparaît ; couverture mesurée sur 10⁴ échantillons ; le pilote ne vise pas à choisir σ_max au-delà de 23,2. Le TV brut final (0,267) est bien pire que celui observé aux époques 100 à 200 (≈ 0,07) : un entraînement plus court ou un arrêt anticipé aurait donné un meilleur sampler brut.
+
+## Étape 1 CPU sur le contrôleur MoS d = 50, σ_max = 23,2 : sauts du darting, témoin MALA seul, IS robustes (2026-11-20)
+
+Règles écrites avant tout calcul : `rules_mos_step1.md` (257767a). Scripts `scripts/mos_step1.py`, `scripts/dart_lib.py` ; résultats `figures/mos_step1_{a_n10000,a_n5000,b_n10000,c}.json`. **Temps par exécution :** (a) 17,3 s (n = 10⁴) et 11,7 s (essai à n = 5000, plancher 0,0166, résultats concordants) ; (b) 11,2 s ; (c) 7,1 s (2·10⁴ trajectoires) puis 30,8 s (10⁵ trajectoires). Aucune location. **Correction du rapport du pilote :** le plancher du MoS d = 50 à n = 10⁴ est 0,0123 (pas 0,0113) ; 2 × plancher = 0,0246 ; aucun verdict ne change. Échantillons de (a) et (b) : les 10⁴ échantillons terminaux du contrôleur (le TV brut est 0,2674).
+
+**(a) Darting (n = 10⁴, translation, 10 minima découverts, pas de MALA 0,781 réglé à 0,6) :**
+| S | TV | acceptation des sauts | acceptation MALA | coût (E + ∇) | couverture |
+|---|---|---|---|---|---|
+| 10 | 0,0740 | 0,466 | 0,384 | 2,03·10⁶ | 10/10 |
+| 20 | 0,0687 | 0,502 | 0,325 | 3,18·10⁶ | 10/10 |
+| 40 | 0,0523 | 0,553 | 0,277 | 5,50·10⁶ | 10/10 |
+(Essai à n = 5000 : 0,0732 / 0,0543 / 0,0508, plancher 0,0166.) Le TV baisse avec S mais reste de 4 fois le plancher à S = 40 ; l'acceptation des sauts monte de 0,47 à 0,55 quand les échantillons se rapprochent de la cible. Le coût inclut 8,8·10⁵ évaluations avant les balayages (quench de 500 échantillons qui n'atteint pas la tolérance, Hessiennes, réglage de MALA, état initial).
+
+**(b) Témoin MALA seul (mêmes échantillons, même pas 0,781, mêmes coûts totaux) :** TV 0,2679 (100 pas, coût 2,03·10⁶), 0,2645 (157 pas), **0,2614 (273 pas, coût 5,50·10⁶)**, acceptation 0,33 → 0,26 ; couverture 10/10. Le TV brut est 0,2674 : MALA seul ne corrige PRESQUE RIEN des masses.
+**H_saut : VRAIE** (TV_darting(S = 40) = 0,0523 ≤ 0,5 × 0,2614 = 0,1307, soit 5 fois mieux) : la correction des masses vient des sauts.
+
+**(c) IS de chemin et variantes robustes (trajectoires resimulées sur CPU : les log w du pilote n'avaient pas été sauvegardés ; autres graines) :**
+| n trajectoires | IS simple : TV, ESS, k̂ | PSIS : TV, ESS, k̂ | IS tronqué (√n × moyenne) : TV, ESS |
+|---|---|---|---|
+| 20 000 | 0,8997, 5·10⁻⁵, 6,79 | 0,8758, 1,1·10⁻⁴, 6,79 | 0,8990, 1,0·10⁻⁴ |
+| 100 000 | 0,8990, 1·10⁻⁵, 6,34 | 0,8697, 3·10⁻⁵, 6,34 | 0,8166, 3·10⁻⁵ |
+log Ẑ = −67,1 (20 000) et −61,8 (10⁵), vrai : 0 ; TV non pondéré des mêmes points : 0,264 à 0,266. L'IS simple à 25 000 et 50 000 trajectoires : 0,900 et 0,796. Aucune variante ne corrige : k̂ reste à 6,3–6,8 (PSIS n'est pas fiable pour k̂ > 1), le TV pondéré est le plus souvent PIRE que le TV non pondéré (0,87–0,90 contre 0,26), et l'IS tronqué ne descend qu'à 0,82 à n = 10⁵. Meilleure variante de l'IS à n = 10⁵ : 0,8166 (« comparateur tronqué » : l'IS à coût égal du darting, 2·10⁶ à 5,5·10⁶ trajectoires, n'est pas atteignable sur CPU ; le comparateur GPU du pilote à 1,07·10⁶ à 2,10·10⁶ trajectoires donnait 0,698 à 0,760).
+
+**G (règle inchangée) : FAUX pour S = 10, 20 et 40, contre l'IS simple de coût égal ET contre la meilleure variante.** La première condition est remplie avec une marge large (TV_darting ≤ 0,5 × TV_IS : 0,074 / 0,069 / 0,052 contre un seuil de 0,41 à 0,38), mais la seconde ne l'est jamais (TV_darting ≤ 2 × plancher = 0,0246 : 0,0523 à S = 40, soit 2,1 fois le seuil).
+
+**Réserves :** une graine, un seul contrôleur ; log w resimulés (pas ceux du pilote) ; PSIS = approximation de l'ajustement de Pareto par `scipy.stats.genpareto` ; comparateur robuste évalué à n = 10⁵ seulement ; le TV du darting à S = 40 (0,052) n'a pas encore atteint un plateau.
+
+### Étape 2 (proposition seulement, rien n'est loué ; code prêt et testé en local)
+Pré-requis ajoutés : `save_controller_epochs` dans `train.py` (instantanés `controller_ep100.pt`, `ep200`, `ep300`), `configs/problem/mosw.yaml` (MoS-w d = 50, poids 0,037 / 0,104 / 0,012 / 0,331 / 0,155 / 0,061 / 0,060 / 0,111 / 0,063 / 0,065), `configs/experiment/mosw_as.yaml`.

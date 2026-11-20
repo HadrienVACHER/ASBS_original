@@ -117,6 +117,7 @@ def darting(pi, X, mu, ptrue, discover=500, SW=(1, 5, 10), seed=99):
     hs = math.exp(0.5 * (lo + hi)); res["mala_step"] = hs
     rd = np.random.default_rng(seed)
     Xc = X.copy(); lp, g = pi.logp_grad(Xc); cost["E"] += n; cost["G"] += n
+    res["cost_pre_sweeps"] = cost["E"] + cost["G"]
     ja = jp = ma = mp = 0; res["by_S"] = {}
     for sweep in range(1, max(SW) + 1):
         a = vor(Xc); b = (a + 1 + rd.integers(Mk - 1, size=n)) % Mk
@@ -141,3 +142,40 @@ def darting(pi, X, mu, ptrue, discover=500, SW=(1, 5, 10), seed=99):
             pk = props(cells(Xc, mu), K)
             res["by_S"][sweep] = dict(tv=tv(pk, ptrue), jump_acc=ja / jp, mala_acc=ma / mp, cost=cost["E"] + cost["G"], coverage=int((pk >= 0.25 * ptrue).sum()))
     return res
+
+
+def mala_only(pi, X, mu, ptrue, hs, snap_costs, seed=77):
+    """ MALA alone (no jumps), the SAME step hs, from the same samples; initial state costs 2 n, each step 2 n (E and grad at the proposal); TV recorded at the steps matching each total cost in snap_costs. """
+    n, K = len(X), pi.K
+    rg = np.random.default_rng(seed); Xc = X.copy(); lp, g = pi.logp_grad(Xc)
+    steps_at = {c: int((c - 2 * n) // (2 * n)) for c in snap_costs}
+    out, acc_n, prop_n = {}, 0, 0
+    for step in range(1, max(steps_at.values()) + 1):
+        Xp = Xc + hs * g + math.sqrt(2 * hs) * rg.standard_normal(Xc.shape)
+        lpp, gp = pi.logp_grad(Xp)
+        a = lpp - lp - ((Xc - Xp - hs * gp) ** 2).sum(1) / (4 * hs) + ((Xp - Xc - hs * g) ** 2).sum(1) / (4 * hs)
+        acc = np.log(rg.random(n)) < a; acc_n += int(acc.sum()); prop_n += n
+        Xc = np.where(acc[:, None], Xp, Xc); lp = np.where(acc, lpp, lp); g = np.where(acc[:, None], gp, g)
+        for c, st in steps_at.items():
+            if st == step:
+                pk = props(cells(Xc, mu), K)
+                out[c] = dict(steps=step, tv=tv(pk, ptrue), acc=acc_n / prop_n, coverage=int((pk >= 0.25 * ptrue).sum()), cost=2 * n + 2 * n * step)
+    return out
+
+
+def psis_weights(lw):
+    """ Pareto-smoothed weights (tail replaced by quantiles of the fitted generalised Pareto, truncated at the largest raw weight) and the fitted shape (khat). """
+    w = np.exp(lw - lw.max()); n = len(w); M = int(min(0.2 * n, 3 * math.sqrt(n)))
+    order = np.argsort(w); ws = w[order].copy(); cutoff = ws[-M - 1]; tail = ws[-M:] - cutoff
+    k = float("nan"); ps = ws.copy()
+    if (tail > 0).sum() >= 10:
+        k, _, sc = genpareto.fit(tail[tail > 0], floc=0)
+        q = genpareto.ppf((np.arange(1, M + 1) - 0.5) / M, k, loc=0, scale=sc) + cutoff
+        ps[-M:] = np.minimum(q, ws[-1])
+    out = np.empty_like(w); out[order] = ps
+    return out, float(k)
+
+
+def weighted_stats(w, c, K, ptrue):
+    n = len(w)
+    return dict(tv=tv(props(c, K, w), ptrue), ess=float(w.sum() ** 2 / (n * (w ** 2).sum())))
