@@ -811,3 +811,34 @@ Variante exploratoire (5000 échantillons de découverte, coût compté) : MoG 3
 - Comparateur : IS EXACT avec une proposition synthétique ; l'IS de chemin d'AS ne sera pas meilleur ; la phase 1 le mesure sur de vrais contrôleurs. Le sampler synthétique du MoS (gaussiennes de même Hessienne) a des queues trop légères par construction, ce qui est favorable à G ; un vrai AS peut ne pas avoir cette erreur.
 - Comptage du coût : seules les évaluations d'énergie et de gradient sont comptées (le coût en passages de réseau de l'IS de chemin, ≈ nfe = 200 par trajectoire, ne l'est pas) : à discuter avant la phase 1.
 - Une graine, un seul δ = 0,1.
+
+## Pilote AS sur le MoS d = 50 et variante MoS-w (2026-11-20)
+
+Règles écrites avant tout résultat : `rules_mos_pilot.md` (8771d10). Scripts `scripts/mos_pilot_eval.py`, `scripts/dart_lib.py`, `scripts/vast_mos_pilot_remote.sh` (324c656) ; résultats `figures/mos_pilot_results.json`, `figures/mos_pilot_eval.log`, contrôleurs `figures/mos_pilot_controllers/` (3 fichiers). Offre 57456546 (RTX 3070, 0,1339 $/h), plafond dur 0,05 $.
+**Coût : au plus 0,028 $ (12,4 min comptées à 19:18:12).** Le lot a fini à 19:14 (8,2 min après la création) ; la commande de destruction a bloqué sur sa confirmation (appel de ma part dont le délai a expiré) et l'instance n'existait plus à 19:19:16 : l'instant exact de la destruction n'est donc pas relevé, la borne haute est 0,028 $. Aucun incident d'entraînement (perte finie, pas de NaN).
+
+### Pilote (MoS standard d = 50, AS seul, 300 époques, graine 0, 3 valeurs de σ_max : 5,8 ; 11,6 ; 23,2 ; 10⁴ échantillons terminaux ; 20 000 trajectoires pour l'IS de chemin)
+| σ_max | couverture | TV brut | IS de chemin : TV, ESS, k̂, log Ẑ (vrai : 0) | darting |
+|---|---|---|---|---|
+| 5,8 | 1/10 | 0,888 | 0,900, 0,0002, 3,05, −10,6 ± 0,5 | 1 minimum découvert : inapplicable |
+| 11,6 | 1/10 | 0,817 | 0,900, 0,0001, 6,45, −48,9 ± 1,0 | 1 minimum découvert : inapplicable |
+| **23,2** | **10/10** | **0,267** | 0,786, 0,0001, **7,43**, −70,6 ± 0,7 | 10 minima ; voir ci-dessous |
+Rapports p̂/p à σ_max = 23,2 : 0,42 0,93 0,40 0,92 2,63 0,41 1,31 0,40 1,73 0,84.
+**P1 : VRAI** (un seul σ_max, le plus grand de la grille, atteint 10/10 ; la grille s'arrête là : rien n'est connu au-delà de 23,2). Entraînement non stationnaire : couverture aux évaluations (époques 0, 50, …, 250) pour σ_max = 23,2 : 10, 3, 10, 10, 10, 10 et TV brut 0,248 / 0,809 / 0,091 / 0,072 / 0,069 / 0,150, puis 0,267 à la fin (les poids se dégradent entre les époques 200 et 300) ; pour 5,8 et 11,6, la couverture chute de 8 ou 10 modes à 2 modes au cours de l'entraînement.
+**Contrôleur retenu : σ_max = 23,2** (seul à 10/10 ; aucun 10/10 avec k̂ < 0,7 : règle « plus grand ESS », signalée).
+**P2 (question clé) : k̂ = 7,43 à σ_max = 23,2 (> 0,7).** Le vrai AS a des queues beaucoup trop légères pour la cible Student : ESS = 10⁻⁴, TV après IS de chemin 0,786 (plus mauvais que le TV brut 0,269 ; TV non pondéré des mêmes 20 000 points 0,269), log Ẑ = −70,6 ± 0,7 (le log Z exact vaut 0). Confirme (et dépasse) le sampler synthétique de la phase 0.
+
+### Darting post hoc sur le contrôleur retenu (descriptif ; sur les 10⁴ premiers points terminaux ; pas de MALA réglé une fois ; carte de translation)
+| S | TV darting | acceptation des sauts / MALA | coût (E + ∇) | IS de chemin à coût égal : n_IS, TV, ESS, k̂ | G |
+|---|---|---|---|---|---|
+| 1 | 0,105 | 0,46 / 0,59 | 1,07·10⁶ | 1,07·10⁶, 0,698, 0,0000, 5,79 | faux |
+| 5 | 0,080 | 0,45 / 0,42 | 1,53·10⁶ | 1,53·10⁶, 0,752, 0,0000, 5,61 | faux |
+| 10 | 0,072 | 0,47 / 0,35 | 2,10·10⁶ | 2,10·10⁶, 0,760, 0,0000, 5,59 | faux |
+Le darting fait environ 10 fois mieux que l'IS de chemin à coût égal (TV 0,07–0,10 contre 0,70–0,76) et divise par 3,7 le TV brut (0,267 → 0,072), mais **G est faux car TV_darting reste très au-dessus de 2 × plancher = 0,0226** (le plancher à n = 10⁴ vaut 0,0113). L'acceptation des sauts vaut 0,46 (1,00 sur le sampler synthétique : la forme du vrai AS n'est pas celle d'une Student) ; le TV baisse encore de S = 5 à S = 10 (0,080 → 0,072). Le coût inclut 1,0·10⁶ évaluations de gradient pour la quench (500 échantillons, 4000 pas maximum, la tolérance de convergence n'ayant pas été atteinte).
+Coût secondaire : l'IS de chemin à coût égal utilise 2,1·10⁸ à 4,2·10⁸ passages de réseau (200 par trajectoire) alors que le darting n'en fait aucun ; temps réel : IS de chemin 62 s sur GPU pour 2,1·10⁶ trajectoires, darting 21 s de CPU de l'instance (3 balayages cumulés et quench), IS de 20 000 trajectoires 0,5 s.
+
+### MoS-w (poids inégaux log w ~ N(0,1), graine 2026 ; q à poids uniformes, queues gaussiennes ; phase 0.2 refaite sur CPU)
+Poids de la cible de 0,012 à 0,33. d = 50 : IS(n) TV 0,320, ESS 0,0006, k̂ 1,26 ; darting TV 0,162 (S = 1), 0,029 (S = 5), **0,0070 (S = 10)** contre IS à coût égal 0,195 / 0,331 / 0,365 ; acceptation des sauts 0,74 / 0,63 / 0,59. d = 200 : IS(n) TV 0,481, ESS 0,0005, k̂ 1,94 ; darting 0,154 / 0,034 / **0,0105** contre IS 0,589 / 0,508 / 0,446 ; acceptation 0,73 / 0,62 / 0,59. Plancher 0,0108 et 0,0106. **G vrai aux deux dimensions à S = 10 seulement** (S = 5 : 0,029 et 0,034 > 2 × plancher). Acceptation MALA 0,59 à 0,71. Le test n'est plus trivial (acceptation < 1) et le darting le passe encore, mais il lui faut 10 balayages pour converger. Figures/fichiers : `figures/mog_mos_phase0_mosw_d{50,200}_disc500.json`.
+
+### Réserves
+Une graine, 300 époques (recette d'origine : 1500), grille de σ_max s'arrêtant au bord là où le seul 10/10 apparaît ; couverture mesurée sur 10⁴ échantillons ; le pilote ne vise pas à choisir σ_max au-delà de 23,2. Le TV brut final (0,267) est bien pire que celui observé aux époques 100 à 200 (≈ 0,07) : un entraînement plus court ou un arrêt anticipé aurait donné un meilleur sampler brut.
