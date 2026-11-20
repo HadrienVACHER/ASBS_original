@@ -26,3 +26,16 @@ Sampler brut, sans poids : TV des proportions (cellules de Voronoï = plus proch
 
 ## Lot GPU (proposition soumise AVANT toute location ; rien ne se loue sans accord explicite)
 500 époques par run, 4 runs en parallèle, évaluation tous les 50 époques ; IS de chemin des 4 contrôleurs finaux sur GPU à la fin ; instance détruite dès les résultats rapatriés. L'offre, la durée, le coût estimé et le plafond (dur) sont indiqués dans la demande à l'utilisateur et reportés ici après son accord.
+
+
+---
+# Amendement 1 (accord explicite de l'utilisateur du 2026-11-20, écrit AVANT la location)
+
+- **Offre 57456544** (RTX 3070, ≈ 0,134 $/h facturé), **plafond DUR 0,10 $** (≈ 44 min d'instance, temps compté depuis l'appel de création, échecs et attentes SSH compris). À l'approche : sauvegarder les résultats terminés, détruire l'instance, puis prévenir ; ne jamais dépasser sans accord explicite. Détruire l'instance dès les résultats rapatriés, sans attendre de réponse. T1′ : lecture acceptée par l'utilisateur (κ = 0,7 n'est pas un échec).
+- **Lot : 6 runs de 500 époques** aux cellules (8,8,8) et (32,8,6) : (a) AS seul ; (b30) AS + darting γ = 30 (valeur confirmée sur DW-4, graines 2 à 4) : **bras principal** ; (b1) AS + darting γ = 1 (valeur théorique de la quadrature 1D) : bras secondaire (descriptif : écart théorie / pratique). Mêmes hyperparamètres, même graine 0, mêmes options que l'entraînement d'origine, même buffer de départ pour les 6 runs. **Aucune autre valeur de γ, quel que soit le résultat.**
+- R_train, R_fort et R_sûreté (définis plus haut) sont évalués séparément pour b30 et b1 ; **le verdict principal est celui de b30** (R_train : dans les DEUX cellules, TV_brut(b30) ≤ 0,5 × TV_brut(a) et couverture 8/8). b1 est descriptif.
+- Descriptif : TV_brut en fonction de l'époque pour (a), (b30), (b1), pour voir si b30 oscille ou plafonne au-dessus du plancher (comme S_Q sur DW-4).
+- Tous les t, sans fenêtre (`t_focus = 0` : t uniforme ; γ appliqué à tous les t).
+- Dose ‖terme‖/‖cible‖ moyenne par tranche de κ ([0 ; 0,1), [0,1 ; 0,7), [0,7 ; 1]) rapportée à la fin pour b30 et b1 (moyenne des valeurs imprimées aux évaluations des époques 350, 400 et 450).
+- **Vérification demandée avant le lancement (faite dans le code) :** à chaque époque, `train_one_epoch` appelle `populate_buffer` M = resample_size // resample_batch_size = 1000 // 512 = 1 fois : 512 NOUVEAUX chemins sont simulés avec le contrôleur COURANT (`adjoint_matcher.sde = ControlledSDE(ref_sde, controller)`, EMA désactivée) et ajoutés au buffer, qui conserve les 10 000 plus récents (renouvellement complet en ≈ 20 époques). C'est la boucle de l'entraînement d'origine ; le matcher darting ne change que la cible de régression (`prepare_target`), pas l'échantillonnage du buffer.
+- Estimation : 6 runs en parallèle, ≈ 0,5–0,9 s par époque, 500 époques ≈ 8–12 min d'entraînement, plus installation, essai de compatibilité GPU de 3 époques, IS de chemin des 6 contrôleurs et rapatriement : ≈ 25–30 min, ≈ 0,06–0,07 $ ; arrêt d'urgence (sauvegarde + destruction) déclenché à T + 38 min au plus tard.
