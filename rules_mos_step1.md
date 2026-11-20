@@ -19,3 +19,15 @@ Si le temps CPU permet plus de trajectoires, une 2ᵉ taille (n = 10⁵) est ajo
 
 ## Étape 2 : proposition seulement (rien ne se loue)
 MoS-w (poids inégaux de la phase 0) d = 50 : un run d'AS à σ_max = 23,2, 300 époques, contrôleurs sauvegardés aux époques 100, 200, 300 (option `save_controller_epochs`, à ajouter à `train.py`) ; puis sur chaque contrôleur le protocole de l'étape 1 (IS de chemin, PSIS, IS tronqué, darting S ∈ {10, 40}, MALA seul). Offre, durée, coût et plafond soumis à l'utilisateur, qui décide au vu de l'étape 1.
+
+---
+# Amendement 1 : exécution de l'étape 2 (accord explicite de l'utilisateur, 2026-11-20 ; écrit AVANT la location)
+- Offre RTX 3070 (≈ 0,134 $/h), **plafond DUR 0,06 $ (≈ 26,8 min), arrêt d'urgence à 18 min** : à l'approche sauvegarder les résultats terminés, détruire l'instance, puis prévenir ; détruire dès les résultats rapatriés ; jamais de dépassement sans accord explicite.
+- MoS-w d = 50 (poids `configs/problem/mosw.yaml`), AS seul, σ_max = 23,2, 300 époques, graine 0, contrôleurs sauvegardés aux époques 100, 200, 300 (`controller_ep{100,200,300}.pt`) ; **les log w de l'IS de chemin sont SAUVEGARDÉS** (`is_logw_ep*.npz`, avec les cellules de Voronoï des points terminaux).
+- Évaluation de chaque contrôleur (protocole de l'étape 1) : TV brut et couverture (20 000 points terminaux) ; IS de chemin (20 000 trajectoires sur GPU) simple, PSIS, tronqué (TV, ESS, k̂, log Ẑ) ; darting post hoc S ∈ {10, 40} sur les 10⁴ premiers points terminaux (quench 500, 1 saut + 5 MALA, pas de MALA réglé une fois) ; MALA seul au coût total de S = 10 et de S = 40 ; **G** (TV_darting ≤ 0,5 × TV_IS ET ≤ 2 × plancher ; comparateur = meilleure variante de l'IS à n = 20 000, « tronqué », plus l'IS simple à coût égal pour le contrôleur de l'époque 300 si le temps le permet) et **H_saut** (TV_darting(40) ≤ 0,5 × TV_MALA seul), par contrôleur. Plancher : celui de `figures/mog_mos_truth_mosw_d50.json` (n = 10⁴).
+
+# Diagnostic CPU (descriptif, sans règle) sur le contrôleur MoS d = 50 de l'étape 1
+1. Sauts refusés (S = 10 balayages) : invalides (l'image tombe hors de la cellule j, c.-à-d. du minimum j le plus proche) contre refusés par MH ; pour les refusés, quantiles de log π(y) − log π(x) (attendu sous π : ≈ 0 au cœur des modes).
+2. Acceptation des sauts par décile de la distance de x à son minimum, sur les échantillons d'AS et sur des échantillons exacts de π (témoin), mêmes minima.
+3. TV final du darting (S = 40) décomposé : (i) erreur sur les masses par bassin (chaque échantillon assigné à son minimum par quench : descente de gradient 150 pas puis minimum le plus proche) comparée à la vérité calculée de la même façon (échantillons exacts assignés par quench) ; (ii) le reste = écart entre TV de Voronoï et TV par bassin, dû à la masse des queues qui déborde d'une cellule de Voronoï à l'autre (TV entre proportions de Voronoï et proportions par bassin de la vérité et du darting). Échantillons : n = 5000 par assignation (coût du quench).
+4. Contrôle de stationnarité : darting S = 40 (protocole complet) démarré depuis 10⁴ échantillons exacts de π ; le TV de proportions doit rester au plancher.
