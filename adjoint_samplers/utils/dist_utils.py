@@ -392,6 +392,49 @@ class HeteroGMM(GMM):
         return float(var.sqrt())
 
 
+class MoS(GMM):
+    """ Mixture of Student-t (Beyond ELBOs, targets/student_t_mixture.py): K components, each a product of independent 1D Student-t with nu = 2 degrees of freedom and scale 1 centred at mu_k, weights `weights` (equal by
+        default). Means from data/mog_mos_means.npz (the repository's jax 0.4.28 generator). Methods follow GMM (log_prob, score, assign = nearest mean, sample). """
+    NU = 2.0
+
+    def __init__(self, dim: int, K: int = 10, means_path: str = "data/mog_mos_means.npz", weights=None, device: str = "cpu") -> None:
+        distributions.Distribution.__init__(self)
+        import numpy as np, os
+        from pathlib import Path
+        root = Path(__file__).resolve().parents[2]
+        mu = np.load(root / means_path)[f"mos_K{K}_d{dim}"]
+        self.dim, self.K, self.seed = dim, K, 0
+        self.name = f"mos{dim}d"
+        self.means = torch.tensor(mu, dtype=torch.float32)
+        w = torch.full((K,), 1.0 / K) if weights is None else torch.tensor(weights, dtype=torch.float32)
+        self.weights = w / w.sum()
+        self._ct = math.lgamma((self.NU + 1) / 2) - math.lgamma(self.NU / 2) - 0.5 * math.log(self.NU * math.pi)
+        self.to(device)
+
+    def _component_logits(self, x: torch.Tensor) -> torch.Tensor:
+        u = x.unsqueeze(-2) - self.means                                              # [..., K, d]
+        return self.weights.log() + self.dim * self._ct - (self.NU + 1) / 2 * torch.log1p(u * u / self.NU).sum(-1)
+
+    def score(self, x: torch.Tensor) -> torch.Tensor:
+        u = x.unsqueeze(-2) - self.means
+        r = torch.softmax(self._component_logits(x), dim=-1)                          # [..., K]
+        g = -(self.NU + 1) * u / (self.NU + u * u)                                    # [..., K, d]
+        return (r.unsqueeze(-1) * g).sum(-2)
+
+    def assign(self, x: torch.Tensor) -> torch.Tensor:                                # nearest mean (Voronoi), as in the analysis
+        return torch.cdist(x.reshape(-1, self.dim), self.means).argmin(-1).reshape(x.shape[:-1])
+
+    def sq_dist_to_mode(self, x, k):
+        return (x - self.means[k]).pow(2).sum(-1)
+
+    def sample(self, shape: tuple) -> torch.Tensor:
+        shape = torch.Size(shape)
+        comp = torch.multinomial(self.weights, shape.numel(), replacement=True)
+        z = torch.randn(shape.numel(), self.dim, device=self.means.device)
+        chi = torch.distributions.Gamma(self.NU / 2, self.NU / 2).sample((shape.numel(), self.dim)).to(self.means.device)
+        return (self.means[comp] + z / chi.sqrt()).reshape(*shape, self.dim)
+
+
 class GMMDK(GMM):
     """ (d, K, Delta) study target, defined in gmm_dk.py: K <= d unit-variance Gaussians on orthogonal axes at mutual distance Delta,
         geometric weights (max / min = 10). `seed` is unused (the target is deterministic). """

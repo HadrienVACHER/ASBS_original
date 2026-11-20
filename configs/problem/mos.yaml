@@ -1,0 +1,18 @@
+# @package _global_
+
+# MoS (Beyond ELBOs, targets/student_t_mixture.py): K Student-t (nu = 2, scale 1) mixture, means from data/mog_mos_means.npz. Pilot: d = 50.
+dim: 50
+K: 10
+
+energy:
+  _target_: adjoint_samplers.energies.dist_energy.DistEnergy
+  dist:
+    _target_: adjoint_samplers.utils.dist_utils.MoS
+    dim: ${dim}
+    K: ${K}
+
+evaluator:
+  _target_: adjoint_samplers.components.evaluator.MoSEvaluator
+  p_path: figures/mog_mos_truth_mos_d${dim}.json
+
+num_eval_samples: 5000

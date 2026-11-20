@@ -359,3 +359,21 @@ class ManyWellEvaluator:
             **self.well_floors(B, samples.device),
         }
 
+
+
+
+class MoSEvaluator:
+    """ Mode-proportion metrics for the MoS target (no OT): Voronoi (nearest mean) proportions of the generated samples against the true ones (`p_path`, 10^6 exact draws), TV, coverage (p_hat >= 0.25 p). """
+    def __init__(self, energy, p_path: str = "figures/mog_mos_truth_mos_d50.json") -> None:
+        import json
+        from pathlib import Path
+        self.energy, self.dist = energy, energy.dist
+        self.p = torch.tensor(json.load(open(Path(__file__).resolve().parents[2] / p_path))["p"], dtype=torch.float32)
+
+    def __call__(self, samples: torch.Tensor) -> Dict:
+        k = self.dist.assign(samples)
+        ph = torch.bincount(k, minlength=self.dist.K).float() / len(samples)
+        p = self.p.to(ph.device)
+        return {"mode_tv": float(0.5 * (ph - p).abs().sum()), "modes_covered": float((ph >= 0.25 * p).float().sum()),
+                "max_abs_log_ratio": float((ph[ph >= 0.25 * p] / p[ph >= 0.25 * p]).log().abs().max()) if bool((ph >= 0.25 * p).any()) else float("nan"),
+                **{f"mode_ratio/{j}": float(ph[j] / p[j]) for j in range(self.dist.K)}}
