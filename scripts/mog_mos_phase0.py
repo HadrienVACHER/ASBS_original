@@ -91,6 +91,8 @@ def build(name, d):
         mu = MEANS[f"mog_K40_d{d}"]; w = np.full(40, 1 / 40); return Mix("G", mu, w, 1.0), mu
     if name == "mos":
         mu = MEANS[f"mos_K10_d{d}"]; w = np.full(10, 1 / 10); return Mix("S", mu, w), mu
+    if name == "mosw":                                                          # MoS with unequal weights: log w ~ N(0, 1), numpy default_rng(2026), renormalised (rules_mos_pilot.md)
+        mu = MEANS[f"mos_K10_d{d}"]; w = np.exp(np.random.default_rng(2026).standard_normal(10)); return Mix("S", mu, w / w.sum(), 1.0), mu
     if name == "mogextra":
         mu = MEANS[f"mogextra_K5_d{d}"]; w = np.full(5, 1 / 5); return Mix("G", mu, w, 1.0), mu
     raise ValueError(name)
@@ -101,6 +103,8 @@ def build_q(name, pi, mu):
     if name == "mogextra":                                                      # one mode (index 0) present but very under-represented
         w = np.full(K, (1 - 1e-3) / (K - 1)); w[0] = 1e-3
         return Mix("G", mu, w, 1.0 + DIL)
+    if name == "mosw":                                                          # uniform q weights, Gaussians of the same Hessian as the t_2 (variance 2/3)
+        return Mix("G", mu, np.full(K, 1.0 / K), math.sqrt(1.0 / ((NU + 1) / NU)))
     perm = np.random.default_rng(12345).permutation(K)                          # random geometric weights, ratio 10 (target weights are equal)
     w = 10 ** (-perm / (K - 1)); w = w / w.sum()
     if name == "mog":

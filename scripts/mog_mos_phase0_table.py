@@ -1,7 +1,7 @@
 """ Summary table of rules_mog_mos_phase0.md from figures/mog_mos_phase0_*.json (no recomputation). """
 import glob, json
 rows = [json.load(open(f)) | {"file": f} for f in sorted(glob.glob("figures/mog_mos_phase0_*_disc*.json"))]
-order = {"mog": 0, "mos": 1, "mogextra": 2}
+order = {"mog": 0, "mos": 1, "mosw": 2, "mogextra": 3}
 rows.sort(key=lambda r: (order[r["target"]], r["d"], r["discover"]))
 print(f"{'target':>9} {'d':>3} {'disc':>5} {'minima':>7} {'floor':>6} | {'IS(n) TV/ESS/khat':>22} | " + " | ".join(f"S={S}: TV_dart / TV_IS(eq cost) [ESS_IS] jump-acc  G" for S in (1, 5, 10)) + " | time")
 for r in rows:
