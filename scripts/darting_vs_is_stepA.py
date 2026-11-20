@@ -349,6 +349,7 @@ def main():
             ax.axhline(out[fam]["floor_n"], color="#52514e", lw=1, ls=":"); ax.text(ds[0], out[fam]["floor_n"] * 1.08, "floor (exact sampler, n = 10⁴)", fontsize=7.5, color="#52514e")
             ax.set(xscale="log", yscale="log", xlabel="dimension d", title=title); ax.set_xticks(ds); ax.set_xticklabels([str(v) for v in ds])
             ax.grid(color="#e4e3de", lw=0.8); ax.spines[["top", "right"]].set_visible(False); ax.set_facecolor("#fcfcfb")
+        axs[1].text(0.03, 0.04, "x: darting S = 10 with ORACLE centres (exploratory).\nNo-oracle darting stops at d = 64: the Student minima\nare not found for d >= 128 (4 of 8 minima).", transform=axs[1].transAxes, fontsize=7.5, color="#52514e")
         axs[0].set_ylabel("TV of the mode proportions"); axs[0].legend(frameon=False, fontsize=8, loc="center left")
         fig.suptitle("Darting post hoc versus exact-weight IS, K = 8, Δ = 8, δ = 0.1", x=0.01, ha="left", fontsize=10.5)
         fig.tight_layout(rect=(0, 0, 1, 0.94)); fig.savefig("figures/darting_vs_is_stepA.png", dpi=150, facecolor=fig.get_facecolor())

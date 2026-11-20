@@ -695,3 +695,50 @@ Itération CV η = 0 à ε = 0,3 (ŵ_n pour n = 1…5, w'₀ = 0,5) : 0,78312 ; 
 
 **Déviation à déclarer sur le plancher (mon opérationnalisation, non l'énoncé).** Le contrôle « u = u_* → ŵ ≈ w » est faux physiquement aux grands ε : ∫_{x>0} π = wΦ(1/ε) + (1−w)(1−Φ(1/ε)) vaut 0,771 (ε = 0,6), 0,786 (0,5), 0,796 (0,4), 0,7987 (0,35), 0,79974 (0,3), 0,79998 (0,25), à cause du recouvrement des deux composantes. Les ŵ_* calculés coïncident avec cette valeur exacte à 4,4e-5 près au plus (6,8e-6 à ε = 0,25) : l'erreur de discrétisation réelle est ≤ 4,4e-5. Mon plancher pré-enregistré (max avec |ŵ_* − w|) est donc gonflé par ce recouvrement aux ε ≥ 0,4 (2,9e-2 à 3,7e-3). Effet sur les verdicts : aucun, car les 6 ε restent au-dessus de 10 × plancher avec la définition corrigée (≤ 4,4e-4) et la partie 2 de H_AS ne dépend pas du plancher. De même, ρ = 1 ne correspond pas à « corrigé en un pas » aux grands ε : la correction parfaite vaut ρ = (ŵ_exact − 0,5)/0,3 = 0,904 (ε = 0,6), 0,955 (0,5), 0,988 (0,4), 0,996 (0,35), 0,999 (0,3), 1,000 (0,25) ; AS (ρ = 1,076) et CV (1,42) dépassent donc la cible à ε = 0,6 (la correction relative à ŵ_exact est 1,19 pour AS et 1,57 pour CV η = 0). Ces valeurs sont données ici comme lecture, sans changer les règles ni les verdicts. Le point fixe de l'itération CV (0,79969) est celui de la valeur exacte (0,79974) à 5e-5 près.
 Réserves : l'indicateur de validité de darting rend l'intégrande discontinu en x₁ (Gauss–Hermite 48 nœuds, non raffiné) ; le p(1, ·) du texte est p à w_fin = (dx/10)² de la fin ; une seule paire (w, w') et un seul σ_max.
+
+## Darting post hoc contre IS pour corriger les proportions des modes, en dimension croissante (CPU local, aucun nouvel entraînement ; 2026-11-20)
+
+Règles pré-enregistrées : `rules_darting_vs_is.md` (f31f199, trois amendements écrits avant les exécutions qu'ils concernent : 77d0151, 1b6fe90, 8436d13). Scripts `scripts/darting_vs_is_stepA.py`, `scripts/darting_vs_is_stepB.py`. **Temps : étape A 8,0 s, étape B 11,9 s** (budget 1 min chacune). Résultats : `figures/darting_vs_is_stepA.json`, `figures/darting_vs_is_stepB.json`, figure `figures/darting_vs_is_stepA.png` (TV en fonction de d, A1 et A2) ; 1re exécution de l'étape A conservée : `figures/darting_vs_is_stepA_run1_100step_quench.{json,png}`.
+
+### Étape A (K = 8, Δ = 8, δ = 0,1, n = 10⁴ ; une réalisation, graines fixées, sans barre d'erreur)
+Plancher TV d'un sampler exact à n = 10⁴ : 0,0092 (A1), 0,0098 (A2). Coûts en évaluations d'énergie : IS(n) 10⁴ ; IS(10n) 10⁵ ; darting S = 1, 2, 5, 10 : 2·10⁴, 3·10⁴, 6·10⁴, 1,1·10⁵.
+A1 (tout gaussien ; la carte de translation est exacte) :
+| d | IS n : TV, ESS, k̂ | IS 10n : TV, ESS | darting TV (S = 1 / 2 / 5 / 10) | acceptation (S = 10) |
+|---|---|---|---|---|
+| 32 | 0,0217, 0,403, 0,16 | 0,0061, 0,407 | 0,1159 / 0,0541 / 0,0081 / 0,0059 | 0,582 |
+| 64 | 0,0169, 0,245, 0,33 | 0,0046, 0,250 | 0,1232 / 0,0564 / 0,0055 / 0,0116 | 0,582 |
+| 128 | 0,0299, 0,085, 0,51 | 0,0060, 0,096 | 0,1295 / 0,0565 / 0,0134 / 0,0098 | 0,585 |
+| 256 | 0,0853, 0,026, 0,72 | 0,0077, 0,019 | 0,1258 / 0,0636 / 0,0162 / 0,0110 | 0,583 |
+| 512 | 0,1561, 0,0023, 1,00 | 0,1055, 0,0009 | 0,1218 / 0,0537 / 0,0149 / 0,0099 | 0,583 |
+A2 (Student pour k pair ; la carte de translation est fausse) :
+| d | IS n : TV, ESS, k̂ | IS 10n : TV, ESS | darting TV (S = 1 / 2 / 5 / 10), sans oracle | acceptation (S = 10) | exploratoire : darting S = 10 avec centres ORACLE (TV ; acceptation) |
+|---|---|---|---|---|---|
+| 32 | 0,0210, 0,439, 0,11 | 0,0030, 0,439 | 0,1950 / 0,1545 / 0,1415 / 0,1405 | 0,319 | 0,1388 ; 0,318 |
+| 64 | 0,0161, 0,274, 0,35 | 0,0049, 0,279 | 0,2153 / 0,1632 / 0,1145 / 0,1202 | 0,284 | 0,1154 ; 0,284 |
+| 128 | 0,0235, 0,097, 0,51 | 0,0137, 0,124 | non réalisable (4 minima sur 8) | | 0,0914 ; 0,263 |
+| 256 | 0,0473, 0,036, 0,67 | 0,0269, 0,016 | non réalisable (4 minima sur 8) | | 0,0746 ; 0,256 |
+| 512 | 0,1072, 0,0082, 0,93 | 0,0366, 0,0034 | non réalisable (4 minima sur 8) | | 0,0829 ; 0,256 |
+Contrôle δ = 0 (exploratoire) : IS ESS ≈ 0,667 (A1) et 0,672 (A2) à d = 32 et 512, TV_IS 0,007–0,009 ; darting A1 (S = 1/2/5/10) 0,127/0,047/0,0096/0,0119 (d = 32), 0,122/0,054/0,0069/0,0093 (d = 512) ; A2 d = 32 : 0,181/0,128/0,063/0,058.
+
+**Verdicts (règles telles qu'écrites).**
+- **R1 (le darting gagne) : VRAIE.** À d = 512 en A1 : ESS_IS(n) = 0,0023 < 5 %, TV_darting(S = 5) = 0,0149 et TV_darting(S = 10) = 0,0099 sont ≤ 0,5 × TV_IS(10⁵) = 0,0528 et ≤ 2 × plancher = 0,0184 (hits (512, 5) et (512, 10) ; variante S = 10 seul : vraie aussi). À d = 256 (ESS 0,026 < 5 %), le darting (0,0110) ne passe pas le seuil 0,5 × 0,0077 (IS à 10⁵ y est encore bon). L'IS à 10⁵ ne devient mauvais qu'à d = 512 (TV 0,1055, ESS = 0,09 % soit environ 90 échantillons effectifs sur 10⁵).
+- **R2 (le darting perd) : (a) NON ÉVALUABLE, (b) VRAIE ; R2 non établie telle qu'écrite.** (a) L'acceptation à d = 512 ne peut pas être mesurée : sans oracle, la quench ne retrouve que 4 minima sur 8 à d ≥ 128 (les modes gaussiens), donc le darting ne tourne pas. (b) TV_darting(S = 10) vaut 0,1405 et 0,1202 à d = 32 et 64, soit bien plus que TV_IS(10⁵) = 0,0030 et 0,0049 (et que TV_IS(10⁴) = 0,0210 et 0,0161) : le darting perd déjà à d = 32.
+- **R3 (réel) : VRAIE.** Voir l'étape B.
+
+**Pourquoi A2 casse l'étape de découverte des minima (diagnostic, vérifié numériquement).** Le gradient analytique est exact (écart < 1e-8 avec les différences finies). Pour d ≳ 141 (0,226 d > 32), la densité en m_k des queues gaussiennes des modes voisins (≈ e^(−32 − 0,919 d)) dépasse le pic de la composante Student normalisée à Hessienne I (e^(−1,145 d)) : le mélange n'a plus de minimum local au centre des composantes Student, et la descente de gradient converge vers le mode gaussien dominant (238 des 253 échantillons Student convergent vers le mode 1 à d = 128). Les Hessiennes du mélange A2 aux minima ne sont de plus pas égales à I (écart ≈ 3e-3, responsabilités non nulles des composantes voisines à queues lourdes), donc la carte complète avec jacobien √(det H_k/det H_j) a dû être utilisée en A2 (amendement 1).
+**Lecture exploratoire (oracle).** Avec les centres connus et la translation, l'acceptation ne s'effondre pas avec d : 0,318, 0,284, 0,263, 0,256, 0,256 (rapport d = 512 / d = 32 = 0,81, au-dessus du seuil 0,5 de R2(a)) ; la TV du darting reste à 0,07–0,14, très au-dessus du plancher (0,0098), et est supérieure à celle de l'IS(10⁵) à tout d (0,0030 à 0,0366). Donc A2 fait perdre le darting par un biais de forme (la chaîne n'équilibre pas la forme intra-mode) et non par une chute d'acceptation. Aucune de ces valeurs n'entre dans un verdict.
+
+### Étape B (graine 0, sigma_max × 0,5, cellules à 8/8 ; 10⁴ trajectoires simulées sur CPU, mêmes 10⁴ points terminaux pour l'IS de chemin et le darting)
+**La graine 1 est exclue de la comparaison** : ses contrôleurs n'ont pas été conservés (seuls les log w et les JSON), le darting y est impossible sans réentraînement, exclu. Pour information, l'IS de chemin sauvegardé de la graine 1 (20 000 trajectoires) donne TV 0,009 (ESS 0,629), 0,009 (0,874) et 0,006 (0,626) pour (8,8,8), (32,8,4), (32,8,6) × 0,5.
+| cellule | TV AS | IS de chemin : TV, ESS, k̂ | darting S = 1 : TV, acc | S = 5 : TV, acc | S = 10 : TV | plancher (n = 10⁴) | carte |
+|---|---|---|---|---|---|---|---|
+| (8, 8, 8) | 0,1909 | 0,0096, 0,554, 0,32 | 0,0638, 0,646 | 0,0110, 0,590 | 0,0053 | 0,0095 | translation (H = I à 1e-6) |
+| (32, 8, 4) | 0,0383 | 0,0076, 0,879, 0,06 | 0,0206, 0,533 | 0,0096, 0,529 | 0,0097 | 0,0098 | Hessiennes (recouvrement des modes) |
+| (32, 8, 6) | 0,0830 | 0,0094, 0,643, 0,27 | 0,0254, 0,548 | 0,0061, 0,553 | 0,0052 | 0,0095 | Hessiennes |
+**R3 : VRAIE** : TV_darting(S = 5) = 0,0110, 0,0096, 0,0061 contre 2 × TV_IS = 0,0193, 0,0152, 0,0188 (rapports darting/IS = 1,15 ; 1,26 ; 0,65). Les deux méthodes ramènent la TV au niveau du plancher.
+Pour mémoire, (32, 8, 8) × 0,5 (modes absents, exclu de la comparaison) : AS 1/8 modes (TV 0,671) ; l'IS de chemin atteint 5/8 modes (TV 0,197, ESS 0,034) ; sans oracle la quench ne retrouve que 2 minima sur 8 ; le darting entre ces 2 minima donne 2/8 modes couverts (TV 0,528) : il ne peut pas créer les modes absents.
+
+### Déviations et réserves
+- L'étape A a été exécutée 3 fois à cause des amendements 1 à 3 (7,5 s, 7,8 s puis 8,0 s ; résultats identiques d'une exécution à l'autre, l'amendement 2 n'ayant eu aucun effet) ; le script B a d'abord déclaré à tort le darting « n/a » pour (32,8,4) et (32,8,6) (oubli de l'appel de la carte générale quand H ≠ I à 1e-6, corrigé sans changement de règle).
+- Une seule réalisation par configuration (graines fixées) : pas de barre d'erreur ; les écarts de TV de l'ordre de 0,003 à 0,005 autour du plancher (0,009–0,010) ne sont pas interprétables. δ = 0,1 et Δ = 8 uniques. L'IS utilise les poids exacts π/q (meilleur cas) ; l'IS de chemin réel fait moins bien en général (étape B : même niveau que le darting).
+- Le darting corrige les poids des modes mais pas la forme intra-mode ; la métrique est la TV des proportions de cellules de Voronoï.
