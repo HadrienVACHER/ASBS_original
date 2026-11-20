@@ -1,0 +1,14 @@
+/workspace/asbs/train.py:66: Hydra14MigrationWarning: 
+version_base="1.1" selects Hydra 1.1 compatibility behavior.
+Hydra 1.4 will remove this compatibility behavior.
+Before upgrading to Hydra 1.4, set version_base="1.3" and test your application.
+See https://hydra.cc/docs/upgrades/1.3_to_1.4/prepare_for_1_4/ for preparation instructions.
+  @hydra.main(config_path="configs", config_name="train.yaml", version_base="1.1")
+/opt/conda/lib/python3.11/site-packages/torch/distributions/distribution.py:56: UserWarning: <class 'adjoint_samplers.utils.dist_utils.MoS'> does not define `arg_constraints`. Please set `arg_constraints = {}` or initialize the distribution with `validate_args=False` to turn off validation.
+  warnings.warn(
+ep100: raw TV 0.234 cov 10/10 | path IS n=20000: simple TV 0.727 ESS 0.00014 khat 6.44 logZ -97.0; PSIS TV 0.682; trunc TV 0.527 | darting minima 10 S10: TV 0.2005 jump acc 0.14 S40: TV 0.1899 jump acc 0.13 | MALA-only 0.234 0.235 | G {10: False, 40: False} H_saut False | times: sim 0.8 s, darting CPU 43 s
+ep200: raw TV 0.208 cov 10/10 | path IS n=20000: simple TV 0.845 ESS 0.00005 khat 1.26 logZ -52.7; PSIS TV 0.467; trunc TV 0.842 | darting minima 10 S10: TV 0.1188 jump acc 0.23 S40: TV 0.0887 jump acc 0.27 | MALA-only 0.209 0.211 | G {10: False, 40: False} H_saut True | times: sim 0.5 s, darting CPU 41 s
+ep300: raw TV 0.291 cov 10/10 | path IS n=20000: simple TV 0.826 ESS 0.00005 khat 8.08 logZ -78.5; PSIS TV 0.511; trunc TV 0.480 | darting minima 8 S10: TV 0.1441 jump acc 0.25 S40: TV 0.1207 jump acc 0.28 | MALA-only 0.307 0.307 | G {10: False, 40: False} H_saut True | times: sim 0.5 s, darting CPU 45 s
+  equal cost S=10: darting TV 0.1441 vs simple path IS n=2.02e+06 (used 2.02e+06): TV 0.7457 ESS 0.00000 khat 6.05; network passes 4.05e+08
+  equal cost S=40: darting TV 0.1207 vs simple path IS n=5.41e+06 (used 4.40e+06 TRUNCATED): TV 0.8412 ESS 0.00000 khat 5.83; network passes 1.08e+09
+total 361.0 s
