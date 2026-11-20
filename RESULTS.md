@@ -609,3 +609,42 @@ Confrontation avec les prédictions de l'addendum 3 (écrites avant) :
 Réserves : une graine ; la grille de multiplicateurs est grossière (facteurs 1,33–2) ; à Δ = 8 les β (−3,4 ; +3,0 ; −5,5) portent sur 2–3 modes couverts et ne sont pas interprétables ; le critère de « meilleur sigma_max » est celui fixé par l'utilisateur et ne tient pas compte de l'ESS.
 
 **Conclusion sur l'IS de chemin (décision de l'utilisateur, 2026-11-20).** Dans les 3 cellules à couverture 8/8 au meilleur sigma_max ((32, 8, 4) × 0,75, (32, 8, 6) × 0,5, (8, 8, 8) × 0,75), l'IS de chemin ramène le TV au niveau du plancher (0,007 ; 0,007 ; 0,012 contre un plancher d'environ 0,009–0,010 à 10 000 échantillons effectifs, extrapolation en 1/√N du plancher 0,014 à 5000). Les modes jamais visités ne sont pas corrigés : à (32, 8, 8) × 1 (3/8) le TV passe seulement de 0,433 à 0,324. Les ratios p̂/p par mode après IS n'avaient pas été sauvegardés.
+
+## Critère de choix de sigma_max par log Ẑ de l'IS de chemin (règle de l'addendum 4 de `predictions_dk.md`, commit d7170f6, non modifiée ; une graine ; évaluation du 2026-11-20)
+
+IS de chemin (20 000 trajectoires) sur les 24 contrôleurs des 4 cellules × 6 multiplicateurs, avec sauvegarde des log w (`is_logw.pt`, dans `results/gmm_dk_logz/logw.tar.gz`, hors dépôt) et des proportions pondérées par mode ; log Ẑ = logsumexp(log w) − log N, SE par la méthode delta ; scripts `scripts/gmm_dk_analysis.py --is_only`, `scripts/gmm_dk_logz_eval.py` ; JSON `figures/gmm_dk_logz_eval.json`, `figures/gmm_dk_logz_is_{0,1,2}.json`. Le log Z exact de la cible est 0. Coût : 10,4 min d'instance à 0,1339 $/h, soit environ 0,023 $ (dont 7,5 min perdues sur une première instance tombée à l'état `exited` sans ouvrir SSH, détruite).
+
+Tableau (cellule (d, K, Δ), m = multiplicateur de la règle, sigma_max, couverture, log Ẑ ± SE, ESS, k̂, TV AS → TV après IS) :
+| cellule | m | sigma_max | cov | log Ẑ ± SE | ESS | k̂ | TV AS → IS |
+|---|---|---|---|---|---|---|---|
+| (8, 8, 8) | 0,25 | 1,118 | 1/8 | −0,186 ± 0,103 | 0,005 | 4,53 | 0,765 → 0,119 |
+| (8, 8, 8) | 0,5 | 2,236 | 8/8 | −0,001 ± 0,006 | 0,571 | 0,20 | 0,153 → 0,008 |
+| (8, 8, 8) | 0,75 | 3,354 | 8/8 | −0,004 ± 0,007 | 0,488 | 0,18 | 0,120 → 0,005 |
+| (8, 8, 8) | 1 | 4,472 | 6/8 | −0,103 ± 0,010 | 0,355 | 0,34 | 0,160 → 0,094 |
+| (8, 8, 8) | 1,5 | 6,708 | 2/8 | −0,780 ± 0,012 | 0,266 | 0,31 | 0,552 → 0,541 |
+| (8, 8, 8) | 2 | 8,944 | 2/8 | −0,542 ± 0,031 | 0,049 | 0,63 | 0,535 → 0,413 |
+| (32, 8, 4) | 0,25 | 0,559 | 1/8 | +0,044 ± 0,242 | 0,001 | 1,16 | 0,637 → 0,323 |
+| (32, 8, 4) | 0,5 | 1,118 | 8/8 | +0,002 ± 0,003 | 0,879 | 0,03 | 0,027 → 0,004 |
+| (32, 8, 4) | 0,75 | 1,677 | 8/8 | −0,011 ± 0,007 | 0,499 | 0,21 | 0,027 → 0,011 |
+| (32, 8, 4) | 1 | 2,236 | 8/8 | +0,000 ± 0,013 | 0,241 | 0,32 | 0,028 → 0,015 |
+| (32, 8, 4) | 1,5 | 3,354 | 8/8 | −0,004 ± 0,031 | 0,050 | 0,53 | 0,028 → 0,043 |
+| (32, 8, 4) | 2 | 4,472 | 8/8 | −0,046 ± 0,044 | 0,025 | 0,62 | 0,034 → 0,062 |
+| (32, 8, 6) | 0,25 | 0,625 | 1/8 | +0,193 ± 0,333 | 0,000 | 1,50 | 0,673 → 0,234 |
+| (32, 8, 6) | 0,5 | 1,250 | 8/8 | +0,000 ± 0,005 | 0,635 | 0,26 | 0,082 → 0,009 |
+| (32, 8, 6) | 0,75 | 1,875 | 7/8 | −0,003 ± 0,020 | 0,115 | 0,35 | 0,111 → 0,021 |
+| (32, 8, 6) | 1 | 2,500 | 7/8 | +0,012 ± 0,030 | 0,052 | 0,47 | 0,161 → 0,024 |
+| (32, 8, 6) | 1,5 | 3,750 | 7/8 | +0,019 ± 0,058 | 0,015 | 0,69 | 0,072 → 0,049 |
+| (32, 8, 6) | 2 | 5,000 | 1/8 | −52,258 ± 0,977 | 0,000 | 3,94 | 0,694 → 0,700 |
+| (32, 8, 8) | 0,25 | 0,707 | 1/8 | −1,192 ± 0,007 | 0,533 | 0,20 | 0,697 → 0,694 |
+| (32, 8, 8) | 0,5 | 1,414 | 1/8 | −0,071 ± 0,072 | 0,010 | 0,44 | 0,668 → 0,137 |
+| (32, 8, 8) | 0,75 | 2,121 | 3/8 | −0,402 ± 0,022 | 0,094 | 0,33 | 0,611 → 0,324 |
+| (32, 8, 8) | 1 | 2,828 | 3/8 | −0,435 ± 0,024 | 0,079 | 0,47 | 0,433 → 0,323 |
+| (32, 8, 8) | 1,5 | 4,243 | 2/8 | −0,700 ± 0,048 | 0,021 | 0,58 | 0,597 → 0,480 |
+| (32, 8, 8) | 2 | 5,657 | 1/8 | −2,178 ± 0,079 | 0,008 | 0,71 | 0,887 → 0,886 |
+
+**Verdict de la règle (appliquée telle qu'écrite) : critère validé, 3 cellules sur 3.** (32, 8, 4) : tous les runs sont à égalité à 2 SE près (le max de log Ẑ est le run × 0,25 collapsé, +0,044 ± 0,242) ; départage par l'ESS : × 0,5 (sigma_max 1,118, 8/8, ESS 0,879) ; meilleur réel × 0,75 (1,677, 8/8, TV 0,027). (32, 8, 6) : égalités {× 0,25, 0,5, 0,75, 1, 1,5} ; choisi × 0,5 (1,25, 8/8, ESS 0,635) = meilleur réel. (8, 8, 8) : égalités {× 0,25, 0,5, 0,75} ; choisi × 0,5 (2,236, 8/8, ESS 0,571) ; meilleur réel × 0,75 (3,354, 8/8, TV 0,120). (32, 8, 8) (pas de 8/8 dans la grille, hors règle) : choisi × 0,5 (1,414, 1/8, ESS 0,010, seul run dans les 2 SE du max −0,071 ± 0,072), alors que le meilleur réel est × 1 (3/8) : le critère y choisit un mauvais run.
+**Réserve essentielle : le succès vient du départage par l'ESS, pas de log Ẑ.** Dans (32, 8, 4) et (32, 8, 6), l'argmax de log Ẑ seul est le run effondré × 0,25 (1/8), avec une SE de 0,24 et 0,33 qui le rend indiscernable des runs à 8/8 ; sans le départage par l'ESS le critère échouerait dans ces deux cellules. Au choix du plus petit sigma_max de la fenêtre (le plus grand ESS), il réussit parce que, dans ces cellules, l'ESS est très faible au × 0,25 (0,001 et 0,000). Ma prédiction (65 % de validation, point faible attendu : un × 0,25 effondré avec un grand ESS) : validation observée ; le point faible n'apparaît que dans la cellule hors règle (32, 8, 8) × 0,25 (ESS 0,533, 1/8).
+Au meilleur sigma_max réel des 3 cellules à 8/8, ratios p̂/p après IS de chemin : (32, 8, 4) × 0,75 : 1,00 1,01 1,03 0,95 0,97 1,02 1,04 0,92 ; (32, 8, 6) × 0,5 : 1,01 1,01 0,98 0,98 0,99 1,05 0,94 1,01 ; (8, 8, 8) × 0,75 : 1,00 1,01 1,00 1,02 1,00 0,96 0,96 1,00 (ratios AS correspondants : 1,00 0,94 1,00 1,02 1,07 1,09 0,96 1,05 ; 1,18 0,90 0,80 0,98 0,95 0,98 1,12 1,01 ; 1,15 0,75 0,72 0,97 1,66 0,84 1,31 0,96). Au meilleur sigma_max de (32, 8, 8) × 1 : 1,55 1,36 1,51 0,00 0,002 0,00 0,006 0,008 (les 5 modes les plus légers sont absents).
+
+**Sans règle : log Ẑ contre le log de la masse cible couverte** (somme des p_k des modes couverts par l'AS, p̂ ≥ 0,25 p ; colonne « log Ẑ − log M » dans `figures/gmm_dk_logz_eval.json`). log Ẑ suit log M à ±0,05 pour 17 runs sur 24 (18 sur 24 à 2 SE près) : par exemple (8, 8, 8) × 1,5 : −0,780 contre −0,779 ; (32, 8, 8) × 0,25 : −1,192 contre −1,197 ; (32, 8, 8) × 2 : −2,178 contre −2,184. Le critère mesure donc bien la masse atteinte par les trajectoires quand les modes perdus sont réellement absents. Il s'écarte dans 6 runs : (i) × 0,25 des trois cellules à 1/8 et (32, 8, 8) × 0,5 : log Ẑ dépasse log M de +1,1 à +1,4 (parfois avec une SE de 0,07–0,10 en (8, 8, 8) et (32, 8, 8)) : l'IS atteint de la masse dans des modes que l'AS ne couvre pas au seuil 0,25 p (visites rares) ; (ii) (8, 8, 8) × 2 : +0,24 ± 0,03 ; (iii) (32, 8, 6) × 2 : log Ẑ = −52 ± 0,98 (k̂ = 3,94, ESS 0,000) : effondrement de l'estimateur, très au-dessous de log M = −1,20. Corrélation entre log Ẑ et log M (hors le run à −52) : 0,65. Un log Ẑ très négatif accompagne bien une perte de masse dans ces runs, mais un log Ẑ proche de 0 n'implique pas la couverture (× 0,25 : +0,04, +0,19, −0,19 avec 1/8).
+Réserves : une graine ; 24 points ; la couverture « 0,25 p » est le critère de l'étude, pas celui d'Ẑ ; les ESS de départage varient de 0,000 à 0,879 sur une grille de multiplicateurs grossière.
