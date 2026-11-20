@@ -12,6 +12,7 @@ import matplotlib.pyplot as plt
 
 T0 = time.perf_counter()
 QUICK = "--quick" in sys.argv
+QUENCH_MAX = 4000
 K, DELTA_M, NU, SC2, DIL = 8, 8.0, 3.0, 4.0 / 3.0, 0.1
 MM = DELTA_M / math.sqrt(2)
 SC = math.sqrt(SC2)
@@ -129,8 +130,11 @@ def grad_neglogpi(X, fam):
 def discover_minima(x500, fam, steps=100, lr=0.7, merge_tol=0.5, min_count=5):
     """ quench the q samples by gradient descent on -log pi, greedy merge, keep minima reached by >= min_count samples; Hessians by central differences of the analytic gradient. """
     y = x500.copy()
-    for _ in range(steps):
-        y -= lr * grad_neglogpi(y, fam)
+    for it in range(QUENCH_MAX):                                                # quench until >= 95% of the samples have |grad| < 1e-3 (amendment 2: 100 steps left heavy-tailed starts unconverged)
+        g = grad_neglogpi(y, fam)
+        y -= lr * g
+        if it >= steps - 1 and it % 25 == 0 and (np.linalg.norm(g, axis=1) < 1e-3).mean() >= 0.95:
+            break
     mins, cnt = [], []
     for p in y:
         if mins:
