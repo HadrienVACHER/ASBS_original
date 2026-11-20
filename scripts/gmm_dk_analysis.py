@@ -65,7 +65,7 @@ def analyse(run, n_is, do_is, is_only=False):
         lw, x = is_paths(run, d, K, delta, n_is, dev)
         w = torch.softmax(lw.double(), 0)
         out.update(is_n=n_is, is_ess_frac=float(1.0 / (w ** 2).sum() / len(w)), is_khat=khat(lw),
-                   is_tv_weighted=G.tv(G.proportions(x, d, K, delta, w), p), is_tv_unweighted=G.tv(G.proportions(x, d, K, delta), p), **logz(lw))
+                   is_tv_weighted=G.tv(G.proportions(x, d, K, delta, w), p), is_tv_unweighted=G.tv(G.proportions(x, d, K, delta), p), is_p_w=[float(v) for v in G.proportions(x, d, K, delta, w)], is_p_unw=[float(v) for v in G.proportions(x, d, K, delta)], **logz(lw))
         return out
     files = sorted(glob.glob(str(Path(run) / "eval_samples" / "ep*.pt")))
     last = files[-10:]
@@ -81,7 +81,7 @@ def analyse(run, n_is, do_is, is_only=False):
         lw, x = is_paths(run, d, K, delta, n_is, dev)
         w = torch.softmax(lw.double(), 0)
         out.update(is_n=n_is, is_ess_frac=float(1.0 / (w ** 2).sum() / len(w)), is_khat=khat(lw),
-                   is_tv_weighted=G.tv(G.proportions(x, d, K, delta, w), p), is_tv_unweighted=G.tv(G.proportions(x, d, K, delta), p), **logz(lw))
+                   is_tv_weighted=G.tv(G.proportions(x, d, K, delta, w), p), is_tv_unweighted=G.tv(G.proportions(x, d, K, delta), p), is_p_w=[float(v) for v in G.proportions(x, d, K, delta, w)], is_p_unw=[float(v) for v in G.proportions(x, d, K, delta)], **logz(lw))
     return out
 
 
