@@ -268,6 +268,9 @@ def run_config(fam, d, dil, rng, ptrue, do10, tlimit):
         res["map"] = "translation (H = I to 1e-6)" if herr < 1e-6 else "general Hessian map"
         snaps = darting_chain(xK, sq, Ft, fam, d, rng) if herr < 1e-6 else darting_chain_general(x, fam, d, mins, Hs, rng)
         res["darting"] = {S: dict(tv=tv(props(snaps[S][0]), ptrue), acc=snaps[S][1], cost=N * (1 + S)) for S in SWEEPS}
+    if fam == "A2" and dil > 0:                                                   # exploratory (amendment 3): oracle centres, translation map m_j - m_k (the "linear map" of the statement)
+        sn = darting_chain(xK, sq, Ft, fam, d, np.random.default_rng(777 + d))
+        res["darting_oracle"] = {S: dict(tv=tv(props(sn[S][0]), ptrue), acc=sn[S][1]) for S in SWEEPS}
     res["time_s"] = time.perf_counter() - t0
     return res
 
@@ -292,6 +295,9 @@ def main():
             dd = r["darting"]
             print(f"{fam} d={d:3d}: IS(n) TV {r['IS_n']['tv']:.4f} ESS {r['IS_n']['ess']:.4f} khat {r['IS_n']['khat']:.2f}" + (f" | IS(10n) TV {r['IS_10n']['tv']:.4f} ESS {r['IS_10n']['ess']:.4f}" if r['IS_10n'] else " | IS(10n) skipped")
                   + (" | darting TV " + " ".join(f"S{S}:{dd[S]['tv']:.4f}" for S in SWEEPS) + f" | acc S10 {dd[10]['acc']:.3f}" if dd else " | " + r.get("error", "")) + f" | floor(n) {floor_n:.4f} | minima {r['minima']} | {r['time_s']:.1f} s | total {time.perf_counter() - T0:.1f} s")
+        for r in out[fam]["rows"]:
+            if r.get("darting_oracle"):
+                do = r["darting_oracle"]; print(f"{fam} d={r['d']:3d} EXPLORATORY oracle translation: darting TV " + " ".join(f"S{S}:{do[S]['tv']:.4f}" for S in SWEEPS) + f" | acc S10 {do[10]['acc']:.3f}")
         for d in ([DS[0], DS[-1]] if not QUICK else DS[:1]):                  # exploratory control delta = 0
             rng = np.random.default_rng(5000 + d)
             r = run_config(fam, d, 0.0, rng, ptrue, False, None)
@@ -320,7 +326,11 @@ def main():
     total = time.perf_counter() - T0
     print(f"\nR1 (A1: ESS_IS<5% and TV_darting(S) <= 0.5 TV_IS(10n) and <= 2 floor): {'TRUE' if R1 else 'FALSE'}  hits (d, S): {r1_hits}  (S=10 only: {r1_hits10})")
     fa = (f"{a512[10]['acc']:.3f} vs {a32[10]['acc']:.3f}" if (a32 and a512) else "n/a")
-    print(f"R2 (A2: acceptance(d={DS[-1]},S=10) < 0.5 acceptance(d={DS[0]},S=10) [{cond_a}: {fa}] and exists d with TV_darting(S=10) > TV_IS [{cond_b}]): {'TRUE' if R2 else 'FALSE (A2 does not break the map as specified)'}  (d, > IS(ref), > IS(n)): {b_list}")
+    fa = (f"{a512[10]['acc']:.3f} vs {a32[10]['acc']:.3f}" if (a32 and a512) else "n/a: darting could not run at d = 512 (minima not discoverable without an oracle)")
+    verdict2 = "TRUE" if R2 else ("(a) NOT EVALUABLE; (b) " + str(cond_b) if not (a32 and a512) else "FALSE (A2 does not break the map as specified)")
+    print(f"R2 (A2: acceptance(d={DS[-1]},S=10) < 0.5 acceptance(d={DS[0]},S=10) [{cond_a}: {fa}] and exists d with TV_darting(S=10) > TV_IS [{cond_b}]): {verdict2}  (d, > IS(ref), > IS(n)): {b_list}")
+    acc_or = [(r["d"], round(r["darting_oracle"][10]["acc"], 3)) for r in A2["rows"] if r.get("darting_oracle")]
+    print(f"EXPLORATORY (oracle translation, A2): acceptance S=10 by d: {acc_or}")
     print(f"TOTAL TIME {total:.1f} s (budget 60 s){'  *** OVER BUDGET ***' if total > 60 else ''}")
     json.dump(dict(out=out, R1=R1, R1_hits=r1_hits, R2=R2, R2_cond_a=cond_a, R2_cond_b=cond_b, R2_b=b_list, total_time_s=total, n=N, n10=N10, ds=DS), open("/tmp/stepA_quick.json" if QUICK else "figures/darting_vs_is_stepA.json", "w"), indent=1, default=float)
     if not QUICK:
@@ -333,6 +343,9 @@ def main():
             for S, mk, ls in zip(SWEEPS, ("^", "v", "D", "s"), (":", "-.", "--", "-")):
                 rr = [(r["d"], r["darting"][S]["tv"]) for r in rows if r["darting"]]
                 ax.plot([a for a, _ in rr], [b for _, b in rr], color="#eb6834", marker=mk, ms=6, lw=1.6, ls=ls, label=f"darting, S = {S}")
+            if fam == "A2":
+                ro = [(r["d"], r["darting_oracle"][10]["tv"]) for r in rows if r.get("darting_oracle")]
+                if ro: ax.plot([a for a, _ in ro], [b for _, b in ro], color="#52514e", marker="x", ms=7, lw=1.4, ls="--", label="darting S = 10, ORACLE centres (exploratory)")
             ax.axhline(out[fam]["floor_n"], color="#52514e", lw=1, ls=":"); ax.text(ds[0], out[fam]["floor_n"] * 1.08, "floor (exact sampler, n = 10⁴)", fontsize=7.5, color="#52514e")
             ax.set(xscale="log", yscale="log", xlabel="dimension d", title=title); ax.set_xticks(ds); ax.set_xticklabels([str(v) for v in ds])
             ax.grid(color="#e4e3de", lw=0.8); ax.spines[["top", "right"]].set_visible(False); ax.set_facecolor("#fcfcfb")
