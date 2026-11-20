@@ -1,0 +1,13 @@
+# @package _global_
+
+# (d, K, Delta) study, AS + the minimum-to-minimum DARTING control variate (gamma = 1). EXACTLY the config of gmm_dk_as (1500-epoch recipe, same optimiser and network); only the matcher changes.
+# Continuation runs (rules_train_darting.md): add init_controller=<controller_final.pt of the seed-0 run>, init_buffer=<its end points>, num_epochs=<continuation length>.
+
+defaults:
+  - gmm_dk_as
+  - override /matcher@adjoint_matcher: adjoint_ve_gmm_darting
+
+exp_name: gmm_dk_as_darting_d${dim}_K${K}_D${delta}
+
+adjoint_matcher:
+  gamma: 1.0

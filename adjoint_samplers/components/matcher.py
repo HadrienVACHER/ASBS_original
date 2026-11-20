@@ -1002,6 +1002,91 @@ class AdjointVEDW4DartingMatcher(AdjointVEMatcher):
         return out
 
 
+class AdjointVEGMMDartingMatcher(AdjointVEMatcher):
+    """ AS on isotropic GMM targets (GMM-dk study) with the minimum-to-minimum DARTING control variate in the regression target (adjoint_samplers/utils/gmm_darting.py; tests/test_gmm_darting.py):
+
+            target = - (grad E + grad log p^base_1)(X1) + gamma * c(X1, X_t),   c = (1 / nu_{1|t}) sum_j omega_j (Y_j - X1) / (M - 1),   omega = Barker weight,
+
+        the same normalisation as AdjointVEDW4DartingMatcher (term = gamma h / nu_{1|t} added to the repository's target -grad g(X1), without the factor sigma_t that multiplies both
+        terms in the control parametrisation). Differences with the DW-4 matcher: the minima are not analytic: minima (quench of buffer samples, merge, Hessians) are DISCOVERED from the buffer
+        when the first samples enter it and refreshed every `refresh_every` epochs (calls of populate_buffer); the DW-4 darting runs have no refresh (analytic kernel). The proposals are computed at
+        regression time (cheap, d = 32) in float64. Zero mean under pi(. | x_t) holds for any FIXED minima set (the set is frozen between refreshes); the 1 / n self-dependence of minima fitted
+        on the buffer (500 samples out of 10 000) is neglected.
+    """
+    def __init__(self, gamma: float = 1.0, refresh_every: int = 25, n_minima_samples: int = 500, stats_every: int = 10, **kwargs):
+        super().__init__(**kwargs)
+        energy = self.grad_term_cost.energy
+        assert hasattr(energy, "dist") and hasattr(energy.dist, "means"), "GMM target (energy.dist.means) required"
+        self.gamma, self.refresh_every, self.n_minima_samples, self.stats_every = gamma, refresh_every, n_minima_samples, stats_every
+        self.v_scale = 1.0  # test hook: multiplies v_t inside the Gaussian factor ONLY; 1.0 in all runs
+        self.maps, self._pop, self._step, self._stats, self._info = None, 0, 0, {}, {}
+
+    def _nu(self, t):
+        return self.sde.ref_sde._pt_gauss_param(t, torch.zeros_like(t))[1]
+
+    def _refit(self):
+        from adjoint_samplers.utils import gmm_darting as gd
+        energy = self.grad_term_cost.energy
+        x1 = torch.cat(self.buffer.batches["x1"])[-self.buffer.buffer_size:]
+        dev = energy.dist.means.device
+        idx = torch.randperm(len(x1), generator=torch.Generator().manual_seed(self._pop))[: self.n_minima_samples]
+        M, H = gd.discover_minima(x1[idx].to(dev).double(), lambda z: energy.eval(z), n_samples=self.n_minima_samples)
+        if M is None:
+            return
+        self.maps = gd.make_maps(M, H)
+        self._info = {"dart/n_minima": float(len(M)), "dart/hessian_dev_from_I": float((H - torch.eye(H.shape[-1], device=H.device, dtype=H.dtype)).abs().max())}
+
+    def populate_buffer(self, x0, timesteps, is_asbs_init_stage):
+        super().populate_buffer(x0, timesteps, is_asbs_init_stage)
+        self._pop += 1
+        if (self.maps is None and sum(len(b) for b in self.buffer.batches["x1"]) >= self.n_minima_samples) or (self.maps is not None and self._pop % self.refresh_every == 0):
+            self._refit()
+
+    def prepare_target(self, data, device):
+        from adjoint_samplers.utils import gmm_darting as gd
+        (t, xt), target = super().prepare_target(data, device)
+        if self.maps is None or self.gamma == 0:
+            return (t, xt), target
+        x0, x1 = data["x0"].to(device), data["x1"].to(device)
+        # kappa, v, nu_{1|t} in float64 from the closed form of the VE schedule (in float32, nu_t rounds above nu_1 for t > 0.5, hence kappa >= 1 and v <= 0)
+        ref = self.sde.ref_sde
+        smax, smin = float(ref.sigma_max), float(ref.sigma_min)
+        t64 = t.double().squeeze(-1)
+        nut = smax ** 2 * (1 - (smax / smin) ** (-2 * t64))
+        nu1 = smax ** 2 - smin ** 2
+        kappa, nu1t = nut / nu1, (nu1 - nut).clamp(min=1e-12)
+        v = nu1 * kappa * (1 - kappa)
+        energy = self.grad_term_cost.energy
+        c, omega = gd.darting_term(x1.double(), (xt.double() - (1 - kappa)[:, None] * x0.double()), kappa, v, nu1t, self.maps, lambda z: energy.eval(z), self.v_scale)
+        term = self.gamma * c
+        self._step += 1
+        if self._step % self.stats_every == 0:
+            self._update_stats(kappa, omega, term, target)
+        self._check_target_shape(t, xt, term)
+        return (t, xt), target + term.to(target)
+
+    KAPPA_BINS = (0.0, 0.1, 0.7, 1.0 + 1e-6)
+
+    @torch.no_grad()
+    def _update_stats(self, kappa, omega, term, target):
+        ratio = term.norm(dim=-1) / target.norm(dim=-1).clamp(min=1e-12).double()
+        acc = omega.sum(1) / max(omega.shape[1] - 1, 1)
+        st = self._stats
+        for lo, hi in zip(self.KAPPA_BINS[:-1], self.KAPPA_BINS[1:]):
+            sel = (kappa >= lo) & (kappa < hi)
+            if bool(sel.any()):
+                for key, val in (("frac_t", float(sel.float().mean())), ("term_over_gradg", float(ratio[sel].mean())), ("mean_omega", float(acc[sel].mean()))):
+                    a, n = st.get(f"dart/kappa[{lo:g},{min(hi, 1.0):g}]/{key}", (0.0, 0))
+                    st[f"dart/kappa[{lo:g},{min(hi, 1.0):g}]/{key}"] = (a + val, n + 1)
+
+    def pop_stats(self):
+        out = {k: a / n for k, (a, n) in self._stats.items()}
+        out["dart/gamma"] = self.gamma
+        out.update(self._info)
+        self._stats = {}
+        return out
+
+
 class AdjointVEDivisionMatcher(AdjointVEDiracMatcher):
     """ AS from a Dirac X0 with the DIVISION (Gelfand-Dey) control variate in the regression target (adjoint_samplers/utils/division_cv.py):
 
