@@ -1055,10 +1055,14 @@ class AdjointVEGMMDartingMatcher(AdjointVEMatcher):
         nut = smax ** 2 * (1 - (smax / smin) ** (-2 * t64))
         nu1 = smax ** 2 - smin ** 2
         kappa, nu1t = nut / nu1, (nu1 - nut).clamp(min=1e-12)
-        v = nu1 * kappa * (1 - kappa)
+        v = (nu1 * kappa * (1 - kappa)).clamp(min=1e-30)   # t = 0 exactly (probability ~1e-7 per draw) gives v = 0 and a 0/0 in the Gaussian factor: first attempt of the (8,8,8) darting runs diverged to NaN at epoch 126
         energy = self.grad_term_cost.energy
         c, omega = gd.darting_term(x1.double(), (xt.double() - (1 - kappa)[:, None] * x0.double()), kappa, v, nu1t, self.maps, lambda z: energy.eval(z), self.v_scale)
         term = self.gamma * c
+        bad = ~torch.isfinite(term).all(-1)                                                       # insurance: a non-finite term is replaced by 0 for that sample and counted (logged as dart/nonfinite_frac)
+        self._nonfinite = getattr(self, "_nonfinite", 0) + int(bad.sum()); self._seen = getattr(self, "_seen", 0) + len(bad)
+        if bool(bad.any()):
+            term = torch.where(bad[:, None], torch.zeros_like(term), term)
         self._step += 1
         if self._step % self.stats_every == 0:
             self._update_stats(kappa, omega, term, target)
@@ -1083,6 +1087,7 @@ class AdjointVEGMMDartingMatcher(AdjointVEMatcher):
         out = {k: a / n for k, (a, n) in self._stats.items()}
         out["dart/gamma"] = self.gamma
         out.update(self._info)
+        out["dart/nonfinite_frac"] = getattr(self, "_nonfinite", 0) / max(getattr(self, "_seen", 0), 1)
         self._stats = {}
         return out
 

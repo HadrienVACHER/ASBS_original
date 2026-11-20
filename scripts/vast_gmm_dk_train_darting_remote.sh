@@ -21,6 +21,9 @@ run() { arm=$1; d=$2; D=$3; sig=$4; start=$5; shift 5
 if [ "$PHASE" = "smoke" ]; then
   EPOCHS=3; WANDB=false
   run b30 32 6 1.25 gmmdk_d32_K8_D6_s0_sx0.5 num_epochs=3 eval_freq=3 use_wandb=false
+elif [ "$PHASE" = "rerun88" ]; then
+  # the two (8,8,8) darting runs diverged to NaN at epoch 126 (t = 0 exactly, v = 0): rerun from scratch with the clamp (matcher fixed)
+  run b30 8 8 2.236068 gmmdk_d8_K8_D8_s0_sx0.5; run b1 8 8 2.236068 gmmdk_d8_K8_D8_s0_sx0.5
 else
   for arm in a b30 b1; do
     run $arm 8 8 2.236068 gmmdk_d8_K8_D8_s0_sx0.5; run $arm 32 6 1.25 gmmdk_d32_K8_D6_s0_sx0.5
