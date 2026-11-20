@@ -650,3 +650,24 @@ Au meilleur sigma_max réel des 3 cellules à 8/8, ratios p̂/p après IS de che
 Réserves : une graine ; 24 points ; la couverture « 0,25 p » est le critère de l'étude, pas celui d'Ẑ ; les ESS de départage varient de 0,000 à 0,879 sur une grille de multiplicateurs grossière.
 
 **Lecture du critère log Ẑ (décision de l'utilisateur, 2026-11-20).** La règle passe (3 cellules sur 3), mais grâce à l'ESS : log Ẑ seul aurait échoué dans 2 cellules sur 3 ((32, 8, 4) et (32, 8, 6)), à cause de runs effondrés (× 0,25, 1/8) dont log Ẑ est sans biais mais de variance énorme (SE 0,24 et 0,33), donc indiscernable des runs à 8/8. Voir `rules_sigma_select.md` pour la validation sur la graine 1.
+
+## Validation du critère de choix de sigma_max sur la graine 1 (`rules_sigma_select.md`, commits 09cf984 puis 39a9edc, écrits avant la location ; 24 runs de graine 1, IS de chemin 20 000 trajectoires sur chaque contrôleur ; 2026-11-20)
+
+Protocole de la graine 0 (1500 époques, 4 cellules × 6 multiplicateurs), 7 runs en parallèle (≈ 13 min par vague de 7 runs, 0,4–0,5 s par époque), perte finie partout, IS avec sauvegarde des log w (`results/gmm_dk_s1/logw_all.tar.gz`, hors dépôt) et des proportions pondérées ; JSON `figures/gmm_dk_s1_{a0,a1,a2,b}.json` et `figures/gmm_dk_sigma_select_seed1.json` ; script `scripts/gmm_dk_sigma_select_eval.py` (testé avant sur la graine 0 : il en reproduit les choix).
+
+**Verdict (règle appliquée telle qu'écrite) : critère validé, 3 cellules sur 3.**
+| cellule | choisi (k̂ < 0,7, argmax log Ẑ, égalité à 2 SE → plus grand ESS) | couverture | TV après IS (seuil 2 × plancher ≈ 0,028) | ESS, k̂ | réussite |
+|---|---|---|---|---|---|
+| (8, 8, 8) | × 0,5 (sigma_max 2,236) ; égalités {0,5 ; 0,75} | 8/8 | 0,009 | 0,63, 0,24 | oui |
+| (32, 8, 4) | × 0,5 (1,118) ; égalités {0,5 ; 0,75 ; 1 ; 2} | 8/8 | 0,009 | 0,87, 0,07 | oui |
+| (32, 8, 6) | × 0,5 (1,25) ; égalités {0,5 ; 0,75 ; 1} | 8/8 | 0,006 | 0,63, 0,30 | oui |
+| (32, 8, 8) (aucun run à 8/8 en graine 1 : hors règle) | × 0,5 (1,414) | 1/8 | 0,135 | 0,03, 0,31 | n.a. |
+Tableau complet des 24 runs (couverture, log Ẑ ± SE, ESS, k̂, TV avant et après IS, log Ẑ − log de la masse couverte) dans la sortie du script et dans le JSON. Faits de la graine 1 qui diffèrent de la graine 0 : (32, 8, 6) × 1 couvre 8/8 (7/8 en graine 0) ; (32, 8, 4) × 0,25 couvre 5/8 (1/8 en graine 0) ; (32, 8, 8) × 0,75 : 3/8 avec log Ẑ = +1,080 ± 0,762 (k̂ 0,62, ESS 0,000), estimation non fiable.
+
+**Rapporté sans règle.**
+- Règle d'origine (d7170f6, sans filtre k̂) : même choix que la règle reformulée dans les 4 cellules (× 0,5 partout). « Max ESS seul » : × 0,5 dans 3 cellules (8/8) et × 1 à (32, 8, 8) (2/8).
+- Rôle du filtre k̂ : sur la graine 1, l'argmax de log Ẑ SEUL (sans départage par l'ESS) avec le filtre k̂ choisit un run à 8/8 dans les 3 cellules ((8, 8, 8) × 0,5 ; (32, 8, 4) × 1 (TV après IS 0,014) ; (32, 8, 6) × 1 (0,016)). Sans le filtre, il échoue à (8, 8, 8) : il prend le run effondré × 0,25 (1/8, log Ẑ = +0,176 ± 0,156, k̂ = 4,75). Le filtre k̂ < 0,7 écarte les runs effondrés ((8, 8, 8) × 0,25 ; (32, 8, 4) × 0,25 : k̂ 0,83 ; (32, 8, 6) × 0,25 et × 2 : k̂ 1,38 et 4,45).
+- Ratios p̂/p après IS de chemin au sigma_max choisi : (8, 8, 8) × 0,5 : 1,01 0,97 1,00 0,99 1,01 1,02 0,99 1,12 (AS : 1,01 0,59 0,87 1,17 0,98 1,75 1,85 1,38) ; (32, 8, 4) × 0,5 : 1,02 0,98 1,00 1,01 1,00 0,94 1,01 1,02 (AS : 0,96 1,04 1,00 1,00 1,01 1,00 1,05 1,00) ; (32, 8, 6) × 0,5 : 1,02 0,99 1,00 1,00 1,01 0,99 0,95 0,97 (AS : 0,96 1,08 0,90 1,01 1,06 1,10 1,24 0,66) ; (32, 8, 8) × 0,5 : 1,14 1,07 0,97 1,12 1,78 0,00 0,00 0,003 (les 3 modes les plus légers absents).
+- Log Ẑ contre log de la masse couverte : proche (à ±0,1) pour la majorité des runs ; les écarts les plus grands sont les runs effondrés (× 0,25 à 1/8 : +1,1 à +1,7 ; l'IS atteint de la masse dans des modes visités rarement) et (32, 8, 6) × 2 (log Ẑ = −43,9 ± 1,0, k̂ = 4,45 : effondrement de l'estimateur).
+Réserves : deux graines au total (0 et 1) ; la règle a donc passé son test sur données neuves, sans être validée au-delà ; (32, 8, 8) n'a aucun run à 8/8 donc la règle n'y est pas testée ; le départage par l'ESS reste nécessaire en graine 0 (sans lui, 2 cellules sur 3 échouaient) et le filtre k̂ le remplace en graine 1 ; le choix × 0,5 coïncide avec le plus petit sigma_max de la fenêtre dans les 3 cellules, et la règle choisit donc surtout le sigma_max de plus grand ESS.
+**Coût : 0,189 $ facturés (instance 61596626, de 15:12:17 à 16:37:05, 84,8 min à 0,1339 $/h), au-dessus du plafond de 0,12 $.** Les 24 runs étaient finis et analysés vers 16:07, mais j'ai posé à l'utilisateur la question « finir ou arrêter ? » à 16:04 alors que l'instance continuait de tourner, et la réponse n'est arrivée qu'à 16:36 : environ 30 minutes d'instance inutile (≈ 0,067 $). Erreur de ma part : l'instance aurait dû être détruite dès la fin des runs, ou la question posée avant que le plafond soit atteint.
