@@ -897,3 +897,37 @@ Rapports p̂/p de l'époque 300 : 2,06 0,80 4,69 0,50 1,87 0,57 2,16 0,61 0,82 0
 Réserves : une graine, 300 époques, un seul contrôleur par époque ; les diagnostics 1 à 4 portent sur le seul contrôleur MoS de l'étape 1 ; la décomposition 3 est bruitée (n = 1000 à 3000) ; comparateur à coût égal tronqué pour S = 40 (4,4·10⁶ sur 5,4·10⁶ trajectoires).
 
 **Note de lecture (à retenir pour les étapes 1 et 2) :** à σ_max = 23,2 et 300 époques, AS n'a **pas appris** le MoS : distance médiane au minimum 109 contre 15 sous π. Les comparaisons darting / IS des étapes 1 et 2 portent donc sur un sampler raté ; elles restent dans ce fichier mais **ne testent pas le régime « bonnes formes, mauvais poids »**, qui est celui où le darting est censé aider. L'étape 3 (`rules_mosw_step3.md`) mesure d'abord si un contrôleur a appris (critère Q) avant toute comparaison.
+
+## Étape 3 : AS MoS-w à la recette d'origine (1500 époques, d = 50 et d = 10), critère de qualité Q (2026-11-21)
+
+Règles écrites et commitées avant la location et avant tout résultat : `rules_mosw_step3.md` (a793a82). Scripts `scripts/mosw_step3_eval.py`, `scripts/basin_lib.py`, `scripts/vast_mosw_step3_remote.sh` ; résultats `figures/mosw_step3/step3_d{50,10}.json`, journaux `figures/mosw_step3_eval_d{50,10}.log`, contrôleurs `figures/mosw_step3/controllers/` (6 par dimension), log w + cellules `figures/mosw_step3/logw/` (20 000 trajectoires par contrôleur ; points terminaux gardés hors dépôt dans `results/mosw_step3/`).
+**Coût : 0,048 $** (instance 61755466, offre RTX 3070 57456544 à 0,1339 $/h, 21,6 min de 13:02:42 à 13:24:17), sous le plafond dur de 0,10 $ (estimation avant location : ≈ 0,078 $). Arrêts de la minute 36 / 39 non déclenchés. Instance détruite dès le rapatriement (0 instance restante).
+Incident : la première version des deux processus d'évaluation a planté à la première lecture (`sample_exact`, poids float32 ne sommant pas exactement à 1 pour `numpy.random.choice`) ; les entraînements n'étaient pas touchés ; correctif de normalisation (426a134, définition de Q inchangée), évaluations relancées avant la fin de l'époque 250 : aucun résultat perdu.
+
+### Entraînement
+MoS-w, σ_max = 23,2 aux deux dimensions (justification dans les règles : rapport σ_max / écart-type des moyennes par coordonnée = 4, indépendant de d), 1500 époques, graine 0, perte finie partout, aucun NaN. Références mesurées avec les mêmes minima et la même quench sur 10⁴ échantillons exacts de π : médiane de la distance au minimum le plus proche **14,66 (d = 50)** et **5,23 (d = 10)** ; TV par bassin exact contre la vérité 0,0107 (plancher 0,0108) et 0,0111 (plancher 0,0120) ; quench convergée à 100 % ; seuils de Q1 : 22,0 et 7,8.
+
+### Critère Q sur chaque contrôleur (10⁴ points terminaux ; quench convergée à 100 % partout, donc la clause « ≥ 95 % » de Q2 est toujours satisfaite)
+| d | époque | médiane distance AS (rapport à π) | Q1 | bassins atteints (≥ 1 échantillon) / couverts (p̂ ≥ 0,25 p) | Q2 | **Q** | TV brut Voronoï / bassins |
+|---|---|---|---|---|---|---|---|
+| 50 | 250 | 116,5 (7,95) | faux | 10 / 10 | vrai | **faux** | 0,258 / 0,301 |
+| 50 | 500 | 147,7 (10,07) | faux | 10 / 9 | faux | **faux** | 0,321 / 0,522 |
+| 50 | 750 | 137,6 (9,38) | faux | 10 / 6 | faux | **faux** | 0,436 / 0,605 |
+| 50 | 1000 | 148,4 (10,12) | faux | 10 / 6 | faux | **faux** | 0,419 / 0,695 |
+| 50 | 1250 | 148,1 (10,10) | faux | 10 / 2 | faux | **faux** | 0,439 / 0,785 |
+| 50 | 1500 | 149,8 (10,22) | faux | 10 / 1 | faux | **faux** | 0,457 / 0,817 |
+| 10 | 250 | 16,8 (3,21) | faux | 10 / 7 | faux | **faux** | 0,167 / 0,240 |
+| 10 | 500 | 12,6 (2,42) | faux | 10 / 5 | faux | **faux** | 0,342 / 0,388 |
+| 10 | 750 | 10,3 (1,96) | faux | 10 / 4 | faux | **faux** | 0,321 / 0,348 |
+| 10 | 1000 | 8,68 (1,66) | faux | 10 / 5 | faux | **faux** | 0,287 / 0,310 |
+| 10 | 1250 | 7,79 (**1,49**) | **vrai** | 10 / 4 | faux | **faux** | 0,378 / 0,390 |
+| 10 | 1500 | 7,77 (**1,49**) | **vrai** | 9 / 5 | faux | **faux** | 0,278 / 0,301 |
+**Verdict : aucun des 12 contrôleurs ne passe Q ; aucune comparaison darting / IS n'a été calculée (règle : « si aucun ne passe : rapport et arrêt »).**
+
+### Faits (descriptifs)
+- **d = 50 : AS n'apprend pas le MoS-w à σ_max = 23,2, à aucun moment.** La distance médiane au minimum reste de 8 à 10 fois celle de π de l'époque 250 à 1500 (116 → 150), et la masse se concentre avec l'entraînement sur le bassin du plus grand poids (poids 0,331 : p̂/p = 2,0 / 4,3 / 4,9 / 5,5 / 6,1 / 6,3 aux époques 250 à 1500), les autres bassins tombant à 0,01–0,09 × leur poids à l'époque 1500. Le TV brut par bassin passe de 0,30 à 0,82 ; par cellules de Voronoï de 0,26 à 0,46. Plus d'entraînement dégrade les masses (pas de convergence vers la cible).
+- **d = 10 : les formes sont apprises (rapport 3,2 → 1,49 de l'époque 250 à 1250, Q1 vrai aux époques 1250 et 1500, de justesse : 1,49 contre un seuil de 1,5), mais pas les poids** : seuls 4 ou 5 bassins sur 10 ont p̂ ≥ 0,25 p. À l'époque 1500, p̂/p : 0,02 0,38 0,01 1,13 1,08 2,91 0,03 2,18 0,03 0,00 (modes de poids 0,037 / 0,012 / 0,060 / 0,063 / 0,065 quasi absents, le mode de poids 0,061 sur-représenté d'un facteur 2,9). Neuf bassins ont au moins un échantillon, le dixième aucun. C'est le régime « bonnes formes, mauvais poids » (au bord de Q1), mais Q2 y est faux : le critère pré-enregistré exclut donc ces contrôleurs de la comparaison.
+- Les évaluations d'entraînement (5000 échantillons, tous les 50 époques) donnent la même tendance : d = 50 couverture de modes 10 puis 9/10 avec TV brut 0,24–0,44 ; d = 10 couverture 10 → 5/10, TV brut 0,24–0,43.
+
+### Réserves
+Une graine ; une seule valeur de σ_max par dimension (23,2, sans grille, comme demandé : rien ne dit qu'une autre valeur ne ferait pas passer Q, en particulier à d = 10 où 23,2 est peut-être trop grand : non testé) ; Q2 utilise la couverture p̂ ≥ 0,25 p (définition du projet) et rejette des contrôleurs qui ont ≥ 1 échantillon dans 9 ou 10 bassins ; Q1 à d = 10 est franchi avec une marge de 0,01 ; la quench convergée utilise un préconditionnement (direction P ∇ log π, descente monotone), qui envoie un point loin dans la queue vers le minimum de la composante la plus responsable (accord avec Voronoï 99,9 % sous π, 98,8 % à d = 10).

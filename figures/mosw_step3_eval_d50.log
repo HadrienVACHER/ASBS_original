@@ -1,0 +1,8 @@
+d=50: exact reference: median distance to nearest minimum 14.66; quench converged 1.000; basin TV vs truth 0.0107 (floor 0.0108); Q1 threshold 21.99
+ep250: Q1 median dist AS 116.50 vs exact 14.66 (ratio 7.95) -> False; Q2 converged 1.000, basin coverage 10/10 (>=1 sample: 10) -> True; Q = False | raw TV vor 0.258 basin 0.301
+ep500: Q1 median dist AS 147.67 vs exact 14.66 (ratio 10.07) -> False; Q2 converged 1.000, basin coverage 9/10 (>=1 sample: 10) -> False; Q = False | raw TV vor 0.321 basin 0.522
+ep750: Q1 median dist AS 137.57 vs exact 14.66 (ratio 9.38) -> False; Q2 converged 1.000, basin coverage 6/10 (>=1 sample: 10) -> False; Q = False | raw TV vor 0.436 basin 0.605
+ep1000: Q1 median dist AS 148.37 vs exact 14.66 (ratio 10.12) -> False; Q2 converged 1.000, basin coverage 6/10 (>=1 sample: 10) -> False; Q = False | raw TV vor 0.419 basin 0.695
+ep1250: Q1 median dist AS 148.10 vs exact 14.66 (ratio 10.10) -> False; Q2 converged 1.000, basin coverage 2/10 (>=1 sample: 10) -> False; Q = False | raw TV vor 0.439 basin 0.785
+ep1500: Q1 median dist AS 149.82 vs exact 14.66 (ratio 10.22) -> False; Q2 converged 1.000, basin coverage 1/10 (>=1 sample: 10) -> False; Q = False | raw TV vor 0.457 basin 0.817
+total 991.2 s

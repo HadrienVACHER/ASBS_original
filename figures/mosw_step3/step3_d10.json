@@ -1,0 +1,257 @@
+{
+ "d": 10,
+ "floor": 0.012022,
+ "p": [
+  0.037584,
+  0.103971,
+  0.014142,
+  0.328402,
+  0.154815,
+  0.061748,
+  0.060646,
+  0.110044,
+  0.06332,
+  0.065328
+ ],
+ "weights": [
+  0.03707645833492279,
+  0.10423791408538818,
+  0.012302203103899956,
+  0.33091992139816284,
+  0.1551510989665985,
+  0.061194490641355515,
+  0.05998864769935608,
+  0.11104550212621689,
+  0.06270520389080048,
+  0.06537865847349167
+ ],
+ "sigma_max": 23.2,
+ "median_dist_exact": 5.225623442143991,
+ "exact": {
+  "frac_converged": 1.0,
+  "frac_assigned": 1.0,
+  "tv": 0.011055999999999986,
+  "coverage": 10,
+  "p_hat": [
+   0.034,
+   0.1014,
+   0.0119,
+   0.3311,
+   0.1547,
+   0.0619,
+   0.0625,
+   0.1075,
+   0.0662,
+   0.0688
+  ],
+  "assigned": 1.0
+ },
+ "epochs": {
+  "250": {
+   "status": "evaluated",
+   "time_sim_s": 1.1223174929618835,
+   "n_paths": 20000,
+   "Q": {
+    "median_dist_AS": 16.793357129121144,
+    "median_dist_exact": 5.225623442143991,
+    "ratio": 3.213656191467002,
+    "Q1": false,
+    "frac_converged": 1.0,
+    "frac_assigned": 1.0,
+    "basins_reached_ge1": 10,
+    "basin_coverage": 7,
+    "basin_p_hat": [
+     0.0075,
+     0.0504,
+     0.005,
+     0.3877,
+     0.154,
+     0.1684,
+     0.0079,
+     0.1842,
+     0.0326,
+     0.0023
+    ],
+    "Q2": false,
+    "Q": false
+   },
+   "raw": {
+    "tv_voronoi": 0.16746399999999997,
+    "coverage_voronoi": 9,
+    "basin_tv": 0.24010599999999999
+   }
+  },
+  "500": {
+   "status": "evaluated",
+   "time_sim_s": 0.7804560959339142,
+   "n_paths": 20000,
+   "Q": {
+    "median_dist_AS": 12.640150487246002,
+    "median_dist_exact": 5.225623442143991,
+    "ratio": 2.4188789389807135,
+    "Q1": false,
+    "frac_converged": 1.0,
+    "frac_assigned": 1.0,
+    "basins_reached_ge1": 10,
+    "basin_coverage": 5,
+    "basin_p_hat": [
+     0.0062,
+     0.0269,
+     0.0025,
+     0.5615,
+     0.0675,
+     0.1969,
+     0.0022,
+     0.1296,
+     0.0063,
+     0.0004
+    ],
+    "Q2": false,
+    "Q": false
+   },
+   "raw": {
+    "tv_voronoi": 0.341664,
+    "coverage_voronoi": 8,
+    "basin_tv": 0.38780599999999993
+   }
+  },
+  "750": {
+   "status": "evaluated",
+   "time_sim_s": 1.0143112409859896,
+   "n_paths": 20000,
+   "Q": {
+    "median_dist_AS": 10.253186966266076,
+    "median_dist_exact": 5.225623442143991,
+    "ratio": 1.9620983179873663,
+    "Q1": false,
+    "frac_converged": 1.0,
+    "frac_assigned": 1.0,
+    "basins_reached_ge1": 10,
+    "basin_coverage": 4,
+    "basin_p_hat": [
+     0.003,
+     0.0244,
+     0.002,
+     0.5643,
+     0.1174,
+     0.14,
+     0.0014,
+     0.1443,
+     0.0029,
+     0.0003
+    ],
+    "Q2": false,
+    "Q": false
+   },
+   "raw": {
+    "tv_voronoi": 0.32120600000000005,
+    "coverage_voronoi": 6,
+    "basin_tv": 0.348406
+   }
+  },
+  "1000": {
+   "status": "evaluated",
+   "time_sim_s": 0.9355899812653661,
+   "n_paths": 20000,
+   "Q": {
+    "median_dist_AS": 8.677993764408022,
+    "median_dist_exact": 5.225623442143991,
+    "ratio": 1.6606619019696485,
+    "Q1": false,
+    "frac_converged": 1.0,
+    "frac_assigned": 1.0,
+    "basins_reached_ge1": 10,
+    "basin_coverage": 5,
+    "basin_p_hat": [
+     0.0022,
+     0.0429,
+     0.0014,
+     0.5305,
+     0.1381,
+     0.1202,
+     0.0011,
+     0.1598,
+     0.0036,
+     0.0002
+    ],
+    "Q2": false,
+    "Q": false
+   },
+   "raw": {
+    "tv_voronoi": 0.286706,
+    "coverage_voronoi": 6,
+    "basin_tv": 0.31030599999999997
+   }
+  },
+  "1250": {
+   "status": "evaluated",
+   "time_sim_s": 0.9292931612581015,
+   "n_paths": 20000,
+   "Q": {
+    "median_dist_AS": 7.789895962884353,
+    "median_dist_exact": 5.225623442143991,
+    "ratio": 1.4907113092114195,
+    "Q1": true,
+    "frac_converged": 1.0,
+    "frac_assigned": 1.0,
+    "basins_reached_ge1": 10,
+    "basin_coverage": 4,
+    "basin_p_hat": [
+     0.0007,
+     0.0251,
+     0.0002,
+     0.4709,
+     0.0814,
+     0.2254,
+     0.0012,
+     0.1934,
+     0.0016,
+     0.0001
+    ],
+    "Q2": false,
+    "Q": false
+   },
+   "raw": {
+    "tv_voronoi": 0.377706,
+    "coverage_voronoi": 5,
+    "basin_tv": 0.38950599999999996
+   }
+  },
+  "1500": {
+   "status": "evaluated",
+   "time_sim_s": 0.7247273689135909,
+   "n_paths": 20000,
+   "Q": {
+    "median_dist_AS": 7.7687725446586615,
+    "median_dist_exact": 5.225623442143991,
+    "ratio": 1.48666903206314,
+    "Q1": true,
+    "frac_converged": 1.0,
+    "frac_assigned": 1.0,
+    "basins_reached_ge1": 9,
+    "basin_coverage": 5,
+    "basin_p_hat": [
+     0.0008,
+     0.039,
+     0.0002,
+     0.3698,
+     0.1673,
+     0.1798,
+     0.002,
+     0.2395,
+     0.0016,
+     0.0
+    ],
+    "Q2": false,
+    "Q": false
+   },
+   "raw": {
+    "tv_voronoi": 0.27819099999999997,
+    "coverage_voronoi": 6,
+    "basin_tv": 0.30139099999999996
+   }
+  }
+ },
+ "total_time_s": 1010.0891095460393,
+ "last_pass_epoch": null
+}
