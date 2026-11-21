@@ -15,6 +15,8 @@ def _grad_and_logp(pi, X):
     lc = pi.logw + pi.comp(X)
     lp = logsumexp(lc, axis=1)
     r = np.exp(lc - lp[:, None])
+    if pi.fam == "G":                                                                    # isotropic Gaussian mixture (GMM-dk, step 4): g = sum_k r_k (mu_k - x) / std^2
+        return lp, (r @ pi.mu - X * r.sum(1)[:, None]) / pi.std ** 2, lc.argmax(1)
     g = np.zeros_like(X)
     for k in range(pi.K):
         u = X - pi.mu[k]
@@ -38,8 +40,11 @@ def quench(pi, X, maxit=MAXIT, tol=TOL):
             break
         active = active[keep]; lp, g, ks, s = lp[keep], g[keep], ks[keep], s[keep]
         Ya = Y[active]
-        u = Ya - pi.mu[ks]
-        P = (NU + u * u) / (NU + 1)
+        if pi.fam == "G":
+            P = 1.0                                                                       # Hessian ~ I at the modes: plain monotone gradient steps
+        else:
+            u = Ya - pi.mu[ks]
+            P = (NU + u * u) / (NU + 1)
         Yn = Ya + s[:, None] * P * g
         lpn, gn_, ksn = _grad_and_logp(pi, Yn)
         ok = lpn > lp
@@ -59,7 +64,7 @@ def quench(pi, X, maxit=MAXIT, tol=TOL):
 
 def polish_minima(pi):
     """ the K minima of the energy, from the means (quench of the means, converged, within MERGE of the mean). """
-    Y, conv, _ = quench(pi, pi.mu.copy(), maxit=5000, tol=1e-8)
+    Y, conv, _ = quench(pi, pi.mu.copy(), maxit=5000, tol=1e-8 if pi.fam != "G" else 1e-6)
     assert conv.all() and (np.linalg.norm(Y - pi.mu, axis=1) < MERGE).all(), "minima not polished"
     return Y
 
@@ -89,5 +94,7 @@ def dist_to_nearest_minimum(X, minima):
 def sample_exact(pi, n, rng):
     """ exact draws from the MoS(-w): component ~ weights, then mu_k + z / sqrt(Gamma(NU/2, rate NU/2)) per coordinate (product of t_NU of scale 1). """
     pw = np.asarray(pi.w, float); comp = rng.choice(pi.K, size=n, p=pw / pw.sum())   # weights come from float32 tensors: renormalise in float64
+    if pi.fam == "G":
+        return pi.mu[comp] + pi.std * rng.standard_normal((n, pi.d))
     z = rng.standard_normal((n, pi.d)); chi = rng.gamma(NU / 2, 2.0 / NU, size=(n, pi.d))
     return pi.mu[comp] + z / np.sqrt(chi)
