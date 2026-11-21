@@ -65,7 +65,7 @@ def is_stats(lw, c, K, ptrue):
                 logz=float(logsumexp(lw) - math.log(n)), logz_se=float(wn.std() / math.sqrt(n)), p_hat=props(c, K, w).tolist())
 
 
-def darting(pi, X, mu, ptrue, discover=500, SW=(1, 5, 10), seed=99):
+def darting(pi, X, mu, ptrue, discover=500, SW=(1, 5, 10), seed=99, keep_final=False):
     """ protocol of the phase 0 (500 discovery samples, quench, Hessians by finite differences, 1 jump + 5 MALA steps per sweep, MALA step tuned once for 0.6): returns a dict (None-safe) with TV, acceptances and cost per S. """
     K, d, n = pi.K, pi.d, len(X)
     cost = dict(E=0, G=0); res = {}
@@ -141,10 +141,11 @@ def darting(pi, X, mu, ptrue, discover=500, SW=(1, 5, 10), seed=99):
         if sweep in SW:
             pk = props(cells(Xc, mu), K)
             res["by_S"][sweep] = dict(tv=tv(pk, ptrue), jump_acc=ja / jp, mala_acc=ma / mp, cost=cost["E"] + cost["G"], coverage=int((pk >= 0.25 * ptrue).sum()))
+            if keep_final: res["by_S"][sweep]["X_final"] = Xc.copy()                     # (not JSON-able: the caller pops it)
     return res
 
 
-def mala_only(pi, X, mu, ptrue, hs, snap_costs, seed=77):
+def mala_only(pi, X, mu, ptrue, hs, snap_costs, seed=77, keep_final=False):
     """ MALA alone (no jumps), the SAME step hs, from the same samples; initial state costs 2 n, each step 2 n (E and grad at the proposal); TV recorded at the steps matching each total cost in snap_costs. """
     n, K = len(X), pi.K
     rg = np.random.default_rng(seed); Xc = X.copy(); lp, g = pi.logp_grad(Xc)
@@ -160,6 +161,7 @@ def mala_only(pi, X, mu, ptrue, hs, snap_costs, seed=77):
             if st == step:
                 pk = props(cells(Xc, mu), K)
                 out[c] = dict(steps=step, tv=tv(pk, ptrue), acc=acc_n / prop_n, coverage=int((pk >= 0.25 * ptrue).sum()), cost=2 * n + 2 * n * step)
+                if keep_final: out[c]["X_final"] = Xc.copy()
     return out
 
 
