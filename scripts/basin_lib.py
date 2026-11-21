@@ -88,6 +88,6 @@ def dist_to_nearest_minimum(X, minima):
 
 def sample_exact(pi, n, rng):
     """ exact draws from the MoS(-w): component ~ weights, then mu_k + z / sqrt(Gamma(NU/2, rate NU/2)) per coordinate (product of t_NU of scale 1). """
-    comp = rng.choice(pi.K, size=n, p=pi.w)
+    pw = np.asarray(pi.w, float); comp = rng.choice(pi.K, size=n, p=pw / pw.sum())   # weights come from float32 tensors: renormalise in float64
     z = rng.standard_normal((n, pi.d)); chi = rng.gamma(NU / 2, 2.0 / NU, size=(n, pi.d))
     return pi.mu[comp] + z / np.sqrt(chi)
