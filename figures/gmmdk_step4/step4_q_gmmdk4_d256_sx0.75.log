@@ -1,0 +1,14 @@
+gmmdk4_d256_sx0.75: exact reference: median distance to nearest minimum 15.98 (sqrt d = 16.00); basin TV vs truth 0.0069 (floor 0.0100); Q1 threshold 23.96
+gmmdk4_d256_sx0.75 ep250: Q1 median dist 20.93 (ratio 1.31) -> True; Q2 converged 1.000, basin coverage 8/8 -> True; Q = True | raw TV vor 0.191 basin 0.103
+gmmdk4_d256_sx0.75 ep250: [passes Q] path IS: khat 3.80, log Z -10.316 +- 0.883, ESS 0.0001
+gmmdk4_d256_sx0.75 ep500: Q1 median dist 20.84 (ratio 1.30) -> True; Q2 converged 1.000, basin coverage 8/8 -> True; Q = True | raw TV vor 0.180 basin 0.093
+gmmdk4_d256_sx0.75 ep500: [passes Q] path IS: khat 3.36, log Z -8.227 +- 0.706, ESS 0.0001
+gmmdk4_d256_sx0.75 ep750: Q1 median dist 20.83 (ratio 1.30) -> True; Q2 converged 1.000, basin coverage 8/8 -> True; Q = True | raw TV vor 0.176 basin 0.091
+gmmdk4_d256_sx0.75 ep750: [passes Q] path IS: khat 3.59, log Z -11.381 +- 0.506, ESS 0.0002
+gmmdk4_d256_sx0.75 ep1000: Q1 median dist 20.79 (ratio 1.30) -> True; Q2 converged 1.000, basin coverage 8/8 -> True; Q = True | raw TV vor 0.175 basin 0.083
+gmmdk4_d256_sx0.75 ep1000: [passes Q] path IS: khat 3.54, log Z -9.574 +- 0.626, ESS 0.0001
+gmmdk4_d256_sx0.75 ep1250: Q1 median dist 20.82 (ratio 1.30) -> True; Q2 converged 1.000, basin coverage 8/8 -> True; Q = True | raw TV vor 0.170 basin 0.084
+gmmdk4_d256_sx0.75 ep1250: [passes Q] path IS: khat 3.33, log Z -10.062 +- 0.805, ESS 0.0001
+gmmdk4_d256_sx0.75 ep1500: Q1 median dist 20.87 (ratio 1.31) -> True; Q2 converged 1.000, basin coverage 8/8 -> True; Q = True | raw TV vor 0.184 basin 0.099
+gmmdk4_d256_sx0.75 ep1500: [passes Q] path IS: khat 3.28, log Z -8.174 +- 0.847, ESS 0.0001
+total 957.4 s

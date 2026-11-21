@@ -20,7 +20,9 @@ Single seed (0) unless stated. Pre-registered thresholds were never relaxed afte
    - **Note sur les samplers ratés (a793a82, 24a81f8).** À σ_max = 23,2 et 300 époques, AS n'a pas appris le MoS : distance médiane au minimum 109 contre 15 sous π ; 13 % des sauts sont invalides, 40 % refusés (log-rapport médian −42). Les comparaisons des étapes 1 et 2 portent donc sur un sampler raté et ne testent pas le régime « bonnes formes, mauvais poids ».
 6. **Étape 3 : AS à la recette d'origine, critère de qualité Q** (`rules_mosw_step3.md`, a793a82 → c11e387 ; 0,048 $). **Q FAUX pour les 12 contrôleurs** (MoS-w d = 50 et 10, 1500 époques, 6 sauvegardes chacun) : à d = 50 la distance médiane reste 8 à 10 × celle de π et la masse se concentre sur un seul bassin (p̂/p = 6,3) ; à d = 10 les formes sont apprises (Q1 vrai à 1250 et 1500, rapport 1,49) mais 4 ou 5 bassins sur 10 seulement sont couverts (Q2 faux). **Aucune comparaison n'a été calculée** (règle : arrêt si aucun ne passe Q).
 
-**Conclusion.** Il n'existe, dans ce que nous avons testé, **aucun cas avec un vrai AS où AS trouve tous les modes avec la bonne forme et où l'IS de chemin échoue** : sur les GMM-dk à 8/8 modes (et sur DW-4, où l'IS de chemin retrouve les deux bassins dominants du PT à moins de 3 SE) l'IS corrige déjà, sans darting (GMM-dk : TV après IS 0,006–0,009, au niveau du plancher). **Partout où l'IS échoue, AS a déjà échoué en amont** : modes manquants (GMM-dk (32,8,8), MoS-w d = 10 : le darting ne crée pas les modes absents) ou sampler diffus loin des modes (MoS et MoS-w à d = 50 : k̂ 6–8, G fausse). Le darting ne gagne que contre des samplers synthétiques (A1 d = 512, MoS et MoS-w synthétiques), régime que les vrais AS essayés n'atteignent pas ; à l'entraînement, il n'améliore ni de façon confirmée (DW-4, « non confirmé ») ni de façon fiable (GMM-dk, R_train faux).
+7. **Étape 4 : GMM-dk en grande dimension avec un vrai AS** (`rules_gmmdk_step4.md`, 2527419 → ce fichier ; 0,047 $ ; (d, K, Δ) = (128, 8, 6) et (256, 8, 6), σ_max × {0,5 ; 0,75}, 1500 époques). **Q VRAI** aux deux dimensions pour le candidat choisi par la règle de σ_max (× 0,5, époque 1500 : formes 1,03–1,04 × π, 8/8 bassins), **I FAUX** (ESS de l'IS de chemin 0,19 et 0,16 ≥ 5 %, k̂ 0,22 et 0,34), **G FAUX** (l'IS de coût égal bat le darting : TV 0,0012 contre 0,0098 à d = 128 ; 0,0046 contre 0,0080 à d = 256), H_saut vraie. **Décision écrite à l'avance : l'IS tient, la piste darting est fermée.** À côté (non comparé) : les runs × 0,75 passent aussi Q mais ont un ESS de 10⁻⁴–10⁻³ (écartés par k̂ ≥ 0,7).
+
+**Conclusion.** Il n'existe, dans ce que nous avons testé, **aucun cas avec un vrai AS où AS trouve tous les modes avec la bonne forme et où l'IS de chemin échoue** : sur les GMM-dk à 8/8 modes (et sur DW-4, où l'IS de chemin retrouve les deux bassins dominants du PT à moins de 3 SE) l'IS corrige déjà, sans darting (GMM-dk : TV après IS 0,006–0,009, au niveau du plancher). **Partout où l'IS échoue, AS a déjà échoué en amont** : modes manquants (GMM-dk (32,8,8), MoS-w d = 10 : le darting ne crée pas les modes absents) ou sampler diffus loin des modes (MoS et MoS-w à d = 50 : k̂ 6–8, G fausse). *Mise à jour (étape 4) :* à (d, K, Δ) = (128, 8, 6) et (256, 8, 6) avec un vrai AS à 8/8 bassins, l'IS de chemin tient (ESS 16–19 %) et bat le darting à coût égal ; la décision écrite ferme la piste. Réserve : les runs × 0,75 passent Q avec un ESS ≈ 10⁻⁴ ; la règle de sélection de σ_max les a écartés et le darting n'y a pas été calculé, donc le cas « Q vrai, I vrai » existe dans les données sans avoir été testé pour G. Le darting ne gagne que contre des samplers synthétiques (A1 d = 512, MoS et MoS-w synthétiques), régime que les vrais AS essayés n'atteignent pas ; à l'entraînement, il n'améliore ni de façon confirmée (DW-4, « non confirmé ») ni de façon fiable (GMM-dk, R_train faux).
 *Réserves.* Une graine par cas ; σ_max = 23,2 est la seule valeur à donner 10/10 modes à d = 50 et il n'a pas été exploré au-delà (ni pour d = 10) ; le darting n'a pas été calculé sur les contrôleurs d = 10 aux époques 1250 et 1500 (décision de l'utilisateur : la réponse est connue, aucune décision n'en dépend) ; les cas synthétiques sont mes opérationnalisations, déclarées dans leurs sections.
 
 ---
@@ -951,3 +953,48 @@ MoS-w, σ_max = 23,2 aux deux dimensions (justification dans les règles : rappo
 
 ### Réserves
 Une graine ; une seule valeur de σ_max par dimension (23,2, sans grille, comme demandé : rien ne dit qu'une autre valeur ne ferait pas passer Q, en particulier à d = 10 où 23,2 est peut-être trop grand : non testé) ; Q2 utilise la couverture p̂ ≥ 0,25 p (définition du projet) et rejette des contrôleurs qui ont ≥ 1 échantillon dans 9 ou 10 bassins ; Q1 à d = 10 est franchi avec une marge de 0,01 ; la quench convergée utilise un préconditionnement (direction P ∇ log π, descente monotone), qui envoie un point loin dans la queue vers le minimum de la composante la plus responsable (accord avec Voronoï 99,9 % sous π, 98,8 % à d = 10).
+
+## Étape 4 : GMM-dk en grande dimension avec un vrai AS, (d, K, Δ) = (128, 8, 6) et (256, 8, 6) (2026-11-21)
+
+Règles écrites et commitées avant la location et avant tout résultat : `rules_gmmdk_step4.md` (2527419). Scripts `scripts/gmmdk_step4_eval.py` (sous-commandes `q` et `cmp`), `scripts/basin_lib.py`, `scripts/vast_gmmdk_step4_remote.sh` ; résultats `figures/gmmdk_step4/{q_*.json, cmp_d128.json, cmp_d256.json}`, journaux, contrôleurs (24, `controllers/`), log w et cellules (24, `logw/`) ; points terminaux gardés hors dépôt (non rapatriés).
+**Coût : 0,047 $** (instance 61761965, offre RTX 3070 57456544 à 0,1339 $/h, 20,9 min de 14:04:11 à 14:25:05 ; estimation avant location 0,05 $ central, 0,08 $ pessimiste ; plafond dur 0,15 $). Arrêts des minutes 50 / 58 non déclenchés ; instance détruite dès le rapatriement (0 restante). Aucun incident ; perte finie, aucun NaN.
+Entraînement : recette d'origine des GMM-dk, 1500 époques, graine 0, σ_max = m × 2√(1 + Δ²/(2d)), m ∈ {0,5 ; 0,75} (d = 128 : 1,068 et 1,602 ; d = 256 : 1,0346 et 1,5518), 4 runs en parallèle (≈ 0,7 s par époque). Références (10⁴ échantillons exacts, même quench) : médiane de la distance au minimum le plus proche 11,29 (d = 128) et 15,98 (d = 256) ; plancher TV (n = 10⁴) 0,0100 ; quench convergée à 100 % partout.
+
+### Filtre Q sur les 24 contrôleurs (quench convergée à 100 % : la clause « ≥ 95 % » de Q2 est toujours satisfaite)
+| run | Q1 (rapport de la distance médiane à π) | bassins couverts (p̂ ≥ 0,25 p) aux époques 250 / 500 / 750 / 1000 / 1250 / 1500 | Q | k̂, ESS de l'IS de chemin (contrôleurs qui passent Q) |
+|---|---|---|---|---|
+| d = 128, × 0,5 | vrai (1,03–1,04) | 6 / 7 / 7 / 7 / **8 / 8** | passe à 1250 et 1500 | 1250 : 0,16, 0,240 ; 1500 : 0,22, 0,193 |
+| d = 128, × 0,75 | vrai (1,04–1,07) | 8 / 8 / 8 / 8 / 8 / 8 | passe aux 6 | k̂ 0,97–1,27, ESS 2·10⁻⁴ à 2·10⁻³ |
+| d = 256, × 0,5 | vrai (1,04) | 7 / 7 / **8 / 8 / 8 / 8** | passe de 750 à 1500 | k̂ 0,19–0,34, ESS 0,144–0,195 (1500 : 0,34, 0,162) |
+| d = 256, × 0,75 | vrai (1,30–1,31) | 8 / 8 / 8 / 8 / 8 / 8 | passe aux 6 | k̂ 3,3–3,8, ESS 1–2·10⁻⁴ |
+TV brut par cellules de Voronoï / par bassins à l'époque 1500 : d = 128 : 0,408 / 0,413 (× 0,5), 0,200 / 0,121 (× 0,75) ; d = 256 : 0,304 / 0,308 (× 0,5), 0,184 / 0,099 (× 0,75).
+
+### Choix de σ_max (règle habituelle, appliquée aux candidats = dernier contrôleur sauvegardé qui passe Q, ici l'époque 1500 des deux runs de chaque dimension)
+d = 128 : seul × 0,5 a k̂ < 0,7 (0,22 contre 0,97 pour × 0,75) → **× 0,5** (époque 1500). d = 256 : seul × 0,5 a k̂ < 0,7 (0,34 contre 3,28) → **× 0,5** (époque 1500). Comparaison sur ces deux contrôleurs seulement.
+
+### Comparaison sur le candidat choisi (20 000 trajectoires pour l'IS ; darting sur les 10⁴ premiers points ; plancher 0,0100)
+| | d = 128, × 0,5, ép. 1500 | d = 256, × 0,5, ép. 1500 |
+|---|---|---|
+| TV brut (Voronoï / bassins) | 0,408 / 0,413 | 0,304 / 0,308 |
+| IS simple : TV (bassins), ESS, k̂, log Ẑ (vrai 0) | 0,0100 (0,0112), **0,193**, 0,22, −0,005 | 0,0204 (0,0200), **0,162**, 0,34, −0,030 |
+| PSIS / tronqué : TV | 0,0112 / 0,0100 | 0,0212 / 0,0204 |
+| darting S = 1 : TV (bassins), acc. sauts | 0,217 (0,220), 0,42 | 0,157 (0,161), 0,47 |
+| S = 5 | 0,0281 (0,0290), 0,50 | 0,0147 (0,0159), 0,52 |
+| S = 10 | 0,0098 (0,0078), 0,52 | 0,0080 (0,0086), 0,53 |
+| MALA seul, coût de S = 1 / 5 / 10 | 0,399 / 0,377 / 0,346 | 0,297 / 0,282 / 0,263 |
+| IS de chemin à coût égal (n = 1,83·10⁵ / 6,44·10⁵ / 1,22·10⁶) : TV | 0,0059 / 0,0019 / **0,0012** | 0,0119 / 0,0047 / **0,0046** |
+| passages de réseau de l'IS à S = 10 | 2,4·10⁸ | 2,4·10⁸ |
+Rapports p̂/p de l'IS simple : d = 128 : 1,02 1,00 0,99 0,96 1,05 0,98 0,96 0,95 ; d = 256 : 1,04 1,00 0,93 1,05 0,91 0,99 0,99 0,99. Découverte : 8 minima sur 8 aux deux dimensions ; CPU du darting 5 s et 11 s ; IS à coût égal 68 s et 71 s sur GPU (non tronqué).
+
+### Règles
+- **Q : VRAI aux deux dimensions** (candidat choisi : Q1 1,03 et 1,04, 8/8 bassins).
+- **I (ESS < 5 %) : FAUX aux deux dimensions** (ESS 0,193 et 0,162).
+- **G : FAUX aux deux dimensions** (pour S = 1, 5, 10, l'IS de coût égal est meilleur que le darting : à S = 10, 0,0012 contre 0,0098 à d = 128 et 0,0046 contre 0,0080 à d = 256). Rapporté à côté, sans changer le verdict : contre la meilleure variante à 20 000 trajectoires, G serait vrai à d = 256 pour S = 10 (0,0080 ≤ 0,5 × 0,0204 = 0,0102), faux à d = 128 ; l'IS à coût égal (1,2·10⁶ trajectoires) fait mieux que ce comparateur, d'où G faux.
+- **H_saut : VRAI aux deux dimensions** (par cellules et par bassins) : le MALA seul ne corrige rien (0,35 et 0,26), les sauts font la correction, mais l'IS de chemin fait mieux au même coût.
+**Décision écrite à l'avance : « Q passe et ESS ≥ 5 % à d = 256 » → l'IS tient ; la piste darting est fermée.** (« Q vrai, I vrai, G vrai » n'est réalisé à aucune dimension.)
+
+### Faits à côté de la décision (descriptifs ; non comparés par la règle)
+- Les runs × 0,75 passent aussi Q (couverture 8/8, rapport 1,05 et 1,30) mais ont un ESS de l'IS de 10⁻⁴ à 2·10⁻³ et un k̂ de 1,0 à 3,8 : le cas « Q vrai, I vrai » existe donc dans les données aux deux dimensions. La règle de sélection de σ_max (k̂ < 0,7) les a écartés au profit du × 0,5, dont l'IS tient ; **le darting n'a pas été calculé sur ces contrôleurs** (contrôleurs et log w sont sauvegardés). Leur TV brut est plus bas que celui du × 0,5 (0,20 / 0,12 à d = 128, 0,18 / 0,10 à d = 256 par Voronoï / bassins, contre 0,41 et 0,30), mais l'IS de chemin y est inutilisable : c'est le profil « sampler plus large que la cible » déjà vu au MoS (queues trop légères pour l'IS, rapport de distance plus élevé à d = 256 : 1,30).
+- Le TV brut du × 0,5 (0,30–0,41) est élevé alors que l'IS le ramène au plancher : AS apprend les formes et couvre les 8 bassins mais pas les poids (« bonnes formes, mauvais poids »), et là l'IS de chemin suffit (ESS 16–19 %, k̂ < 0,35).
+- Entraînement non stationnaire : le × 0,5 ne passe Q qu'à partir de l'époque 1250 (d = 128) et 750 (d = 256) ; avant, 1 à 2 bassins manquent.
+Réserves : une graine ; deux valeurs de σ_max par dimension ; Q2 à 8/8 est franchi par des runs qui ont un ou deux bassins faibles ; le comparateur de G à coût égal est un IS simple sans tronquage au-delà du standard ; une seule dimension intermédiaire (d = 128, 256), pas d'essai à d = 512.

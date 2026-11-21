@@ -1,0 +1,9 @@
+d=256: candidates (last saved controller passing Q per run): gmmdk4_d256_sx0.5: ep1500, gmmdk4_d256_sx0.75: ep1500
+chosen: gmmdk4_d256_sx0.5 ep1500 (sigma_max 1.034559); rule: khat<0.7 filter; argmax log Z; ties within 2 SE -> largest ESS
+IS (n=20000): simple TV 0.0204 (basin 0.0200) ESS 0.1619 khat 0.34; PSIS 0.0212; trunc 0.0204; I (ESS < 5 %) = False
+darting: minima 8; S1: TV 0.1573 (basin 0.1605) jump acc 0.47 S5: TV 0.0147 (basin 0.0159) jump acc 0.52 S10: TV 0.0080 (basin 0.0086) jump acc 0.53 | MALA-only 0.297/0.301 0.282/0.285 0.263/0.266 | darting CPU 11 s
+  equal cost S=1: darting TV 0.1573 vs IS n=1.86e+05 (used 1.86e+05): simple 0.0119 PSIS 0.0116 trunc 0.0119; G_S False
+  equal cost S=5: darting TV 0.0147 vs IS n=6.47e+05 (used 6.47e+05): simple 0.0047 PSIS 0.0047 trunc 0.0047; G_S False
+  equal cost S=10: darting TV 0.0080 vs IS n=1.22e+06 (used 1.22e+06): simple 0.0046 PSIS 0.0046 trunc 0.0046; G_S False
+I = False; G = False; H_saut = True (basin True); floor 0.0100
+total 108.1 s
