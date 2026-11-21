@@ -1,0 +1,4 @@
+truth mos d=32: basin proportions from 200000 exact draws, converged 1.000; TV(basin, Voronoi) = 0.0867; floor 0.0096; median distance to the nearest minimum (exact) 9.57
+truth mos d=128: basin proportions from 200000 exact draws, converged 1.000; TV(basin, Voronoi) = 0.0868; floor 0.0096; median distance to the nearest minimum (exact) 20.67
+truth gmm d=128: basin proportions from 200000 exact draws, converged 1.000; TV(basin, Voronoi) = 0.0042; floor 0.0099; median distance to the nearest minimum (exact) 11.29
+truth gmm d=256: basin proportions from 200000 exact draws, converged 1.000; TV(basin, Voronoi) = 0.0040; floor 0.0099; median distance to the nearest minimum (exact) 15.98

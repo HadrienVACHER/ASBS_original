@@ -1,0 +1,14 @@
+mosdk5_d32_sx0.5: exact reference: median distance to nearest minimum 9.57 (sqrt d = 5.66); basin TV vs truth 0.0781 (floor 0.0096); Q1 threshold 14.36
+mosdk5_d32_sx0.5 ep250: Q1 median dist 8.39 (ratio 0.88) -> True; Q2 converged 1.000, basin coverage 8/8 -> True; Q = True | raw TV vor 0.033 basin 0.136
+mosdk5_d32_sx0.5 ep250: [passes Q] path IS: khat 0.73, log Z -0.361 +- 0.038, ESS 0.0339
+mosdk5_d32_sx0.5 ep500: Q1 median dist 8.44 (ratio 0.88) -> True; Q2 converged 1.000, basin coverage 8/8 -> True; Q = True | raw TV vor 0.044 basin 0.135
+mosdk5_d32_sx0.5 ep500: [passes Q] path IS: khat 0.70, log Z -0.372 +- 0.027, ESS 0.0626
+mosdk5_d32_sx0.5 ep750: Q1 median dist 8.45 (ratio 0.88) -> True; Q2 converged 1.000, basin coverage 8/8 -> True; Q = True | raw TV vor 0.032 basin 0.129
+mosdk5_d32_sx0.5 ep750: [passes Q] path IS: khat 0.66, log Z -0.364 +- 0.027, ESS 0.0647
+mosdk5_d32_sx0.5 ep1000: Q1 median dist 8.46 (ratio 0.88) -> True; Q2 converged 1.000, basin coverage 8/8 -> True; Q = True | raw TV vor 0.030 basin 0.125
+mosdk5_d32_sx0.5 ep1000: [passes Q] path IS: khat 0.63, log Z -0.369 +- 0.027, ESS 0.0656
+mosdk5_d32_sx0.5 ep1250: Q1 median dist 8.45 (ratio 0.88) -> True; Q2 converged 1.000, basin coverage 8/8 -> True; Q = True | raw TV vor 0.034 basin 0.116
+mosdk5_d32_sx0.5 ep1250: [passes Q] path IS: khat 0.59, log Z -0.372 +- 0.026, ESS 0.0680
+mosdk5_d32_sx0.5 ep1500: Q1 median dist 8.47 (ratio 0.88) -> True; Q2 converged 1.000, basin coverage 8/8 -> True; Q = True | raw TV vor 0.067 basin 0.139
+mosdk5_d32_sx0.5 ep1500: [passes Q] path IS: khat 0.63, log Z -0.369 +- 0.026, ESS 0.0665
+total 1060.6 s

@@ -1,0 +1,10 @@
+d=128: candidates (last saved controller passing Q per run): mosdk5_d128_sx0.75: ep1500
+chosen: mosdk5_d128_sx0.75 ep1500 (sigma_max 1.602001); rule: no candidate with khat<0.7: largest ESS (flagged)
+IS (n=20000): simple TV 0.2933 (basin 0.2697) ESS 0.0008 khat 1.19; PSIS 0.3073; trunc 0.0511; I (ESS < 5 %) = True
+darting: minima 8; S1: TV 0.0119 (basin 0.0918) jump acc 0.53 S5: TV 0.0059 (basin 0.0891) jump acc 0.52 S10: TV 0.0199 (basin 0.0749) jump acc 0.52 S40: TV 0.0082 (basin 0.0852) jump acc 0.52 | MALA-only 0.021/0.090 0.014/0.092 0.018/0.083 0.011/0.086 | darting CPU 87 s
+  equal cost S=1: darting TV 0.0119 vs IS n=1.92e+05 (used 1.92e+05): simple 0.1117 PSIS 0.1433 trunc 0.0242; G_S True
+  equal cost S=5: darting TV 0.0059 vs IS n=6.53e+05 (used 6.53e+05): simple 0.1556 PSIS 0.1580 trunc 0.0123; G_S True
+  equal cost S=10: darting TV 0.0199 vs IS n=1.23e+06 (used 1.23e+06): simple 0.1126 PSIS 0.1260 trunc 0.0098; G_S False
+  equal cost S=40: darting TV 0.0082 vs IS n=4.69e+06 (used 4.69e+06): simple 0.1172 PSIS 0.1098 trunc 0.0146; G_S False
+I = True; G = True; H_saut = False (basin False); floor 0.0096
+total 354.2 s

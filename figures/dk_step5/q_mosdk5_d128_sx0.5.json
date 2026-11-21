@@ -1,0 +1,231 @@
+{
+ "run": "mosdk5_d128_sx0.5",
+ "d": 128,
+ "K": 8,
+ "delta": 6.0,
+ "sigma_max": 1.068,
+ "floor": 0.009597499999999985,
+ "p": [
+  0.265408,
+  0.198288,
+  0.149716,
+  0.114964,
+  0.090008,
+  0.072172,
+  0.059393,
+  0.050051
+ ],
+ "median_dist_exact": 20.665807463148806,
+ "exact": {
+  "frac_converged": 1.0,
+  "frac_assigned": 1.0,
+  "tv": 0.08278800000000003,
+  "coverage": 8,
+  "p_hat": [
+   0.3256,
+   0.2146,
+   0.156,
+   0.1108,
+   0.0741,
+   0.0536,
+   0.039,
+   0.0263
+  ],
+  "assigned": 1.0
+ },
+ "epochs": {
+  "250": {
+   "status": "evaluated",
+   "time_sim_s": 2.5929219950921834,
+   "n_paths": 20000,
+   "Q": {
+    "median_dist_AS": 15.310821457398141,
+    "median_dist_exact": 20.665807463148806,
+    "ratio": 0.7408770010414713,
+    "Q1": true,
+    "frac_converged": 1.0,
+    "frac_assigned": 1.0,
+    "basins_reached_ge1": 8,
+    "basin_coverage": 3,
+    "basin_p_hat": [
+     0.8159,
+     0.0703,
+     0.0379,
+     0.0277,
+     0.0173,
+     0.0142,
+     0.0094,
+     0.0073
+    ],
+    "Q2": false,
+    "Q": false
+   },
+   "raw": {
+    "tv_voronoi": 0.443392,
+    "coverage_voronoi": 8,
+    "basin_tv": 0.550492
+   }
+  },
+  "500": {
+   "status": "evaluated",
+   "time_sim_s": 2.164676554966718,
+   "n_paths": 20000,
+   "Q": {
+    "median_dist_AS": 15.515136941253523,
+    "median_dist_exact": 20.665807463148806,
+    "ratio": 0.7507636451621869,
+    "Q1": true,
+    "frac_converged": 1.0,
+    "frac_assigned": 1.0,
+    "basins_reached_ge1": 8,
+    "basin_coverage": 1,
+    "basin_p_hat": [
+     0.8667,
+     0.0461,
+     0.0312,
+     0.0191,
+     0.0141,
+     0.0106,
+     0.0071,
+     0.0051
+    ],
+    "Q2": false,
+    "Q": false
+   },
+   "raw": {
+    "tv_voronoi": 0.508692,
+    "coverage_voronoi": 7,
+    "basin_tv": 0.601292
+   }
+  },
+  "750": {
+   "status": "evaluated",
+   "time_sim_s": 2.1975277299061418,
+   "n_paths": 20000,
+   "Q": {
+    "median_dist_AS": 15.607535455180486,
+    "median_dist_exact": 20.665807463148806,
+    "ratio": 0.7552347268797402,
+    "Q1": true,
+    "frac_converged": 1.0,
+    "frac_assigned": 1.0,
+    "basins_reached_ge1": 8,
+    "basin_coverage": 1,
+    "basin_p_hat": [
+     0.8723,
+     0.0407,
+     0.0315,
+     0.0194,
+     0.0125,
+     0.0118,
+     0.0066,
+     0.0052
+    ],
+    "Q2": false,
+    "Q": false
+   },
+   "raw": {
+    "tv_voronoi": 0.5133920000000001,
+    "coverage_voronoi": 7,
+    "basin_tv": 0.606892
+   }
+  },
+  "1000": {
+   "status": "evaluated",
+   "time_sim_s": 1.9707449418492615,
+   "n_paths": 20000,
+   "Q": {
+    "median_dist_AS": 15.68272984994379,
+    "median_dist_exact": 20.665807463148806,
+    "ratio": 0.7588733166080821,
+    "Q1": true,
+    "frac_converged": 1.0,
+    "frac_assigned": 1.0,
+    "basins_reached_ge1": 8,
+    "basin_coverage": 1,
+    "basin_p_hat": [
+     0.8917,
+     0.0353,
+     0.0258,
+     0.0161,
+     0.0121,
+     0.0088,
+     0.0062,
+     0.004
+    ],
+    "Q2": false,
+    "Q": false
+   },
+   "raw": {
+    "tv_voronoi": 0.543992,
+    "coverage_voronoi": 5,
+    "basin_tv": 0.626292
+   }
+  },
+  "1250": {
+   "status": "evaluated",
+   "time_sim_s": 0.9755983776412904,
+   "n_paths": 20000,
+   "Q": {
+    "median_dist_AS": 15.760896046977109,
+    "median_dist_exact": 20.665807463148806,
+    "ratio": 0.7626557091989695,
+    "Q1": true,
+    "frac_converged": 1.0,
+    "frac_assigned": 1.0,
+    "basins_reached_ge1": 8,
+    "basin_coverage": 1,
+    "basin_p_hat": [
+     0.886,
+     0.0367,
+     0.0269,
+     0.0169,
+     0.012,
+     0.0101,
+     0.0063,
+     0.0051
+    ],
+    "Q2": false,
+    "Q": false
+   },
+   "raw": {
+    "tv_voronoi": 0.534392,
+    "coverage_voronoi": 5,
+    "basin_tv": 0.620592
+   }
+  },
+  "1500": {
+   "status": "evaluated",
+   "time_sim_s": 0.8370235860347748,
+   "n_paths": 20000,
+   "Q": {
+    "median_dist_AS": 15.795465045953346,
+    "median_dist_exact": 20.665807463148806,
+    "ratio": 0.7643284722418789,
+    "Q1": true,
+    "frac_converged": 1.0,
+    "frac_assigned": 1.0,
+    "basins_reached_ge1": 8,
+    "basin_coverage": 1,
+    "basin_p_hat": [
+     0.874,
+     0.0414,
+     0.0291,
+     0.0203,
+     0.0133,
+     0.0102,
+     0.0067,
+     0.005
+    ],
+    "Q2": false,
+    "Q": false
+   },
+   "raw": {
+    "tv_voronoi": 0.517992,
+    "coverage_voronoi": 6,
+    "basin_tv": 0.608592
+   }
+  }
+ },
+ "total_time_s": 1091.4197958479635
+}
