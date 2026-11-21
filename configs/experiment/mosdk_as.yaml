@@ -1,0 +1,45 @@
+# @package _global_
+
+# Adjoint Sampling (memoryless) on MoS-dk (step 5), same settings as gmm_dk_as, 1500 epochs.
+
+defaults:
+  - /problem: mosdk
+  - /source: delta
+  - /sde@ref_sde: ve
+  - /model@controller: fouriermlp
+  - /state_cost: zero
+  - /term_cost: score_term_cost
+  - /matcher@adjoint_matcher: adjoint_ve
+
+exp_name: mosdk_d${dim}_K${K}_D${delta}
+
+
+# === sde ===
+nfe: 200
+sigma_max: ${dk_sigma:${dim},${delta}} # 2 sqrt(1 + Delta^2/(2d)): gmm_dk.sigma_max_rule, same formula for every cell
+sigma_min: 0.001
+rescale_t: null # quad, cosine
+
+
+# === model ===
+controller:
+  channels: 128
+
+
+# === training ===
+num_epochs: 1500
+max_grad_E_norm: null
+
+adjoint_matcher:
+  buffer_size: 10000
+  duplicates: 10
+  resample_size: 1000
+  num_epochs_per_stage: ${num_epochs} # Ensure always adjoint matching
+  optim:
+    lr: 1e-4
+    weight_decay: 0
+
+
+# === eval & logging ===
+use_wandb: true
+eval_freq: 50

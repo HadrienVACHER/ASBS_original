@@ -1,0 +1,107 @@
+project: gmm_dk_step4
+train_itr_per_epoch: 100
+init_stage: adjoint
+ema_decay: null
+ema_buffer: false
+seed: 0
+dump_final: true
+dump_n_samples: 10000
+correction_every: null
+correction_warmup: 100
+correction_chains: 2000
+correction_steps: 60
+correction_burn: 15
+correction_memory: true
+clip_grad_norm: false
+checkpoint: null
+save_freq: 100
+timesteps:
+  t0: 0.0
+  t1: 1.0
+  steps: ${nfe}
+  rescale_t: ${rescale_t}
+resample_batch_size: 512
+train_batch_size: 512
+eval_batch_size: 2000
+num_eval_samples: 5000
+fast_sampling: true
+buffer_on_device: true
+fast_train: true
+init_controller: null
+init_buffer: null
+init_buffer_key: null
+compile_mode: null
+dim: 256
+K: 8
+delta: 6.0
+energy:
+  _target_: adjoint_samplers.energies.dist_energy.DistEnergy
+  dist:
+    _target_: adjoint_samplers.utils.dist_utils.GMMDK
+    dim: ${dim}
+    K: ${K}
+    delta: ${delta}
+evaluator:
+  _target_: adjoint_samplers.components.evaluator.GMMEvaluator
+  w2_samples: 2000
+  cover_ratio: 0.1
+source:
+  _target_: adjoint_samplers.utils.dist_utils.Delta
+  dim: ${dim}
+ref_sde:
+  _target_: adjoint_samplers.components.sde.VESDE
+  sigma_max: ${sigma_max}
+  sigma_min: ${sigma_min}
+controller:
+  _target_: adjoint_samplers.components.model.FourierMLP
+  dim: ${dim}
+  num_layers: 4
+  channels: 128
+  activation:
+    _target_: torch.nn.GELU
+  last_bias_init:
+    _target_: torch.nn.init.zeros_
+    _partial_: true
+  last_weight_init:
+    _target_: torch.nn.init.zeros_
+    _partial_: true
+state_cost:
+  _target_: adjoint_samplers.components.state_cost.ZeroGradStateCost
+term_cost:
+  _target_: adjoint_samplers.components.term_cost.ScoreGradTermCost
+  max_grad_E_norm: ${max_grad_E_norm}
+adjoint_matcher:
+  _target_: adjoint_samplers.components.matcher.AdjointVEMatcher
+  grad_state_cost:
+    _target_: adjoint_samplers.components.state_cost.ZeroGradStateCost
+  buffer:
+    _target_: adjoint_samplers.components.buffer.BatchBuffer
+    buffer_size: ${adjoint_matcher.buffer_size}
+  buffer_size: 10000
+  duplicates: 10
+  resample_size: 1000
+  num_epochs_per_stage: ${num_epochs}
+  optim:
+    lr: 0.0001
+    weight_decay: 0
+exp_name: gmmdk4_d256_sx0.5
+nfe: 200
+sigma_max: 1.034559
+sigma_min: 0.001
+rescale_t: null
+num_epochs: 1500
+max_grad_E_norm: null
+use_wandb: true
+eval_freq: 50
+save_controller_epochs:
+- 250
+- 500
+- 750
+- 1000
+- 1250
+- 1500
+code_commit: 2527419
+distributed: false
+rank: 0
+world_size: 1
+

@@ -20,7 +20,7 @@ def _grad_and_logp(pi, X):
     g = np.zeros_like(X)
     for k in range(pi.K):
         u = X - pi.mu[k]
-        g += r[:, k:k + 1] * (-(NU + 1) * u / (NU + u * u))
+        g += r[:, k:k + 1] * (-(pi.nu + 1) * u / (pi.nu * pi.s2 + u * u))
     return lp, g, lc.argmax(1)
 
 
@@ -44,7 +44,7 @@ def quench(pi, X, maxit=MAXIT, tol=TOL):
             P = 1.0                                                                       # Hessian ~ I at the modes: plain monotone gradient steps
         else:
             u = Ya - pi.mu[ks]
-            P = (NU + u * u) / (NU + 1)
+            P = (pi.nu * pi.s2 + u * u) / (pi.nu + 1)
         Yn = Ya + s[:, None] * P * g
         lpn, gn_, ksn = _grad_and_logp(pi, Yn)
         ok = lpn > lp
@@ -64,7 +64,7 @@ def quench(pi, X, maxit=MAXIT, tol=TOL):
 
 def polish_minima(pi):
     """ the K minima of the energy, from the means (quench of the means, converged, within MERGE of the mean). """
-    Y, conv, _ = quench(pi, pi.mu.copy(), maxit=5000, tol=1e-8 if pi.fam != "G" else 1e-6)
+    Y, conv, _ = quench(pi, pi.mu.copy(), maxit=5000, tol=1e-8 if (pi.fam == "S" and pi.nu == 2.0 and pi.s2 == 1.0) else 1e-6)                 # 1e-8 is unreachable in float64 when the minimum is shifted from the mean (MoS-dk)
     assert conv.all() and (np.linalg.norm(Y - pi.mu, axis=1) < MERGE).all(), "minima not polished"
     return Y
 
@@ -96,5 +96,5 @@ def sample_exact(pi, n, rng):
     pw = np.asarray(pi.w, float); comp = rng.choice(pi.K, size=n, p=pw / pw.sum())   # weights come from float32 tensors: renormalise in float64
     if pi.fam == "G":
         return pi.mu[comp] + pi.std * rng.standard_normal((n, pi.d))
-    z = rng.standard_normal((n, pi.d)); chi = rng.gamma(NU / 2, 2.0 / NU, size=(n, pi.d))
-    return pi.mu[comp] + z / np.sqrt(chi)
+    z = rng.standard_normal((n, pi.d)); chi = rng.gamma(pi.nu / 2, 2.0 / pi.nu, size=(n, pi.d))
+    return pi.mu[comp] + math.sqrt(pi.s2) * z / np.sqrt(chi)

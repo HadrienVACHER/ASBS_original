@@ -1,0 +1,21 @@
+# @package _global_
+
+# MoS-dk (step 5, rules_dk_step5.md): geometry and weights of the GMM-dk target, components = products of 1D Student t (nu = 3, s^2 = 4/3: Hessian I at the mode). Voronoi truth: figures/mog_mos_truth_mosdk_d<dim>.json.
+dim: 32
+K: 8
+delta: 6.0
+
+energy:
+  _target_: adjoint_samplers.energies.dist_energy.DistEnergy
+  dist:
+    _target_: adjoint_samplers.utils.dist_utils.MoSDK
+    dim: ${dim}
+    K: ${K}
+    delta: ${delta}
+    nu: 3.0
+
+evaluator:
+  _target_: adjoint_samplers.components.evaluator.MoSEvaluator
+  p_path: figures/mog_mos_truth_mosdk_d${dim}.json
+
+num_eval_samples: 5000

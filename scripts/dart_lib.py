@@ -9,8 +9,11 @@ CT = gammaln((NU + 1) / 2) - gammaln(NU / 2) - 0.5 * math.log(NU * math.pi)
 
 
 class Mix:
-    def __init__(self, fam, mu, w, std=1.0):
+    def __init__(self, fam, mu, w, std=1.0, nu=NU, s2=1.0):
+        """ fam 'G': isotropic Gaussian (std); fam 'S': product of 1D Student t (nu degrees of freedom, squared scale s2; defaults nu = 2, s2 = 1 = the MoS of the earlier steps; step 5 MoS-dk: nu = 3, s2 = 4/3). """
         self.fam, self.mu, self.w, self.std = fam, mu, np.asarray(w, float), std
+        self.nu, self.s2 = float(nu), float(s2)
+        self.ct = gammaln((self.nu + 1) / 2) - gammaln(self.nu / 2) - 0.5 * math.log(self.nu * math.pi * self.s2)
         self.K, self.d = mu.shape
         self.logw = np.log(self.w); self.mu2 = (mu ** 2).sum(1)
 
@@ -22,7 +25,7 @@ class Mix:
         Xf = X.astype(np.float32) if f32 else X
         for k in range(self.K):
             u = Xf - (self.mu[k].astype(np.float32) if f32 else self.mu[k])
-            out[:, k] = self.d * CT - (NU + 1) / 2 * np.log1p(u * u / NU).sum(1, dtype=np.float64)
+            out[:, k] = self.d * self.ct - (self.nu + 1) / 2 * np.log1p(u * u / (self.nu * self.s2)).sum(1, dtype=np.float64)
         return out
 
     def logp(self, X, f32=False):
@@ -34,7 +37,7 @@ class Mix:
             return lp, (r @ self.mu - X * r.sum(1)[:, None]) / self.std ** 2
         g = np.zeros_like(X)
         for k in range(self.K):
-            u = X - self.mu[k]; g += r[:, k:k + 1] * (-(NU + 1) * u / (NU + u * u))
+            u = X - self.mu[k]; g += r[:, k:k + 1] * (-(self.nu + 1) * u / (self.nu * self.s2 + u * u))
         return lp, g
 
 

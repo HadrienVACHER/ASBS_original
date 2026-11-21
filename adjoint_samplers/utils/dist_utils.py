@@ -435,6 +435,40 @@ class MoS(GMM):
         return (self.means[comp] + z / chi.sqrt()).reshape(*shape, self.dim)
 
 
+class MoSDK(MoS):
+    """ MoS-dk (step 5, rules_dk_step5.md): the geometry and weights of the GMM-dk target (gmm_dk.py: K <= d components, means (Delta / sqrt 2) e_k on orthogonal axes, geometric weights of ratio 10), but every component is a product of
+        independent 1D Student t with `nu` degrees of freedom (default 3) and squared scale s2 = (nu + 1)/nu (4/3 for nu = 3), chosen so that the Hessian of -log of one component at its mode is exactly I (as for the unit Gaussians of GMM-dk).
+        Density of one coordinate: prop. to (1 + u^2 / (nu s2))^(-(nu + 1)/2). All components have the same shape. """
+    def __init__(self, dim: int, K: int = 8, delta: float = 6.0, nu: float = 3.0, device: str = "cpu") -> None:
+        distributions.Distribution.__init__(self)
+        import gmm_dk
+        self.dim, self.K, self.seed, self.delta = dim, K, 0, delta
+        self.name = f"mosdk{dim}d"
+        self.NU = float(nu)
+        self.S2 = (self.NU + 1) / self.NU
+        self.means = gmm_dk.means(dim, K, delta)
+        self.weights = gmm_dk.weights(K)
+        self._ct = math.lgamma((self.NU + 1) / 2) - math.lgamma(self.NU / 2) - 0.5 * math.log(self.NU * math.pi * self.S2)
+        self.to(device)
+
+    def _component_logits(self, x: torch.Tensor) -> torch.Tensor:
+        u = x.unsqueeze(-2) - self.means
+        return self.weights.log() + self.dim * self._ct - (self.NU + 1) / 2 * torch.log1p(u * u / (self.NU * self.S2)).sum(-1)
+
+    def score(self, x: torch.Tensor) -> torch.Tensor:
+        u = x.unsqueeze(-2) - self.means
+        r = torch.softmax(self._component_logits(x), dim=-1)
+        g = -(self.NU + 1) * u / (self.NU * self.S2 + u * u)
+        return (r.unsqueeze(-1) * g).sum(-2)
+
+    def sample(self, shape: tuple) -> torch.Tensor:
+        shape = torch.Size(shape)
+        comp = torch.multinomial(self.weights, shape.numel(), replacement=True)
+        z = torch.randn(shape.numel(), self.dim, device=self.means.device)
+        chi = torch.distributions.Gamma(self.NU / 2, self.NU / 2).sample((shape.numel(), self.dim)).to(self.means.device)
+        return (self.means[comp] + math.sqrt(self.S2) * z / chi.sqrt()).reshape(*shape, self.dim)
+
+
 class GMMDK(GMM):
     """ (d, K, Delta) study target, defined in gmm_dk.py: K <= d unit-variance Gaussians on orthogonal axes at mutual distance Delta,
         geometric weights (max / min = 10). `seed` is unused (the target is deterministic). """
