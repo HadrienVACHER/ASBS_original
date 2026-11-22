@@ -1151,7 +1151,15 @@ Règle écrite et commitée avant tout calcul : `rules_dw4_guard_power.md` (d943
 ### Contrôle positif
 D30 bruité, σ fixé par la procédure écrite : graine 2 σ = 0,5 ; graine 3 σ = 0,5, signalé (aucune valeur de la grille n'atteint le double de l'écart) ; graine 4 σ = 0,3. G3′ sur la version dégradée : Δ_s = +0,209 / +0,423 / −0,135, Δ̄ = +0,166 > 2 × 0,024, deux graines au-dessus de 3 écarts-types. **G3′ fausse : le contrôle positif est détecté**, la garde a de la puissance.
 
-**Décision écrite à l'avance : G3′ fausse → « non confirmé ».** Le verdict d'origine ne change pas, mais sa raison change. Ce n'est plus du bruit sur deux évaluations de la graine 2, où D30 est en fait meilleur (Δ −0,18) : c'est une dégradation réelle d'eq_w2 sur la graine 3, à environ 4 écarts-types.
+**Décision écrite à l'avance : G3′ fausse → « non confirmé ».** Verdict maintenu tel qu'écrit, sans modification.
+
+**Lecture (décision de l'utilisateur, 2026-11-22).**
+- La garde utilise un écart-type de bootstrap, c'est-à-dire le bruit de W2 à modèle fixé. Elle ignore la variabilité du modèle d'une évaluation à l'autre (eq_w2 de 0,30 à 0,81 pour D30 graine 4).
+- Avec un seul instantané par run, la dégradation de la graine 3 n'est pas distinguable d'une fluctuation : **étiquette I (inconclusif) sur la géométrie**.
+- **Erreur de spécification (de l'utilisateur) : la règle aurait dû exiger plusieurs instantanés par run.**
+- Les proportions de bassins et energy_w2 sont meilleures sur les 3 graines.
+- On ne relance rien sur DW-4.
+- **Leçon pour toutes les règles suivantes** : tout écart-type utilisé dans un seuil doit inclure la variabilité entre évaluations du modèle (plusieurs instantanés, ou moyennes temporelles), pas seulement le bootstrap à modèle fixé. Le verdict d'origine ne change pas, mais sa raison change. Ce n'est plus du bruit sur deux évaluations de la graine 2, où D30 est en fait meilleur (Δ −0,18) : c'est une dégradation réelle d'eq_w2 sur la graine 3, à environ 4 écarts-types.
 
 ### Lecture et réserves (sans changer la décision)
 - **La dégradation concerne la géométrie, pas l'énergie.** Le darting γ = 30 améliore les proportions de bassins (critère (i), 3 graines sur 3) et energy_w2 (3 graines sur 3). Mais sur la graine 3, la géométrie des configurations du modèle final est nettement plus loin du PT que celle de l'AS de même graine.
