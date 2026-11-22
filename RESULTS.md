@@ -1091,3 +1091,30 @@ TV brut (Voronoï) à (32, 8, 4) : × 1 : 0,026 / 0,024 / 0,012 ; × 2 : 0,032 /
 - Lecture : l'avantage de Newton-Stein apparaît là où la théorie gaussienne prédit l'instabilité d'AS (× 2 : ρ = σ_max² = 20, multiplicateur 1 − F(ρ) = −2,15) et pas au seuil (× 1 : ρ = 5, −1,01), mais il est mesuré sur une graine, avec des ESS de 0,005 à 0,03 (100 à 500 échantillons effectifs sur 20 000), donc bruités. Il ne change pas la découverte des modes (Δ = 8), comme le prédit le Théorème C du mémo.
 - Mes prédictions écrites (§5 de la règle) : Q passé par les trois bras à Δ = 4 ✓ ; ESS (b) × 1 dans 0,2–0,5 ✓, × 2 sous 0,02–0,15 ✗ (0,0078) ; ESS (c) × 1 dans 0,2–0,6 ✓, × 2 juste sous 0,03–0,3 ✗ (0,026) ; R1 faux ✓, R2 faux ✓, décision « on arrête » ✓ ; R3 « signal trop faible » pour (a) × 1 ✓.
 Réserves : une graine ; (a) réutilisé sans sauvegardes intermédiaires ni dumps à × 2 ; l'ESS sur 20 000 trajectoires est bruité aux petites valeurs ; Ĥ = I est exact dans les modes mais pas pour le mélange global aux petits t.
+
+## Newton-Stein dans le régime d'instabilité extrême : MoS-w, σ_max = 23,2 (2026-11-22)
+
+Règle écrite et commitée avant la location : `rules_mosw_ns.md` (e5c8b5d), avec l'étape 0 (CPU). Bras : (a) AS, les 2 runs de l'étape 3 réutilisés et réévalués avec le même script (chiffres identiques à ceux de l'étape 3) ; (b) amortissement η = 0,5 ; (c) Newton-Stein Ĥ = 1,5. MoS-w d = 50 et d = 10, graine 0, 1500 époques, 4 runs nouveaux. Mesures : `scripts/mosw_step3_eval.py --q_only`. Verdicts : `scripts/mosw_ns_rules.py`. Résultats : `figures/mosw_ns/` (out.json par run, verdicts.json, log w, journaux, 24 contrôleurs + configs). Coût : RTX 3070 (57456544), 0,1339 $/h, 27,7 min, **0,062 $** (plafond 0,10 $). Entraînement à environ 1,0 s par époque, l'estimation pessimiste.
+
+**Étape 0.** A = 1 − F(ν₁Ĥ) : MoS et MoS-w, A de −3,0 à −5,7 (ρ de 50 à 807) ; MoS-dk, A de −0,07 à −0,76 (stables). A ne range pas les issues : le seul run du pilote MoS à 10/10 modes est le plus « instable » (σ_max = 23,2), et le MoS-dk le plus stable (d = 128, × 0,5, A = −0,07) s'est effondré. SSS (annexe C.1 et C.5) : GMM16 et GMM50, coordonnées 0,2 N(−1,5 ; 0,5²) + 0,8 N(2,5 ; 0,5²) ; leur AS utilise le processus d'Ornstein–Uhlenbeck de SSS (référence N(0, I), horizon T = 4) au lieu du processus VE, et aucun σ_max n'est donné. **Le A de leurs runs n'est pas calculable à partir de ce qui est écrit** ; extrapolation signalée comme telle : ρ = 4, A = −0,85.
+
+Distance médiane au minimum / π (Q1 si ≤ 1,5 : *) ; bassins couverts sur 10 ; TV par bassin, aux sauvegardes 250 → 1500 :
+| run | 250 | 500 | 750 | 1000 | 1250 | 1500 |
+|---|---|---|---|---|---|---|
+| d = 50 (a) AS | 7,95 / 10 / 0,30 | 10,07 / 9 / 0,52 | 9,38 / 6 / 0,61 | 10,12 / 6 / 0,70 | 10,10 / 2 / 0,79 | 10,22 / 1 / 0,82 |
+| d = 50 (b) amortissement | 8,61 / 10 / 0,35 | 9,90 / 8 / 0,52 | 9,82 / 6 / 0,61 | 9,43 / 7 / 0,55 | 9,40 / 7 / 0,61 | 10,86 / 10 / 0,20 |
+| d = 50 (c) Newton-Stein | 11,16 / 10 / 0,25 | 11,10 / 10 / 0,25 | 11,08 / 10 / 0,24 | 11,09 / 10 / 0,24 | 11,08 / 10 / 0,24 | 11,08 / 10 / 0,24 |
+| d = 10 (a) AS | 3,21 / 7 / 0,24 | 2,42 / 5 / 0,39 | 1,96 / 4 / 0,35 | 1,66 / 5 / 0,31 | 1,49* / 4 / 0,39 | 1,49* / 5 / 0,30 |
+| d = 10 (b) amortissement | 3,20 / 8 / 0,26 | 1,89 / 5 / 0,42 | 1,56 / 2 / 0,48 | 1,40* / 2 / 0,48 | 1,36* / 3 / 0,46 | 1,36* / 3 / 0,44 |
+| d = 10 (c) Newton-Stein | 12,62 / 10 / 0,19 | 12,64 / 10 / 0,20 | 12,53 / 10 / 0,19 | 12,56 / 10 / 0,20 | 12,56 / 10 / 0,19 | 12,62 / 10 / 0,15 |
+
+### Règles
+- **S1 FAUX** : à d = 50, aucun bras ne passe Q1 à aucune sauvegarde (Newton-Stein : rapport 11,1 partout).
+- **S2 VRAI tel qu'écrit** : à d = 10, époque 1500, Newton-Stein a 10/10 bassins couverts, contre 5 pour AS et 3 pour l'amortissement.
+- **Décision écrite à l'avance : S2 vrai → la règle rouvre Newton-Stein.**
+
+### Réserve majeure (vérification a posteriori, CPU, 2 s ; la règle n'est pas modifiée)
+Le S2 vrai ne vient pas d'un sampler qui garde les modes : **le sampler Newton-Stein est resté à la loi de base**. La loi de base N(0, 23,2² I) seule, mesurée de la même façon (10⁴ tirages, mêmes minima, même quench), donne : à d = 10, distance médiane 64,1 (Newton-Stein 66,0 ; π 5,2), 10/10 bassins couverts, TV par bassin 0,22 ; à d = 50, 159,3 (Newton-Stein 162,5 ; π 14,7), 10/10, TV 0,25. Une loi diffuse couvre tous les bassins parce que la quench répartit ses points selon le volume des bassins. Le critère de couverture sans Q1 ne distingue donc pas « garder les modes » de « ne rien apprendre ».
+Cause (lecture, cohérente avec le Corollaire A1 du mémo) : avec Ĥ = 1,5 et ν₁ = 538, Λ_t = 1/(1,5 ν_{1|t} + κ_t) vaut environ 1/800 aux petits t. La courbure globale du mélange (moyennes uniformes sur [−10, 10]) est bien plus faible que 1,5, ce qui donne ρ ≪ 1 dans les directions globales : la mise à jour est sous-relaxée d'un facteur de l'ordre de 800, et les dérives des premiers instants, qui placent les points, n'apprennent presque pas en 1500 époques. Newton-Stein ne stabilise pas AS ici : il le gèle. L'amortissement (b) n'apprend pas non plus la forme à d = 50 et perd des bassins à d = 10 comme AS.
+Lecture d'ensemble : sur le MoS-w, aucun des trois bras ne passe Q à aucune sauvegarde. Le seul critère rempli l'est par un sampler égal à la loi de base. Rien ici ne montre que l'échec d'AS vienne de l'instabilité ; la décision formelle (« rouvert ») est celle de la règle écrite.
+Mes prédictions (§ de la règle) : S1 faux ✓ ; S2 vrai (prédit à 20 %) ✗ ; décision « on ferme » (70 %) ✗, pour la raison ci-dessus.

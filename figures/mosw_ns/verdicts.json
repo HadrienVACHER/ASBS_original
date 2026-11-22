@@ -1,0 +1,302 @@
+{
+ "table": {
+  "d50_as": {
+   "250": {
+    "Q1": false,
+    "ratio": 7.946508172266659,
+    "coverage": 10,
+    "Q": false,
+    "basin_tv": 0.300609
+   },
+   "500": {
+    "Q1": false,
+    "ratio": 10.072368949439158,
+    "coverage": 9,
+    "Q": false,
+    "basin_tv": 0.5217040000000001
+   },
+   "750": {
+    "Q1": false,
+    "ratio": 9.383284570431261,
+    "coverage": 6,
+    "Q": false,
+    "basin_tv": 0.6050499999999999
+   },
+   "1000": {
+    "Q1": false,
+    "ratio": 10.120341410303391,
+    "coverage": 6,
+    "Q": false,
+    "basin_tv": 0.69455
+   },
+   "1250": {
+    "Q1": false,
+    "ratio": 10.101631700492373,
+    "coverage": 2,
+    "Q": false,
+    "basin_tv": 0.78545
+   },
+   "1500": {
+    "Q1": false,
+    "ratio": 10.218929992294393,
+    "coverage": 1,
+    "Q": false,
+    "basin_tv": 0.81725
+   }
+  },
+  "d50_damp": {
+   "250": {
+    "Q1": false,
+    "ratio": 8.614959411423497,
+    "coverage": 10,
+    "Q": false,
+    "basin_tv": 0.34848
+   },
+   "500": {
+    "Q1": false,
+    "ratio": 9.89727852242116,
+    "coverage": 8,
+    "Q": false,
+    "basin_tv": 0.521339
+   },
+   "750": {
+    "Q1": false,
+    "ratio": 9.818417728864214,
+    "coverage": 6,
+    "Q": false,
+    "basin_tv": 0.607439
+   },
+   "1000": {
+    "Q1": false,
+    "ratio": 9.427374372027499,
+    "coverage": 7,
+    "Q": false,
+    "basin_tv": 0.549339
+   },
+   "1250": {
+    "Q1": false,
+    "ratio": 9.402864061021434,
+    "coverage": 7,
+    "Q": false,
+    "basin_tv": 0.60645
+   },
+   "1500": {
+    "Q1": false,
+    "ratio": 10.85884318266619,
+    "coverage": 10,
+    "Q": false,
+    "basin_tv": 0.20009800000000005
+   }
+  },
+  "d50_ns": {
+   "250": {
+    "Q1": false,
+    "ratio": 11.16190057686914,
+    "coverage": 10,
+    "Q": false,
+    "basin_tv": 0.25168300000000005
+   },
+   "500": {
+    "Q1": false,
+    "ratio": 11.096154779627003,
+    "coverage": 10,
+    "Q": false,
+    "basin_tv": 0.247783
+   },
+   "750": {
+    "Q1": false,
+    "ratio": 11.084909553832054,
+    "coverage": 10,
+    "Q": false,
+    "basin_tv": 0.23758600000000002
+   },
+   "1000": {
+    "Q1": false,
+    "ratio": 11.085507816408237,
+    "coverage": 10,
+    "Q": false,
+    "basin_tv": 0.23928300000000002
+   },
+   "1250": {
+    "Q1": false,
+    "ratio": 11.079575644771603,
+    "coverage": 10,
+    "Q": false,
+    "basin_tv": 0.24169800000000002
+   },
+   "1500": {
+    "Q1": false,
+    "ratio": 11.080960143102576,
+    "coverage": 10,
+    "Q": false,
+    "basin_tv": 0.23619800000000002
+   }
+  },
+  "d10_as": {
+   "250": {
+    "Q1": false,
+    "ratio": 3.213656191467002,
+    "coverage": 7,
+    "Q": false,
+    "basin_tv": 0.24010599999999999
+   },
+   "500": {
+    "Q1": false,
+    "ratio": 2.4188789389807135,
+    "coverage": 5,
+    "Q": false,
+    "basin_tv": 0.38780599999999993
+   },
+   "750": {
+    "Q1": false,
+    "ratio": 1.9620983179873663,
+    "coverage": 4,
+    "Q": false,
+    "basin_tv": 0.348406
+   },
+   "1000": {
+    "Q1": false,
+    "ratio": 1.6606619019696485,
+    "coverage": 5,
+    "Q": false,
+    "basin_tv": 0.31030599999999997
+   },
+   "1250": {
+    "Q1": true,
+    "ratio": 1.4907113092114195,
+    "coverage": 4,
+    "Q": false,
+    "basin_tv": 0.38950599999999996
+   },
+   "1500": {
+    "Q1": true,
+    "ratio": 1.48666903206314,
+    "coverage": 5,
+    "Q": false,
+    "basin_tv": 0.30139099999999996
+   }
+  },
+  "d10_damp": {
+   "250": {
+    "Q1": false,
+    "ratio": 3.20183965508888,
+    "coverage": 8,
+    "Q": false,
+    "basin_tv": 0.256435
+   },
+   "500": {
+    "Q1": false,
+    "ratio": 1.8918052666541079,
+    "coverage": 5,
+    "Q": false,
+    "basin_tv": 0.416883
+   },
+   "750": {
+    "Q1": false,
+    "ratio": 1.561351449463294,
+    "coverage": 2,
+    "Q": false,
+    "basin_tv": 0.4751829999999999
+   },
+   "1000": {
+    "Q1": true,
+    "ratio": 1.396754367113501,
+    "coverage": 2,
+    "Q": false,
+    "basin_tv": 0.482683
+   },
+   "1250": {
+    "Q1": true,
+    "ratio": 1.3612348875989198,
+    "coverage": 3,
+    "Q": false,
+    "basin_tv": 0.458483
+   },
+   "1500": {
+    "Q1": true,
+    "ratio": 1.363965977819841,
+    "coverage": 3,
+    "Q": false,
+    "basin_tv": 0.442183
+   }
+  },
+  "d10_ns": {
+   "250": {
+    "Q1": false,
+    "ratio": 12.624341971293266,
+    "coverage": 10,
+    "Q": false,
+    "basin_tv": 0.194307
+   },
+   "500": {
+    "Q1": false,
+    "ratio": 12.637491150723738,
+    "coverage": 10,
+    "Q": false,
+    "basin_tv": 0.19766100000000003
+   },
+   "750": {
+    "Q1": false,
+    "ratio": 12.533299320376416,
+    "coverage": 10,
+    "Q": false,
+    "basin_tv": 0.19086100000000003
+   },
+   "1000": {
+    "Q1": false,
+    "ratio": 12.557316667820126,
+    "coverage": 10,
+    "Q": false,
+    "basin_tv": 0.200461
+   },
+   "1250": {
+    "Q1": false,
+    "ratio": 12.557733596043347,
+    "coverage": 10,
+    "Q": false,
+    "basin_tv": 0.19186100000000006
+   },
+   "1500": {
+    "Q1": false,
+    "ratio": 12.624871133767018,
+    "coverage": 10,
+    "Q": false,
+    "basin_tv": 0.152461
+   }
+  }
+ },
+ "S1": {
+  "value": false,
+  "evaluable": true,
+  "Q1_at_750_1500": {
+   "as": [
+    false,
+    false,
+    false,
+    false
+   ],
+   "damp": [
+    false,
+    false,
+    false,
+    false
+   ],
+   "ns": [
+    false,
+    false,
+    false,
+    false
+   ]
+  }
+ },
+ "S2": {
+  "value": true,
+  "evaluable": true,
+  "coverage_ep1500": {
+   "as": 5,
+   "damp": 3,
+   "ns": 10
+  }
+ },
+ "decision": "Newton-Stein rouvert (S1 ou S2 vrai)"
+}
