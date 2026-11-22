@@ -1210,3 +1210,20 @@ Règle écrite et commitée avant tout calcul : `rules_tempered_is_quadrature.md
 **Les contrôleurs finaux n'existent plus localement.** Il s'agit d'AS big et de Barker γ = 3 big (graines 0 à 2, d = 24 et 36) et de la division (d = 36, graine 0). Recherche effectuée dans le dépôt (`results/`, historique git complet), dans `~/Desktop/NTU`, dans `~/Downloads` et sur le disque. Ces runs ont été entraînés sur le cluster NTU, inaccessible depuis le 2026-11-16.
 
 Il ne reste localement que des **échantillons finaux** (`buffer_x1`, `model_samples`, 10⁴), dans `~/Desktop/NTU/data/{final, samples_final}/`, et seulement pour une partie des runs : `gmm36d_as_big_cap` graine 0, `gmm36d_as_barker_g2_thr_big` (γ = 2, pas γ = 3), `gmm36d_as_barker_g{2,3}_thr` (petit réseau), `gmm36d_as_cmp`, ainsi que des variantes oracle et k-means à γ = 1 à 3. Sans contrôleur, les poids de chemin ne sont pas calculables. Conformément à la consigne, la tâche est arrêtée, sans réentraînement et sans règle écrite (aucun calcul fait).
+
+**Point 4, coût en énergies (lecture des configurations et du code, aucun run ; demandé après l'arrêt).**
+- **Constantes** (`gmm_as.yaml`, `train.py`) : B = 512 nouveaux échantillons par époque (resample_size 1000 // resample_batch_size 512 = 1 appel de `populate_buffer`), U = 100 mises à jour de gradient par époque, buffer 10⁴. Le buffer est entièrement renouvelé en 10⁴/512 ≈ 19,5 époques, soit environ 1950 mises à jour.
+- **AS** : un gradient ∇E par nouvel échantillon, aucune énergie, soit **B/U = 5,12 gradients par mise à jour** (le « ≈ 5 » de la section 1).
+- **Barker tel qu'implémenté** (`AdjointVEBarkerMatcher` / `AdjointVEMHMatcher.populate_buffer`, configuration figée γ = 3, centres à seuil, 12 pas de débruitage). **Tout est calculé une fois, à l'insertion de l'échantillon dans le buffer, et stocké** (`E1`, `EY`, `xd`). Par nouvel échantillon :
+  - 1 gradient (∇E, déjà fait par AS) ;
+  - 1 énergie E(x₁) ;
+  - f_v (M − 1) énergies aux translatés T_r(x₁), où M = nombre de centres (≈ K = 24 ou 36) et f_v la fraction de translatés valides (≤ 1, non connue sans les journaux du cluster) ;
+  - débruitage BB : 1 à 7 énergies (recherche linéaire d'Armijo) et 1 à 12 gradients.
+- **Fusion par barrière des centres** (une fois par époque) : au plus M(M − 1)/2 paires × 9 points + M énergies. Sur le simplexe de rayon 4,25, toutes les paires sont à 6,1 < 8 × rayon, donc 2508 (d = 24) et 5706 (d = 36) énergies par époque.
+- **Par mise à jour de gradient** (débruitage minimal, f_v = 1) :
+  - d = 24 : 5,12 × (2 + 23) + 25 ≈ **153 énergies** + 10 gradients (jusqu'à 184 énergies et 67 gradients au débruitage maximal) ;
+  - d = 36 : 5,12 × (2 + 35) + 57 ≈ **247 énergies** + 10 gradients (jusqu'à 277 et 67).
+  - Le « 140 à 200 » de la section 1 (venu de notes, origine non documentée) concorde à d = 24. À d = 36, il est en dessous de cette borne, ce qui correspond à f_v ≈ 0,75 ou à moins de centres : non vérifiable sans les journaux.
+- **Par renouvellement complet du buffer** (10⁴ échantillons, 19,5 époques) : AS 10⁴ gradients. Barker d = 24 ≈ 10⁴ × 25 + 19,5 × 2508 ≈ **3,0·10⁵ énergies** (+ 2·10⁴ gradients) ; d = 36 ≈ 10⁴ × 37 + 19,5 × 5706 ≈ **4,8·10⁵ énergies**.
+- **Avec mise en cache des énergies aux images T_r(x₁)** : **c'est déjà le cas**. Les énergies des translatés ne dépendent pas de x_t et sont calculées une seule fois par échantillon du buffer. Le coût ci-dessus est donc le coût avec cache. Sans cache (énergies recalculées à chaque échantillon de régression), il faudrait 512 × (M − 1) énergies par mise à jour, soit 1,2·10⁴ (d = 24) et 1,8·10⁴ (d = 36). Le cache actuel les divise déjà par 512/5,12 = 100.
+- **Ce qui reste** : un surcoût de 30 à 50 fois AS, qui vient des M − 1 énergies par **nouvel** échantillon et de la fusion par barrière. Pour le réduire, il faudrait évaluer moins de translatés par échantillon (sous-orbite aléatoire, au prix de la variance du terme ; non testé) et faire la fusion moins souvent.
