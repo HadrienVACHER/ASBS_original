@@ -1,0 +1,11 @@
+# @package _global_
+
+# MoS-w: EXACTLY the config of mosw_as (same network, optimiser, buffer, schedule); only the matcher changes (adjoint_ve_newton_stein). rules_mosw_ns.md.
+
+defaults:
+  - mosw_as
+  - override /matcher@adjoint_matcher: adjoint_ve_newton_stein
+
+exp_name: mosw_as_newton_stein_d${dim}
+adjoint_matcher:
+  h_hat: 1.5 # Hessian of -log of one t_2 component (scale 1) at its mode: (nu + 1)/(nu s^2) = 3/2

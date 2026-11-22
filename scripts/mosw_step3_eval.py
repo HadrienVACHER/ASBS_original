@@ -16,6 +16,7 @@ ap = argparse.ArgumentParser()
 ap.add_argument("rdir"); ap.add_argument("out"); ap.add_argument("--d", type=int, required=True)
 ap.add_argument("--epochs", default="250,500,750,1000,1250,1500"); ap.add_argument("--n_paths", type=int, default=20000)
 ap.add_argument("--deadline", type=float, default=float("inf")); ap.add_argument("--wait", action="store_true"); ap.add_argument("--smoke", action="store_true")
+ap.add_argument("--q_only", action="store_true")   # rules_mosw_ns.md: Q and basin TV only, no comparison (default off: step-3 behaviour unchanged)
 args = ap.parse_args()
 dev = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 D, K, NFE = args.d, 10, 200
@@ -100,7 +101,7 @@ for E in [int(e) for e in args.epochs.split(",")]:
     r["raw"] = dict(tv_voronoi=L.tv(L.props(c[:10000], K), ptrue), coverage_voronoi=int((L.props(c[:10000], K) >= 0.25 * ptrue).sum()), basin_tv=qs["tv"])
     out["epochs"][E] = r; dump()
     print(f"ep{E}: Q1 median dist AS {med_as:.2f} vs exact {med_ex:.2f} (ratio {med_as / med_ex:.2f}) -> {Q1}; Q2 converged {fc:.3f}, basin coverage {qs['coverage']}/10 (>=1 sample: {reached}) -> {Q2}; Q = {Q1 and Q2} | raw TV vor {r['raw']['tv_voronoi']:.3f} basin {qs['tv']:.3f}", flush=True)
-    if not (Q1 and Q2) and not args.smoke:                                            # --smoke only: comparisons run regardless of Q to test the code path
+    if args.q_only or (not (Q1 and Q2) and not args.smoke):                                            # --smoke only: comparisons run regardless of Q to test the code path
         continue
     if time.time() + 150 > args.deadline:
         r["comparisons"] = "skipped: deadline"; dump(); print(f"ep{E}: comparisons skipped (deadline)", flush=True); continue
