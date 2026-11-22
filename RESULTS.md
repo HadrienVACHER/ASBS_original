@@ -1228,6 +1228,8 @@ Il ne reste localement que des **échantillons finaux** (`buffer_x1`, `model_sam
 - **Avec mise en cache des énergies aux images T_r(x₁)** : **c'est déjà le cas**. Les énergies des translatés ne dépendent pas de x_t et sont calculées une seule fois par échantillon du buffer. Le coût ci-dessus est donc le coût avec cache. Sans cache (énergies recalculées à chaque échantillon de régression), il faudrait 512 × (M − 1) énergies par mise à jour, soit 1,2·10⁴ (d = 24) et 1,8·10⁴ (d = 36). Le cache actuel les divise déjà par 512/5,12 = 100.
 - **Ce qui reste** : un surcoût de 30 à 50 fois AS, qui vient des M − 1 énergies par **nouvel** échantillon et de la fusion par barrière. Pour le réduire, il faudrait évaluer moins de translatés par échantillon (sous-orbite aléatoire, au prix de la variance du terme ; non testé) et faire la fusion moins souvent.
 
+**Conclusion (utilisateur, 2026-11-22).** Le cache existe déjà. Le surcoût de la VC à sauts (30 à 50 × AS en énergies) vient des M − 1 images par nouvel échantillon, et ne se réduit qu'en sous-échantillonnant les partenaires (non testé).
+
 ### Tâche 3/4 : division sur DW-4, des gabarits plus riches réduisent-ils la dispersion de log u ? ARRÊT par la règle de cohérence (2026-11-22)
 
 Règle écrite et commitée avant tout calcul : `rules_dw4_template_variance.md` (18a9a28). Script `scripts/dw4_template_variance.py`, résultats `figures/dw4_template_variance/` (prep.json, eval_J1.json, verdict.json). Tout est ajusté et évalué localement, dans la base déterministe de Helmert ; aucun paramètre du cluster.

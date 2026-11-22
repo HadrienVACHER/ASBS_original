@@ -35,3 +35,15 @@ log u_a = log N̄_a(x) + E(x)/τ (τ = 1). On mesure son **écart-type** sur les
 
 ## Exécution
 `scripts/dw4_template_variance.py` : `prep`, `prepref` (moitié B de la référence DEM, rapportée), `fit J` (repris jusqu'à convergence, < 50 s par exécution), `eval J`, `verdict`. Résultats `figures/dw4_template_variance/` (JSON) ; données et points de reprise dans `results/` (hors dépôt). Tableau bassin × J (écarts-types, k̂), verdicts et temps dans la section « Phase 0 » de RESULTS.md.
+
+## Amendement daté (2026-11-22, après l'arrêt ; demandé par l'utilisateur ; écrit et commité avant la reprise)
+**Arrêt d'origine, conservé** : la cohérence telle qu'écrite (J = 1 à 15 % près des valeurs de l'étape 1, sur PT B) était fausse (deux paires +24 %, étoile +79 %), donc arrêt (RESULTS.md, 6129e15). **Cause : erreur de spécification de l'utilisateur.** Les valeurs de référence 2,66 / 1,68 / 6,69 / 6,46 / 3,30 venaient de la moitié B de la référence DEM, pas de PT B.
+- **Vérification d'implémentation** (remplace la cohérence) : J = 1 reproduit l'étape 1 sur la moitié B DEM à 15 % près dans au moins 4 bassins sur 5. **Elle est déjà vraie** (4/5 : −2 %, +23 %, −2 %, −13 %, +9 %). L'écart du chemin de 2 s'explique par η = 0,4 au lieu de 0,3. Elle est rapportée comme telle.
+- **Référence pour la suite** : J = 1 mesuré sur PT B dans cette même exécution (`eval_J1.json` : 2,51 / 1,56 / 8,27 / 5,79 / 5,92).
+- **V1, V2 et le contrôle négatif : inchangés.**
+  - V1 : J = 5, écart-type ≤ 2 nats sur PT B dans les trois petits bassins.
+  - V2 : k̂ dans le bassin < 0,5, sur la moitié AS d'évaluation comme précisé plus haut, la valeur sur PT B étant rapportée.
+  - Contrôle négatif : le gabarit J = 5 à covariances × 2 doit donner un écart-type plus grand sur PT B dans chacun des trois petits bassins.
+- **Rétrécissement** : la règle de l'étape 1 (variante B : plus petit η ∈ {0,2 ; … ; 0,8} tel que P(une distance de paire dans [3,5 ; 4,5]) < 1 % sur 20 000 tirages, sinon 0,8, signalé) est **appliquée à chaque composante séparément** : η_j pour la composante j, avec covariance (1 − η_j) Σ_j. Pour J = 1, c'est la règle déjà appliquée. η est rapporté par bassin et par J (liste des η_j).
+- **Lecture fixée d'avance, inchangée.**
+- Puis : ajustement de J ∈ {3, 5, 10}, évaluation, et tableau bassin × J (écarts-types sur la moitié AS d'évaluation et sur PT B, k̂), avec verdicts et temps. Chaque exécution < 1 min.
