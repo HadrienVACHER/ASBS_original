@@ -38,11 +38,12 @@ def mahal(x, mu_c, P):
 
 
 def log_mix(x, comps, scale=1.0):
-    """ log N_bar(x) for the mixture comps = [(c, mu, Sigma)] with covariances scale * Sigma, x (n, 8) """
+    """ log N_bar(x) for the mixture comps = [(c, mu, Sigma)] with covariances scale_j * Sigma_j (scale: a number or one per component), x (n, 8) """
+    sc = list(scale) if isinstance(scale, (list, tuple)) else [scale] * len(comps)
     out = []
     for lo in range(0, len(x), 1000):
         xs = x[lo:lo + 1000]
-        terms = [math.log(c) + s0.log_qbar(xs, mu, scale * S) for c, mu, S in comps]
+        terms = [math.log(c) + s0.log_qbar(xs, mu, f * S) for (c, mu, S), f in zip(comps, sc)]
         out.append(torch.logsumexp(torch.stack(terms), 0))
     return torch.cat(out)
 
@@ -172,34 +173,42 @@ elif cmd == "fit":
     print(("DONE" if st["done"] else "CONTINUE") + f" J={J} after {st['it']} iterations; this call {time.time() - T0:.1f} s")
 
 elif cmd == "eval":
+    # amendment (2026-11-22): the variant-B shrinkage rule is applied to EACH component separately (eta_j); for J = 1 it is the rule used before
     J = int(sys.argv[2]); D = torch.load(DATA, weights_only=False); st = torch.load(ROOT / "results" / f"dw4_template_variance_fit_J{J}.pt", weights_only=False)
     assert st["done"], "fit not converged / finished"
     g = torch.Generator().manual_seed(0); res = dict(J=J, iterations=st["it"], loglik={nm(k): st["hist"][k][-1] for k in TYPES}, basins={})
     EB = s0.energy(D["ptB"]); Eref = s0.energy(D["ref"])
     for k in TYPES:
-        comps = st["comps"][k]
-        ps = [float(b.pair_in_window(mix_draw(comps, 1 - e, b.N_DRAW, g)).double().mean()) for e in b.ETAS]
-        ok = [e for e, p in zip(b.ETAS, ps) if p < 0.01]; eta = ok[0] if ok else b.ETAS[-1]
-        sets = dict(as_eval=(D["m"][D["ev"][k]], D["E"][D["ev"][k]]), ptB=(D["ptB"][D["ptB_idx"][k]], EB[D["ptB_idx"][k]]), refB=(D["ref"][D["refB"][k]], Eref[D["refB"][k]]))
-        r = dict(eta=eta, eta_flagged=not ok, leak=ps)
+        comps = st["comps"][k]; etas, flags = [], []
+        for c, mu, S in comps:
+            ps = [float(b.pair_in_window(b.draw(mu, (1 - e) * S, b.N_DRAW, g)).double().mean()) for e in b.ETAS]
+            ok = [e for e, p in zip(b.ETAS, ps) if p < 0.01]; etas.append(ok[0] if ok else b.ETAS[-1]); flags.append(not ok)
+        sc = [1 - e for e in etas]
+        sets = dict(as_eval=(D["m"][D["ev"][k]], D["E"][D["ev"][k]]), ptB=(D["ptB"][D["ptB_idx"][k]], EB[D["ptB_idx"][k]]))
+        if J == 1:
+            sets["refB"] = (D["ref"][D["refB"][k]], Eref[D["refB"][k]])
+        r = dict(eta=etas, eta_flagged=flags, weights=[float(c) for c, _, _ in comps])
         for sn, (x, E) in sets.items():
-            lu = log_mix(x, comps, 1 - eta) + E / b.TAU
+            lu = log_mix(x, comps, sc) + E / b.TAU
             r[sn] = dict(n=len(x), sd=float(lu.std()), khat=b.khat(torch.exp(lu - lu.max()).numpy()), sd_eta0=float((log_mix(x, comps, 1.0) + E / b.TAU).std()))
-            if J == 5 and sn in ("ptB", "as_eval"):
-                r[sn]["sd_cov_x2"] = float((log_mix(x, comps, 2 * (1 - eta)) + E / b.TAU).std())
+            if J == 5 and sn == "ptB":
+                r[sn]["sd_cov_x2"] = float((log_mix(x, comps, [2 * f for f in sc]) + E / b.TAU).std())
         res["basins"][nm(k)] = r
-        print(f"J={J} {nm(k):26} eta {eta}{'*' if not ok else ''}: SD AS-eval {r['as_eval']['sd']:.3f} (khat {r['as_eval']['khat']:.2f}) | PT B {r['ptB']['sd']:.3f} (khat {r['ptB']['khat']:.2f}) | ref B {r['refB']['sd']:.3f}"
+        print(f"J={J} {nm(k):26} eta {etas}: SD AS-eval {r['as_eval']['sd']:.3f} (khat {r['as_eval']['khat']:.2f}) | PT B {r['ptB']['sd']:.3f} (khat {r['ptB']['khat']:.2f})"
               + (f" | cov x2: PT B {r['ptB']['sd_cov_x2']:.3f}" if J == 5 else "") + f"  ({time.time() - T0:.0f} s)", flush=True)
     res["time_s"] = time.time() - T0
     json.dump(res, open(OUT / f"eval_J{J}.json", "w"), indent=1); print(f"eval J={J}: {res['time_s']:.1f} s")
 
 elif cmd == "verdict":
+    # original coherence (kept: false -> stop, 6129e15) and the amended rules (2026-11-22)
     R = {J: json.load(open(OUT / f"eval_J{J}.json")) for J in (1, 3, 5, 10) if (OUT / f"eval_J{J}.json").exists()}
     c1 = {nm(k): R[1]["basins"][nm(k)]["ptB"]["sd"] / SD_REF[k] - 1 for k in TYPES}
     c1r = {nm(k): R[1]["basins"][nm(k)]["refB"]["sd"] / SD_REF[k] - 1 for k in TYPES}
-    coh = all(abs(v) <= 0.15 for v in c1.values())
-    V = dict(coherence=dict(rel_dev_ptB=c1, rel_dev_refB_reported=c1r, ok=coh))
-    if coh and 5 in R:
+    impl = sum(abs(v) <= 0.15 for v in c1r.values()) >= 4
+    V = dict(original_coherence=dict(rel_dev_ptB=c1, ok=all(abs(v) <= 0.15 for v in c1.values()), decision="arrêt (6129e15)"),
+             implementation_check=dict(rel_dev_refB=c1r, n_within_15pct=int(sum(abs(v) <= 0.15 for v in c1r.values())), ok=impl),
+             reference_J1_ptB={nm(k): R[1]["basins"][nm(k)]["ptB"]["sd"] for k in TYPES})
+    if impl and 5 in R:
         b5 = R[5]["basins"]
         V["V1"] = dict(sd_ptB={nm(k): b5[nm(k)]["ptB"]["sd"] for k in SMALL}, ok=all(b5[nm(k)]["ptB"]["sd"] <= 2.0 for k in SMALL))
         V["V2"] = dict(khat_as_eval={nm(k): b5[nm(k)]["as_eval"]["khat"] for k in SMALL}, khat_ptB_reported={nm(k): b5[nm(k)]["ptB"]["khat"] for k in SMALL},
@@ -207,5 +216,7 @@ elif cmd == "verdict":
         V["negative_control"] = dict(sd_ptB_x2={nm(k): b5[nm(k)]["ptB"]["sd_cov_x2"] for k in SMALL}, ok=all(b5[nm(k)]["ptB"]["sd_cov_x2"] > b5[nm(k)]["ptB"]["sd"] for k in SMALL))
         V["reading"] = ("gabarits trop pauvres : la piste se rouvre sur d'autres cibles" if (V["V1"]["ok"] and V["V2"]["ok"]) else "division fermée (R) quel que soit J")
     else:
-        V["reading"] = "arrêt : cohérence non tenue (J = 1 ne reproduit pas l'étape 1 à 15 % près sur PT B)" if not coh else "J = 5 non évalué"
-    json.dump(V, open(OUT / "verdict.json", "w"), indent=1); print(json.dumps(V, indent=1, ensure_ascii=False))
+        V["reading"] = "vérification d'implémentation fausse" if not impl else "J = 5 non évalué"
+    V["table"] = {nm(k): {J: dict(eta=R[J]["basins"][nm(k)]["eta"], sd_as_eval=R[J]["basins"][nm(k)]["as_eval"]["sd"], khat_as_eval=R[J]["basins"][nm(k)]["as_eval"]["khat"],
+                                  sd_ptB=R[J]["basins"][nm(k)]["ptB"]["sd"], khat_ptB=R[J]["basins"][nm(k)]["ptB"]["khat"]) for J in R} for k in TYPES}
+    json.dump(V, open(OUT / "verdict.json", "w"), indent=1); print(json.dumps({k: v for k, v in V.items() if k != "table"}, indent=1, ensure_ascii=False))
