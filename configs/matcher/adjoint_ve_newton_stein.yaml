@@ -1,0 +1,10 @@
+_target_: adjoint_samplers.components.matcher.AdjointVENewtonSteinMatcher
+
+h_hat: 1.0 # assumed curvature (h_hat I); GMM-dk modes have unit variance
+
+grad_state_cost:
+  _target_: adjoint_samplers.components.state_cost.ZeroGradStateCost
+
+buffer:
+  _target_: adjoint_samplers.components.buffer.BatchBuffer
+  buffer_size: ${adjoint_matcher.buffer_size}

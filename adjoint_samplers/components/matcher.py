@@ -1864,3 +1864,65 @@ class CorrectorMatcher(Matcher):
 
         self._check_target_shape(t1, x1, score)
         return (t1, x1,), score
+
+
+class AdjointVEDampedMatcher(AdjointVEMatcher):
+    """ AS + direct velocity damping (Blessing et al. 2026; eq. 176 of "Failure Modes of Adjoint Sampling"):
+
+            target = (1 - eta) u_{k-1}(X_t, t) + eta * ( - grad g(X1) ),
+
+        u_{k-1} = the controller FROZEN at the start of the current epoch (set_progress, called by train.py before each epoch). One AS outer iteration = one epoch here
+        (new end points from the current controller, then the regression steps). Same fixed point as AS (u = E[-grad g(X1) | X_t]). Not a control variate: its mean
+        under pi~ differs from that of AS whenever u_{k-1} != u*. Repository parametrisation (no factor sigma_t), the same as the AS target.
+    """
+    def __init__(self, eta: float = 0.5, **kwargs):
+        super().__init__(**kwargs)
+        self.eta = float(eta)
+        self.u_prev = None
+
+    def set_progress(self, epoch, num_epochs):
+        import copy
+        self.u_prev = copy.deepcopy(self.sde.u).eval()
+        for p in self.u_prev.parameters():
+            p.requires_grad_(False)
+
+    def prepare_target(self, data, device):
+        (t, xt), target = super().prepare_target(data, device)
+        if self.u_prev is None:   # set_progress never called (unit tests only): plain AS
+            return (t, xt), target
+        with torch.no_grad():
+            prev = self.u_prev(t, xt)
+        return (t, xt), (1.0 - self.eta) * prev + self.eta * target
+
+
+class AdjointVENewtonSteinMatcher(AdjointVEMatcher):
+    """ AS + the Newton-Stein control variate (memo_cv_failure_modes.md, Theorem A), scalar assumed curvature h_hat (Hessian h_hat I):
+
+            Y_hat = Lambda_t Y + (1 - Lambda_t) Y_BM,   Y = - grad g(X1) = s_pi(X1) + X1 / nu_1,   Y_BM = (X1 - X_t) / nu_{1|t},   Lambda_t = 1 / (nu_{1|t} h_hat + kappa_t),
+
+        repository parametrisation (no factor sigma_t). Written without the 1/nu_{1|t} singularity: (1 - Lambda_t) Y_BM = (h_hat - 1/nu_1) (X1 - X_t) / (nu_{1|t} h_hat + kappa_t).
+        Y_hat - Y = (Lambda_t - 1) c_S, c_S = grad_{x1} log pi~_t(x1 | x_t) = Y - Y_BM. Lambda depends on t only, so E_{pi~}[Y_hat - Y | x_t] = 0 EXACTLY: same fixed point as AS.
+        h_hat = 1 / nu_1 gives Lambda = 1 (plain AS). Requires the Delta source at 0 (mu_1 = 0; X_t | X1 ~ N(kappa X1, nu_t (1 - kappa)); nu_1 = sigma_max^2 - sigma_min^2 = var of p^base_1).
+    """
+    def __init__(self, h_hat: float = 1.0, **kwargs):
+        super().__init__(**kwargs)
+        self.h_hat = float(h_hat)
+        tc = self.grad_term_cost
+        assert isinstance(tc, ScoreGradTermCost) and float(tc.mu1.abs().max()) == 0.0, "Newton-Stein matcher: Delta source at 0 required"
+        assert abs(float(tc.var1.max()) - float(self.sde.ref_sde.total_var)) < 1e-6 * float(self.sde.ref_sde.total_var), "Newton-Stein matcher: var of p^base_1 must be nu_1"
+
+    def prepare_target(self, data, device):
+        x0 = data["x0"].to(device)
+        x1 = data["x1"].to(device)
+        adjoint1 = data["adjoint1"].to(device)
+
+        t = self.sample_t(x0).to(device)
+        xt = self.sde.sample_base_posterior(t, x0, x1)
+        ref = self.sde.ref_sde
+        nu1 = float(ref.total_var)
+        kappa = ref._diffsquare_integral(t) / nu1                  # same reparametrised time as VESDE.sample_posterior
+        denom = nu1 * (1.0 - kappa) * self.h_hat + kappa          # nu_{1|t} h_hat + kappa_t  (>= min(nu_1 h_hat, 1) > 0)
+        target = - adjoint1 / denom + (self.h_hat - 1.0 / nu1) * (x1 - xt) / denom
+
+        self._check_target_shape(t, xt, target)
+        return (t, xt), target

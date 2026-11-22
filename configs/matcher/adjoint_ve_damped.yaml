@@ -1,0 +1,10 @@
+_target_: adjoint_samplers.components.matcher.AdjointVEDampedMatcher
+
+eta: 0.5 # eq. 176 of "Failure Modes of Adjoint Sampling" (Blessing et al. 2026): target = (1 - eta) u_{k-1} + eta Y, previous network frozen (start of each epoch)
+
+grad_state_cost:
+  _target_: adjoint_samplers.components.state_cost.ZeroGradStateCost
+
+buffer:
+  _target_: adjoint_samplers.components.buffer.BatchBuffer
+  buffer_size: ${adjoint_matcher.buffer_size}
