@@ -1121,3 +1121,39 @@ Le S2 vrai ne vient pas d'un sampler qui garde les modes : **le sampler Newton-S
 Cause (lecture, cohérente avec le Corollaire A1 du mémo) : avec Ĥ = 1,5 et ν₁ = 538, Λ_t = 1/(1,5 ν_{1|t} + κ_t) vaut environ 1/800 aux petits t. La courbure globale du mélange (moyennes uniformes sur [−10, 10]) est bien plus faible que 1,5, ce qui donne ρ ≪ 1 dans les directions globales : la mise à jour est sous-relaxée d'un facteur de l'ordre de 800, et les dérives des premiers instants, qui placent les points, n'apprennent presque pas en 1500 époques. Newton-Stein ne stabilise pas AS ici : il le gèle. L'amortissement (b) n'apprend pas non plus la forme à d = 50 et perd des bassins à d = 10 comme AS.
 Lecture d'ensemble : sur le MoS-w, aucun des trois bras ne passe Q à aucune sauvegarde. Le seul critère rempli l'est par un sampler égal à la loi de base. Rien ici ne montre que l'échec d'AS vienne de l'instabilité ; la décision formelle (« rouvert ») est celle de la règle écrite.
 Mes prédictions (§ de la règle) : S1 faux ✓ ; S2 vrai (prédit à 20 %) ✗ ; décision « on ferme » (70 %) ✗, pour la raison ci-dessus.
+
+## Phase 0
+
+### Tâche 1/4 : DW-4, garde-fou (iii) de la confirmation du darting refait avec assez de puissance (réanalyse déclarée, 2026-11-22)
+
+Règle écrite et commitée avant tout calcul : `rules_dw4_guard_power.md` (d943965). Script `scripts/dw4_guard_power.py`, résultats `figures/dw4_guard_power/` (floor, arm_*, calib_s*, ctrl_s*, verdict.json). CPU du Mac, aucune location, aucun entraînement.
+
+**Le verdict d'origine de `rules_darting_confirm.md` reste « non confirmé » (iii faux sur la graine 2), tel qu'écrit.** Cette réanalyse remplace (iii) par G3′ pour elle seule.
+
+**Données et protocole.**
+- Données : `model_samples` finaux (10⁴) des bras D30 et AS (C2 relancé, C3, C4), graines 2, 3, 4. Référence : le pool PT.
+- Métriques : energy_w2 et eq_w2 de l'évaluation officielle, à **n = 2000, sous-échantillonnage déclaré**. À n = 10⁴, une évaluation dépasserait la minute ; ce n'a pas été tenté.
+- Bootstrap : 20 rééchantillonnages par bras, avec une référence commune par rééchantillonnage.
+- Temps par exécution : 12,6 s et 36,6 s (plancher) ; 25,1 à 26,2 s par demi-bras ; étalonnage 25,8 / 26,4 / 20,4 s ; contrôle positif 25,8 à 26,9 s. Aucune exécution au-dessus d'une minute.
+
+**Plancher (PT contre PT, chaînes disjointes, 20 répétitions).** eq_w2 : médiane 0,301, p95 0,342, écart-type 0,021. energy_w2 : médiane 0,112, p95 0,191, écart-type 0,038.
+
+| graine | eq_w2 D30 (± sd) | eq_w2 C (± sd) | Δ_s eq_w2 (sd) | energy_w2 D30 (± sd) | energy_w2 C (± sd) | Δ_s energy_w2 (sd) |
+|---|---|---|---|---|---|---|
+| 2 | 0,476 ± 0,051 | 0,653 ± 0,046 | −0,177 (0,069) | 0,657 ± 0,071 | 0,705 ± 0,066 | −0,047 (0,097) |
+| 3 | 0,676 ± 0,038 | 0,475 ± 0,033 | **+0,201 (0,050)** | 0,225 ± 0,064 | 0,382 ± 0,076 | −0,157 (0,099) |
+| 4 | 0,392 ± 0,038 | 0,690 ± 0,038 | −0,297 (0,054) | 0,295 ± 0,079 | 0,411 ± 0,084 | −0,117 (0,116) |
+
+### G3′
+- **eq_w2 : G3′ FAUSSE.** La moyenne Δ̄ = −0,091 est bien ≤ 2 × SE (SE 0,034), mais **la graine 3 a Δ_s = +0,201 > 3 × 0,050 = 0,151** (environ 4 écarts-types). Les graines 2 et 4 ont Δ_s négatif, à −2,6 et −5,5 écarts-types : D30 y est meilleur que l'AS.
+- **energy_w2 (descriptif) : G3′ vraie.** Δ̄ = −0,107 (SE 0,060), D30 plus bas sur les 3 graines, aucune graine au-dessus de 3 écarts-types.
+
+### Contrôle positif
+D30 bruité, σ fixé par la procédure écrite : graine 2 σ = 0,5 ; graine 3 σ = 0,5, signalé (aucune valeur de la grille n'atteint le double de l'écart) ; graine 4 σ = 0,3. G3′ sur la version dégradée : Δ_s = +0,209 / +0,423 / −0,135, Δ̄ = +0,166 > 2 × 0,024, deux graines au-dessus de 3 écarts-types. **G3′ fausse : le contrôle positif est détecté**, la garde a de la puissance.
+
+**Décision écrite à l'avance : G3′ fausse → « non confirmé ».** Le verdict d'origine ne change pas, mais sa raison change. Ce n'est plus du bruit sur deux évaluations de la graine 2, où D30 est en fait meilleur (Δ −0,18) : c'est une dégradation réelle d'eq_w2 sur la graine 3, à environ 4 écarts-types.
+
+### Lecture et réserves (sans changer la décision)
+- **La dégradation concerne la géométrie, pas l'énergie.** Le darting γ = 30 améliore les proportions de bassins (critère (i), 3 graines sur 3) et energy_w2 (3 graines sur 3). Mais sur la graine 3, la géométrie des configurations du modèle final est nettement plus loin du PT que celle de l'AS de même graine.
+- **La réanalyse porte sur un seul instantané par run**, les échantillons du modèle final. Le bootstrap mesure le bruit de W2 à modèle fixé, pas la variabilité du modèle d'une évaluation à l'autre. Celle-ci est grande : eq_w2 par évaluation pendant l'entraînement allait de 0,30 à 0,81 pour D30 s4. Les valeurs ne sont donc pas comparables aux moyennes temporelles de la section de confirmation, qui étaient calculées contre la référence DEM (graine 3 : D30 0,499 contre C3 0,553).
+- Une seule graine dégradée sur trois suffit à faire échouer G3′ telle qu'écrite.
