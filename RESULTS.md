@@ -1257,3 +1257,42 @@ Règle écrite et commitée avant tout calcul : `rules_dw4_template_variance.md`
 - **Les écarts sur PT B viennent des données**, pas de l'implémentation : les mêmes gabarits donnent des dispersions plus grandes sur PT B que sur la référence DEM, dans les deux petits bassins concernés (deux paires 8,27 contre 6,58 ; étoile 5,92 contre 3,58).
 - **La référence DEM n'a que 35 états d'étoile** dans sa moitié B, contre 309 en PT B : la valeur 3,30 de l'étape 1 reposait sur un petit échantillon. Les différences entre l'ajustement sur une moitié des AS et l'ajustement de l'étape 1 sur tous les AS jouent aussi (étoile : 86 contre 164 échantillons).
 - **Dès J = 1**, k̂ dans le bassin dépasse 0,5 pour les deux paires (0,74 sur la moitié AS d'évaluation, 0,91 sur PT B), et la dispersion y est de 8 à 9 nats.
+
+#### Tâche 3/4, reprise après l'amendement daté (037ae34, écrit et commité avant la reprise)
+
+L'arrêt d'origine reste écrit ci-dessus. Il venait d'une erreur de spécification de l'utilisateur : les valeurs de référence avaient été mesurées sur la moitié B de la référence DEM, pas sur PT B.
+- **Vérification d'implémentation** (amendée) : J = 1 reproduit l'étape 1 sur la moitié B DEM à 15 % près dans **4 bassins sur 5** (−2 %, +23 %, −2 %, −13 %, +9 %) : **vraie**. L'écart du chemin de 2 s'explique par η = 0,4 au lieu de 0,3.
+- Référence pour la suite : J = 1 sur PT B (2,50 / 1,56 / 8,27 / 5,79 / 5,91).
+- Rétrécissement par composante (η_j, règle de la variante B, appliquée à chaque composante).
+
+**Temps.** EM : J = 3 en 45,4 + 24,2 s ; J = 5 en 46,1 + 45,8 + 22,7 s ; J = 10 en 45,6 + 45,1 + 50,2 + 50,3 + 33,4 s ; 40 itérations à chaque J, sans atteindre la tolérance 10⁻⁴. Évaluations : 3,3 / 7,6 / 15,1 / 24,3 s. Aucune exécution au-delà d'une minute.
+
+Écart-type de log u_a (rétréci, η_j de la règle) sur la moitié AS d'évaluation / sur PT B, avec k̂ dans le bassin entre parenthèses ; dernière colonne : η_j.
+| bassin | J = 1 | J = 3 | J = 5 | J = 10 | η_j (J = 5) |
+|---|---|---|---|---|---|
+| triangle + pendant | 3,18 (−0,19) / 2,50 (−0,17) | 4,57 (0,58) / 3,60 (0,46) | 2,83 (1,10) / 2,12 (1,13) | 3,36 (0,85) / 2,44 (1,02) | 0,8 0,2 0,8 0,2 0,8 |
+| chemin de 2 | 2,44 (0,05) / 1,56 (−0,10) | 3,23 (0,50) / 2,17 (0,54) | 2,85 (0,77) / 1,77 (0,78) | 3,04 (0,66) / 1,85 (0,57) | 0,2 0,8 0,8 0,8 0,2 |
+| **deux paires** | 9,09 (0,74) / 8,27 (0,91) | 6,34 (0,15) / 6,19 (0,38) | **5,94 (0,83) / 5,40 (0,91)** | 5,90 (0,79) / 5,64 (1,01) | 0,8 ×4, 0,4 |
+| **K4 moins une arête** | 6,18 (0,19) / 5,79 (0,23) | 5,68 (0,37) / 5,16 (0,53) | **5,38 (0,18) / 5,28 (0,47)** | 4,29 (0,44) / 4,15 (0,66) | 0,8 ×5 |
+| **étoile** | 4,83 (0,43) / 5,92 (0,35) | 4,16 (0,08) / 5,69 (0,90) | **3,54 (0,41) / 5,98 (0,67)** | 3,79 (−0,02) / 5,83 (0,97) | 0,8 ×5 |
+Aux petits bassins, presque tous les η_j valent 0,8 et sont signalés (aucun η < 1 % de fuite), c'est-à-dire des covariances × 0,2.
+
+**Verdicts tels qu'écrits.**
+- **V1 FAUSSE** : à J = 5 sur PT B, 5,40 / 5,28 / 5,98 nats, très au-dessus de 2.
+- **V2 FAUSSE** : k̂ sur la moitié AS d'évaluation 0,83 (deux paires), 0,18 et 0,41.
+- **Contrôle négatif FAUX, et en sens contraire** : le gabarit J = 5 à covariances × 2 donne un écart-type **plus petit** (2,14 / 2,12 / 2,65 contre 5,40 / 5,28 / 5,98). Comme écrit dans la règle, la mesure ne discrimine pas dans le sens attendu : c'est signalé.
+- **Lecture fixée d'avance : V1 et V2 fausses → « division fermée (R) quel que soit J ».**
+
+**Mécanisme** (à partir des écarts-types sans rétrécissement, η = 0, déclarés « rapportés » dans la règle ; ils ne changent pas les verdicts). Moitié AS d'évaluation / PT B :
+| bassin | J = 1 | J = 3 | J = 5 | J = 10 |
+|---|---|---|---|---|
+| triangle + pendant | 0,77 / 0,68 | 0,51 / 0,42 | 0,42 / 0,32 | 0,45 / 0,32 |
+| chemin de 2 | 1,15 / 0,74 | 0,69 / 0,37 | 0,48 / 0,36 | 0,49 / 0,35 |
+| deux paires | 1,22 / 1,16 | 0,63 / 0,61 | 0,64 / 0,62 | 0,68 / 0,70 |
+| K4 moins une arête | 0,78 / 0,68 | 0,58 / 0,57 | 0,59 / 0,59 | 0,57 / 0,62 |
+| étoile | 0,74 / 0,93 | 0,64 / 0,91 | 0,64 / 0,90 | 0,65 / 0,95 |
+
+**Lecture.**
+- **Les gabarits ne sont pas en cause.** Non rétrécis, ils suivent π à moins d'un nat près dès J = 1 dans 4 bassins sur 5, et à moins de 0,95 nat partout dès J = 3.
+- **La dispersion de 5 à 9 nats vient du rétrécissement** qu'impose la règle de fuite : P(paire dans [3,5 ; 4,5]) < 1 %, sans solution dans les petits bassins, d'où η = 0,8 et des covariances × 0,2. Ce rétrécissement sert à garder N̄_a dominé par π et confiné à son bassin, condition de la division. C'est aussi pourquoi le contrôle « covariances × 2 » réduit la dispersion : il annule en partie le rétrécissement.
+- **L'échec de la division sur DW-4 tient donc à la contrainte de domination et de confinement**, pas à la richesse des gabarits. Enrichir les gabarits (J) n'y change rien, ce que dit aussi la lecture fixée d'avance. Le contrôle négatif, mal conçu, ne permet pas de dire plus.
