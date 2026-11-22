@@ -511,6 +511,7 @@ Mesures (P1c) : $A=0{,}3069$ ; $-0{,}3863$ ; $-0{,}8482$ ; $-1{,}1497$ pour $\rh
      - (iii) Les statistiques intra-mode deviennent stationnaires.
    - *Coût estimé.* RTX 3070 à environ 0,134 $/h, 7 runs en parallèle (≈ 0,45 s par époque, deux vagues d'environ 13 min), plus installation, IS et rapatriement : environ 35 à 40 min, soit **≈ 0,08 à 0,09 $**.
    - *Code à écrire.* Une variante du matcher avec $\Lambda_t$ (quelques lignes).
+   **Résultat (2026-11-22, `rules_ns_damping.md`, version modifiée par l'utilisateur avec un bras « amortissement » η = 0,5, section de RESULTS.md) : R1 faux, R2 faux, décision écrite : on arrête.** À (32, 8, 4) × 2, Newton-Stein donne un ESS 5,6 fois celui d'AS et 3,4 fois celui de l'amortissement ; à × 1, seulement 1,22 et 1,33 fois ; à (32, 8, 8), aucun bras ne retrouve les 8 modes. Coût 0,040 $.
 4. **Une prédiction de ce mémo a été réfutée et deux règles sont fausses (P2b, P3)**, sans relâchement après coup. Les explications (§2.2, §2.3) sont a posteriori et devraient être retestées sur données neuves avant d'être affirmées.
 
 ---

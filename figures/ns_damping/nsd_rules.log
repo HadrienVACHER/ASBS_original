@@ -1,0 +1,27 @@
+D4_as_sx1 Q True (Q1 True 1.01x, Q2 True cov 8/8 conv 1.000) ESS 0.2405 khat 0.29 TVraw 0.026
+D4_damp_sx1 Q True (Q1 True 1.01x, Q2 True cov 8/8 conv 1.000) ESS 0.2214 khat 0.30 TVraw 0.024
+D4_ns_sx1 Q True (Q1 True 1.01x, Q2 True cov 8/8 conv 1.000) ESS 0.2934 khat 0.24 TVraw 0.012
+D4_as_sx2 Q True (Q1 True 1.01x, Q2 True cov 8/8 conv 1.000) ESS 0.0047 khat 0.70 TVraw 0.032
+D4_damp_sx2 Q True (Q1 True 1.01x, Q2 True cov 8/8 conv 1.000) ESS 0.0078 khat 0.76 TVraw 0.037
+D4_ns_sx2 Q True (Q1 True 1.01x, Q2 True cov 8/8 conv 1.000) ESS 0.0264 khat 0.54 TVraw 0.033
+D8_as_sx1 Q False (Q1 True 1.01x, Q2 False cov 3/8 conv 1.000) ESS 0.0711 khat 0.43 TVraw 0.420
+D8_damp_sx1 Q False (Q1 True 1.01x, Q2 False cov 2/8 conv 1.000) ESS 0.0067 khat 0.75 TVraw 0.476
+D8_ns_sx1 Q False (Q1 True 1.01x, Q2 False cov 2/8 conv 1.000) ESS 0.0006 khat 0.91 TVraw 0.569
+D8_as_sx2 Q False (Q1 True 1.01x, Q2 False cov 1/8 conv 1.000) ESS 0.0088 khat 0.73 TVraw 0.887
+D8_damp_sx2 Q False (Q1 True 1.01x, Q2 False cov 1/8 conv 1.000) ESS 0.0109 khat 0.66 TVraw 0.783
+D8_ns_sx2 Q False (Q1 True 1.01x, Q2 False cov 3/8 conv 1.000) ESS 0.0039 khat 0.88 TVraw 0.532
+R1 False (evaluable) {"1": {"ns_passes_Q": true, "as": {"passes_Q": true, "ess_arm": 0.2404990241921827, "ess_ns": 0.2934168576174702, "ratio": 1.2200334641815465, "factor": 2.0, "condition": false}, "damp": {"passes_Q": true, "ess_arm": 0.22141519790622397, "ess_ns": 0.2934168576174702, "ratio": 1.3251884260525835, "factor": 1.5, "condition": false}, "ok": false}, "2": {"ns_passes_Q": true, "as": {"passes_Q": true, "ess_arm": 0.004680357867229488, "ess_ns": 0.026438744735705812, "ratio": 5.648872476359608, "factor": 2.0, "condition": true}, "damp": {"passes_Q": true, "ess_arm": 0.00784865202679044, "ess_ns": 0.026438744735705812, "ratio": 3.368571398688628, "factor": 1.5, "condition": true}, "ok": true}}
+R2 False (evaluable) {'as': [False, False], 'damp': [False, False], 'ns': [False, False]}
+R3 D4_as_sx1 {'dumps': {'O': nan, 'pairs': 0, 'median_z': 1.724, 'label': 'signal trop faible (moins de 4 paires au-dessus du bruit)'}, 'snapshots': {'median_z': 4.049}}
+R3 D4_damp_sx1 {'dumps': {'O': nan, 'pairs': 0, 'median_z': 1.639, 'label': 'signal trop faible (moins de 4 paires au-dessus du bruit)'}, 'snapshots': {'O': 0.038, 'pairs': 26, 'median_z': 5.889, 'label': "n'oscille pas"}}
+R3 D4_ns_sx1 {'dumps': {'O': nan, 'pairs': 0, 'median_z': 1.461, 'label': 'signal trop faible (moins de 4 paires au-dessus du bruit)'}, 'snapshots': {'O': 0.077, 'pairs': 13, 'median_z': 3.728, 'label': "n'oscille pas"}}
+R3 D4_as_sx2 {'dumps': 'non disponible', 'snapshots': {'median_z': 6.836}}
+R3 D4_damp_sx2 {'dumps': {'O': nan, 'pairs': 0, 'median_z': 2.305, 'label': 'signal trop faible (moins de 4 paires au-dessus du bruit)'}, 'snapshots': {'O': 0.086, 'pairs': 35, 'median_z': 6.767, 'label': "n'oscille pas"}}
+R3 D4_ns_sx2 {'dumps': {'O': nan, 'pairs': 0, 'median_z': 1.767, 'label': 'signal trop faible (moins de 4 paires au-dessus du bruit)'}, 'snapshots': {'O': 0.143, 'pairs': 14, 'median_z': 4.43, 'label': "n'oscille pas"}}
+R3 D8_as_sx1 {'dumps': {'O': 0.6, 'pairs': 5, 'median_z': 2.948, 'label': 'oscille'}, 'snapshots': {'median_z': 7.308}}
+R3 D8_damp_sx1 {'dumps': {'O': 1.0, 'pairs': 1, 'median_z': 3.41, 'label': 'signal trop faible (moins de 4 paires au-dessus du bruit)'}, 'snapshots': {'O': 0.0, 'pairs': 10, 'median_z': 5.663, 'label': "n'oscille pas"}}
+R3 D8_ns_sx1 {'dumps': {'O': nan, 'pairs': 0, 'median_z': 1.704, 'label': 'signal trop faible (moins de 4 paires au-dessus du bruit)'}, 'snapshots': {'O': 0.0, 'pairs': 3, 'median_z': 3.351, 'label': 'signal trop faible (moins de 4 paires au-dessus du bruit)'}}
+R3 D8_as_sx2 {'dumps': 'non disponible', 'snapshots': {'median_z': 64.349}}
+R3 D8_damp_sx2 {'dumps': {'O': 0.125, 'pairs': 8, 'median_z': 6.331, 'label': "n'oscille pas"}, 'snapshots': {'O': 0.2, 'pairs': 5, 'median_z': 16.327, 'label': "n'oscille pas"}}
+R3 D8_ns_sx2 {'dumps': {'O': nan, 'pairs': 0, 'median_z': 1.636, 'label': 'signal trop faible (moins de 4 paires au-dessus du bruit)'}, 'snapshots': {'O': 0.0, 'pairs': 4, 'median_z': 3.069, 'label': "n'oscille pas"}}
+DECISION: on arrete : ni R1 ni R2 (Newton-Stein n'apporte rien de plus que l'amortissement sur ces tests)

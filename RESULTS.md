@@ -1064,3 +1064,30 @@ Règle écrite et commitée avant toute chaîne : `rules_hsaut_basin.md` (9d16c5
 Coûts moyens 1,9·10⁵, 6,5·10⁵, 4,7·10⁶ ; acceptation des sauts 0,51. Rappel (GPU, 20 000 trajectoires, étape 5) : IS tronqué par bassin 0,047 contre la vérité par bassin (0,091 contre la vérité de Voronoï), Voronoï 0,051.
 **H_saut_bassin : FAUX** (TV_bassin darting S = 40 = 0,0116 contre 0,5 × 0,0116 = 0,0058 pour le MALA seul : rapport 1,00 ; version Voronoï, descriptive : 0,0105 contre 0,5 × 0,0103, faux aussi). **Décision écrite : la réouverture tient aux pas locaux, pas aux sauts ; la piste darting est fermée, définitivement.**
 Descriptif, sans verdict : à S = 40 le darting et le MALA seul sont au même niveau, tous deux au plancher (0,0093 par bassin) ; aux petits S le darting est meilleur que le MALA seul de même coût (S = 1 : 0,0143 contre 0,0261 ; S = 5 : 0,0097 contre 0,0174, rapports 0,55 et 0,56 par bassin), c'est-à-dire que les sauts accélèrent la correction au début sans rien apporter à S = 40, où le MALA seul rattrape. Réserves : un seul contrôleur et une graine d'entraînement ; les 5 chaînes ont des points terminaux indépendants mais viennent du même contrôleur ; écarts-types sur 5 chaînes (0,002 à 0,004) du même ordre que les différences à S = 40.
+
+## Test GPU : Newton-Stein contre amortissement contre AS, GMM-dk d = 32 (2026-11-22)
+
+Règle écrite et commitée avant la location : `rules_ns_damping.md` (656b270). Code : `AdjointVEDampedMatcher` (η = 0,5, éq. 176 de *Failure Modes*, contrôleur gelé au début de chaque époque) et `AdjointVENewtonSteinMatcher` (Ĥ = I, Λ_t = 1/(ν_{1|t} + κ_t)), tests `tests/test_newton_stein_matcher.py` (moyenne nulle sous π : max |z| 2,66 ; contrôle positif 51,8). Évaluation `scripts/ns_damping_eval.py`, verdicts `scripts/ns_damping_rules.py`, script distant `scripts/vast_ns_damping_remote.sh`. Résultats : `figures/ns_damping/` (q_*.json, verdicts.json, log w is_logw_*.npz, journaux, 48 contrôleurs + configs).
+Graine 0, 1500 époques, recette `gmm_dk_as`. **Bras (a) AS : les 4 runs existants sont réutilisés, pas relancés** (balayage 788a0e8 pour × 1, fenêtre f581ea6 pour × 2 ; voie AS du code inchangée depuis) ; ils n'ont que le contrôleur final, donc R1 et R2 portent sur l'époque 1500 pour les trois bras, et les sauvegardes intermédiaires n'existent que pour (b) et (c). 8 runs nouveaux. IS de chemin sur 20 000 trajectoires (graine 0), même script pour les trois bras.
+Coût : RTX 3070 (offre 60139709, 24 cœurs), 0,1211 $/h, création → destruction 19,8 min, **0,040 $** (estimation 0,06 $ central, plafond 0,15 $). torch.compile indisponible sur l'image (pas de compilateur C) : entraînement en mode eager, 0,62–0,67 s par époque à 8 runs en parallèle.
+
+Époque 1500 (Q = filtre de l'étape 4 ; couverture = bassins avec p̂ ≥ 0,25 p) :
+| cellule | σ_max | (a) AS : Q, couverture, ESS, k̂ | (b) amortissement | (c) Newton-Stein |
+|---|---|---|---|---|
+| (32, 8, 4) | × 1 (2,236) | vrai, 8/8, 0,2405, 0,29 | vrai, 8/8, 0,2214, 0,30 | vrai, 8/8, **0,2934**, 0,24 |
+| (32, 8, 4) | × 2 (4,472) | vrai, 8/8, 0,0047, 0,70 | vrai, 8/8, 0,0078, 0,76 | vrai, 8/8, **0,0264**, 0,54 |
+| (32, 8, 8) | × 1 (2,828) | faux, 3/8, 0,0711, 0,43 | faux, 2/8, 0,0067, 0,75 | faux, 2/8, 0,0006, 0,91 |
+| (32, 8, 8) | × 2 (5,657) | faux, 1/8, 0,0088, 0,73 | faux, 1/8, 0,0109, 0,66 | faux, 3/8, 0,0039, 0,88 |
+TV brut (Voronoï) à (32, 8, 4) : × 1 : 0,026 / 0,024 / 0,012 ; × 2 : 0,032 / 0,037 / 0,033. Q1 vrai partout (rapport 1,01) ; à Δ = 8 seule la couverture échoue. Réévaluation de (a) avec le même script : ESS 0,24 à × 1 (0,25 dans la fenêtre σ_max) et 0,0047 à × 2 (0,011 dans la fenêtre : l'ESS à ce niveau est bruité).
+
+### Règles
+- **R1 FAUX.** À × 2, les deux conditions tiennent : ESS (c) = 5,6 × (a) et 3,4 × (b). À × 1, aucune ne tient : 1,22 × (a) (seuil 2) et 1,33 × (b) (seuil 1,5). La règle exige les deux σ_max.
+- **R2 FAUX** : aucun bras ne passe Q à (32, 8, 8), ni à × 1 ni à × 2 ; Newton-Stein couvre 2/8 et 3/8 bassins, comme AS (3/8, 1/8) et l'amortissement (2/8, 1/8).
+- **R3 (descriptif)** : sur les dumps des époques 1000 à 1450, les erreurs de moyenne par mode sont au niveau du bruit Monte-Carlo pour presque tous les runs (z médian 1,5 à 2,3 : « signal trop faible »). Seule exception pour (a) : (32, 8, 8) × 1, « oscille » (O = 0,6 sur 5 paires seulement, z médian 2,9). Sur les sauvegardes de 250 en 250 époques, (b) et (c) n'oscillent pas (O ≤ 0,2). Les oscillations prédites par la théorie gaussienne ne sont donc pas visibles dans ces runs ; pour (a), la mesure n'est possible qu'à × 1.
+- **Décision écrite à l'avance : ni R1 ni R2 → on arrête.** Newton-Stein n'est pas poursuivi.
+
+### Descriptif (sans verdict)
+- ESS des sauvegardes 250 → 1500, (32, 8, 4) × 1 : (b) 0,077 0,118 0,157 0,159 0,206 0,221 ; (c) 0,085 0,119 0,199 0,273 0,277 0,293 (≥ (b) aux 6 sauvegardes, rapport 1,0 à 1,7). × 2 : (b) 0,0014 0,0021 0,0077 0,0080 0,0114 0,0078 (7/8 bassins aux époques 250 et 500) ; (c) 0,0040 0,0171 0,0074 0,0073 0,0165 0,0264 (8/8 partout).
+- Lecture : l'avantage de Newton-Stein apparaît là où la théorie gaussienne prédit l'instabilité d'AS (× 2 : ρ = σ_max² = 20, multiplicateur 1 − F(ρ) = −2,15) et pas au seuil (× 1 : ρ = 5, −1,01), mais il est mesuré sur une graine, avec des ESS de 0,005 à 0,03 (100 à 500 échantillons effectifs sur 20 000), donc bruités. Il ne change pas la découverte des modes (Δ = 8), comme le prédit le Théorème C du mémo.
+- Mes prédictions écrites (§5 de la règle) : Q passé par les trois bras à Δ = 4 ✓ ; ESS (b) × 1 dans 0,2–0,5 ✓, × 2 sous 0,02–0,15 ✗ (0,0078) ; ESS (c) × 1 dans 0,2–0,6 ✓, × 2 juste sous 0,03–0,3 ✗ (0,026) ; R1 faux ✓, R2 faux ✓, décision « on arrête » ✓ ; R3 « signal trop faible » pour (a) × 1 ✓.
+Réserves : une graine ; (a) réutilisé sans sauvegardes intermédiaires ni dumps à × 2 ; l'ESS sur 20 000 trajectoires est bruité aux petites valeurs ; Ĥ = I est exact dans les modes mais pas pour le mélange global aux petits t.

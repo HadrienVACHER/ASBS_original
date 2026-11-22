@@ -1,0 +1,546 @@
+{
+ "final_epoch": 1500,
+ "table": {
+  "D4_as_sx1": {
+   "Q": true,
+   "Q1": true,
+   "Q2": true,
+   "ratio": 1.0103330168697409,
+   "coverage": 8,
+   "frac_converged": 1.0,
+   "ess": 0.2404990241921827,
+   "khat": 0.2910941786114271,
+   "tv_raw": 0.026485500000000006
+  },
+  "D4_damp_sx1": {
+   "Q": true,
+   "Q1": true,
+   "Q2": true,
+   "ratio": 1.0107646627971634,
+   "coverage": 8,
+   "frac_converged": 1.0,
+   "ess": 0.22141519790622397,
+   "khat": 0.2976166562571257,
+   "tv_raw": 0.023985499999999996
+  },
+  "D4_ns_sx1": {
+   "Q": true,
+   "Q1": true,
+   "Q2": true,
+   "ratio": 1.0135849934817915,
+   "coverage": 8,
+   "frac_converged": 1.0,
+   "ess": 0.2934168576174702,
+   "khat": 0.2361436339956494,
+   "tv_raw": 0.012385500000000008
+  },
+  "D4_as_sx2": {
+   "Q": true,
+   "Q1": true,
+   "Q2": true,
+   "ratio": 1.012079077868327,
+   "coverage": 8,
+   "frac_converged": 1.0,
+   "ess": 0.004680357867229488,
+   "khat": 0.6984384955450219,
+   "tv_raw": 0.03183149999999999
+  },
+  "D4_damp_sx2": {
+   "Q": true,
+   "Q1": true,
+   "Q2": true,
+   "ratio": 1.0134822194800446,
+   "coverage": 8,
+   "frac_converged": 1.0,
+   "ess": 0.00784865202679044,
+   "khat": 0.7616258367288404,
+   "tv_raw": 0.03660899999999999
+  },
+  "D4_ns_sx2": {
+   "Q": true,
+   "Q1": true,
+   "Q2": true,
+   "ratio": 1.011066290283896,
+   "coverage": 8,
+   "frac_converged": 1.0,
+   "ess": 0.026438744735705812,
+   "khat": 0.5377221854982122,
+   "tv_raw": 0.03346850000000003
+  },
+  "D8_as_sx1": {
+   "Q": false,
+   "Q1": true,
+   "Q2": false,
+   "ratio": 1.0112711323938537,
+   "coverage": 3,
+   "frac_converged": 1.0,
+   "ess": 0.07106665314175854,
+   "khat": 0.43415199600598636,
+   "tv_raw": 0.4199215
+  },
+  "D8_damp_sx1": {
+   "Q": false,
+   "Q1": true,
+   "Q2": false,
+   "ratio": 1.0098886758282075,
+   "coverage": 2,
+   "frac_converged": 1.0,
+   "ess": 0.006656823881656205,
+   "khat": 0.7509711453486403,
+   "tv_raw": 0.4761215
+  },
+  "D8_ns_sx1": {
+   "Q": false,
+   "Q1": true,
+   "Q2": false,
+   "ratio": 1.0088219820810351,
+   "coverage": 2,
+   "frac_converged": 1.0,
+   "ess": 0.0005941879686775019,
+   "khat": 0.9096643936281605,
+   "tv_raw": 0.5687075
+  },
+  "D8_as_sx2": {
+   "Q": false,
+   "Q1": true,
+   "Q2": false,
+   "ratio": 1.0090791668449313,
+   "coverage": 1,
+   "frac_converged": 1.0,
+   "ess": 0.008789602955193565,
+   "khat": 0.7276881245697437,
+   "tv_raw": 0.8872665
+  },
+  "D8_damp_sx2": {
+   "Q": false,
+   "Q1": true,
+   "Q2": false,
+   "ratio": 1.0056827158221897,
+   "coverage": 1,
+   "frac_converged": 1.0,
+   "ess": 0.010879612493786503,
+   "khat": 0.6564256637242294,
+   "tv_raw": 0.7827075000000001
+  },
+  "D8_ns_sx2": {
+   "Q": false,
+   "Q1": true,
+   "Q2": false,
+   "ratio": 1.0068648978662589,
+   "coverage": 3,
+   "frac_converged": 1.0,
+   "ess": 0.003922994936592215,
+   "khat": 0.8789241216568282,
+   "tv_raw": 0.5315000000000001
+  }
+ },
+ "R1": {
+  "value": false,
+  "evaluable": true,
+  "detail": {
+   "1": {
+    "ns_passes_Q": true,
+    "as": {
+     "passes_Q": true,
+     "ess_arm": 0.2404990241921827,
+     "ess_ns": 0.2934168576174702,
+     "ratio": 1.2200334641815465,
+     "factor": 2.0,
+     "condition": false
+    },
+    "damp": {
+     "passes_Q": true,
+     "ess_arm": 0.22141519790622397,
+     "ess_ns": 0.2934168576174702,
+     "ratio": 1.3251884260525835,
+     "factor": 1.5,
+     "condition": false
+    },
+    "ok": false
+   },
+   "2": {
+    "ns_passes_Q": true,
+    "as": {
+     "passes_Q": true,
+     "ess_arm": 0.004680357867229488,
+     "ess_ns": 0.026438744735705812,
+     "ratio": 5.648872476359608,
+     "factor": 2.0,
+     "condition": true
+    },
+    "damp": {
+     "passes_Q": true,
+     "ess_arm": 0.00784865202679044,
+     "ess_ns": 0.026438744735705812,
+     "ratio": 3.368571398688628,
+     "factor": 1.5,
+     "condition": true
+    },
+    "ok": true
+   }
+  }
+ },
+ "R2": {
+  "value": false,
+  "evaluable": true,
+  "passes_Q": {
+   "as": [
+    false,
+    false
+   ],
+   "damp": [
+    false,
+    false
+   ],
+   "ns": [
+    false,
+    false
+   ]
+  }
+ },
+ "R3": {
+  "D4_as_sx1": {
+   "dumps": {
+    "epochs": [
+     1000,
+     1050,
+     1100,
+     1150,
+     1200,
+     1250,
+     1300,
+     1350,
+     1400,
+     1450
+    ],
+    "O": NaN,
+    "pairs": 0,
+    "median_z": 1.72442660969817,
+    "label": "signal trop faible (moins de 4 paires au-dessus du bruit)"
+   },
+   "snapshots": {
+    "epochs": [
+     1500
+    ],
+    "median_z": 4.048819875035308
+   }
+  },
+  "D4_damp_sx1": {
+   "dumps": {
+    "epochs": [
+     1000,
+     1050,
+     1100,
+     1150,
+     1200,
+     1250,
+     1300,
+     1350,
+     1400,
+     1450
+    ],
+    "O": NaN,
+    "pairs": 0,
+    "median_z": 1.6389164028445944,
+    "label": "signal trop faible (moins de 4 paires au-dessus du bruit)"
+   },
+   "snapshots": {
+    "epochs": [
+     250,
+     500,
+     750,
+     1000,
+     1250,
+     1500
+    ],
+    "O": 0.038461538461538464,
+    "pairs": 26,
+    "median_z": 5.889327326930536,
+    "label": "n'oscille pas"
+   }
+  },
+  "D4_ns_sx1": {
+   "dumps": {
+    "epochs": [
+     1000,
+     1050,
+     1100,
+     1150,
+     1200,
+     1250,
+     1300,
+     1350,
+     1400,
+     1450
+    ],
+    "O": NaN,
+    "pairs": 0,
+    "median_z": 1.4608755138330893,
+    "label": "signal trop faible (moins de 4 paires au-dessus du bruit)"
+   },
+   "snapshots": {
+    "epochs": [
+     250,
+     500,
+     750,
+     1000,
+     1250,
+     1500
+    ],
+    "O": 0.07692307692307693,
+    "pairs": 13,
+    "median_z": 3.7283578276562714,
+    "label": "n'oscille pas"
+   }
+  },
+  "D4_as_sx2": {
+   "dumps": "non disponible",
+   "snapshots": {
+    "epochs": [
+     1500
+    ],
+    "median_z": 6.835528133531187
+   }
+  },
+  "D4_damp_sx2": {
+   "dumps": {
+    "epochs": [
+     1000,
+     1050,
+     1100,
+     1150,
+     1200,
+     1250,
+     1300,
+     1350,
+     1400,
+     1450
+    ],
+    "O": NaN,
+    "pairs": 0,
+    "median_z": 2.3052757134481254,
+    "label": "signal trop faible (moins de 4 paires au-dessus du bruit)"
+   },
+   "snapshots": {
+    "epochs": [
+     250,
+     500,
+     750,
+     1000,
+     1250,
+     1500
+    ],
+    "O": 0.08571428571428572,
+    "pairs": 35,
+    "median_z": 6.766551565414016,
+    "label": "n'oscille pas"
+   }
+  },
+  "D4_ns_sx2": {
+   "dumps": {
+    "epochs": [
+     1000,
+     1050,
+     1100,
+     1150,
+     1200,
+     1250,
+     1300,
+     1350,
+     1400,
+     1450
+    ],
+    "O": NaN,
+    "pairs": 0,
+    "median_z": 1.7674869851587065,
+    "label": "signal trop faible (moins de 4 paires au-dessus du bruit)"
+   },
+   "snapshots": {
+    "epochs": [
+     250,
+     500,
+     750,
+     1000,
+     1250,
+     1500
+    ],
+    "O": 0.14285714285714285,
+    "pairs": 14,
+    "median_z": 4.429868833800954,
+    "label": "n'oscille pas"
+   }
+  },
+  "D8_as_sx1": {
+   "dumps": {
+    "epochs": [
+     1000,
+     1050,
+     1100,
+     1150,
+     1200,
+     1250,
+     1300,
+     1350,
+     1400,
+     1450
+    ],
+    "O": 0.6,
+    "pairs": 5,
+    "median_z": 2.948177363772775,
+    "label": "oscille"
+   },
+   "snapshots": {
+    "epochs": [
+     1500
+    ],
+    "median_z": 7.307742378624808
+   }
+  },
+  "D8_damp_sx1": {
+   "dumps": {
+    "epochs": [
+     1000,
+     1050,
+     1100,
+     1150,
+     1200,
+     1250,
+     1300,
+     1350,
+     1400,
+     1450
+    ],
+    "O": 1.0,
+    "pairs": 1,
+    "median_z": 3.4104932063491584,
+    "label": "signal trop faible (moins de 4 paires au-dessus du bruit)"
+   },
+   "snapshots": {
+    "epochs": [
+     250,
+     500,
+     750,
+     1000,
+     1250,
+     1500
+    ],
+    "O": 0.0,
+    "pairs": 10,
+    "median_z": 5.662650271683353,
+    "label": "n'oscille pas"
+   }
+  },
+  "D8_ns_sx1": {
+   "dumps": {
+    "epochs": [
+     1000,
+     1050,
+     1100,
+     1150,
+     1200,
+     1250,
+     1300,
+     1350,
+     1400,
+     1450
+    ],
+    "O": NaN,
+    "pairs": 0,
+    "median_z": 1.704324944375257,
+    "label": "signal trop faible (moins de 4 paires au-dessus du bruit)"
+   },
+   "snapshots": {
+    "epochs": [
+     250,
+     500,
+     750,
+     1000,
+     1250,
+     1500
+    ],
+    "O": 0.0,
+    "pairs": 3,
+    "median_z": 3.3508995271931967,
+    "label": "signal trop faible (moins de 4 paires au-dessus du bruit)"
+   }
+  },
+  "D8_as_sx2": {
+   "dumps": "non disponible",
+   "snapshots": {
+    "epochs": [
+     1500
+    ],
+    "median_z": 64.34940541856061
+   }
+  },
+  "D8_damp_sx2": {
+   "dumps": {
+    "epochs": [
+     1000,
+     1050,
+     1100,
+     1150,
+     1200,
+     1250,
+     1300,
+     1350,
+     1400,
+     1450
+    ],
+    "O": 0.125,
+    "pairs": 8,
+    "median_z": 6.331056271074388,
+    "label": "n'oscille pas"
+   },
+   "snapshots": {
+    "epochs": [
+     250,
+     500,
+     750,
+     1000,
+     1250,
+     1500
+    ],
+    "O": 0.2,
+    "pairs": 5,
+    "median_z": 16.327213673024062,
+    "label": "n'oscille pas"
+   }
+  },
+  "D8_ns_sx2": {
+   "dumps": {
+    "epochs": [
+     1000,
+     1050,
+     1100,
+     1150,
+     1200,
+     1250,
+     1300,
+     1350,
+     1400,
+     1450
+    ],
+    "O": NaN,
+    "pairs": 0,
+    "median_z": 1.6363899768407921,
+    "label": "signal trop faible (moins de 4 paires au-dessus du bruit)"
+   },
+   "snapshots": {
+    "epochs": [
+     250,
+     500,
+     750,
+     1000,
+     1250,
+     1500
+    ],
+    "O": 0.0,
+    "pairs": 4,
+    "median_z": 3.069471429181499,
+    "label": "n'oscille pas"
+   }
+  }
+ },
+ "decision": "on arrete : ni R1 ni R2 (Newton-Stein n'apporte rien de plus que l'amortissement sur ces tests)"
+}

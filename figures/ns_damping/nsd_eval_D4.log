@@ -1,0 +1,42 @@
+/workspace/asbs/train.py:66: Hydra14MigrationWarning: 
+version_base="1.1" selects Hydra 1.1 compatibility behavior.
+Hydra 1.4 will remove this compatibility behavior.
+Before upgrading to Hydra 1.4, set version_base="1.3" and test your application.
+See https://hydra.cc/docs/upgrades/1.3_to_1.4/prepare_for_1_4/ for preparation instructions.
+  @hydra.main(config_path="configs", config_name="train.yaml", version_base="1.1")
+Delta 4.0: exact reference median distance 5.561; converged 1.000; Q1 threshold 8.341
+/opt/conda/lib/python3.11/site-packages/torch/distributions/distribution.py:56: UserWarning: <class 'adjoint_samplers.utils.dist_utils.GMMDK'> does not define `arg_constraints`. Please set `arg_constraints = {}` or initialize the distribution with `validate_args=False` to turn off validation.
+  warnings.warn(
+nsd_d32_D4_damp_sx1 ep250: Q1 5.69 (1.02x) True; Q2 conv 1.000 cov 8/8 True; Q True | IS ESS 0.0774 khat 0.49 logZ +0.017+-0.024 | raw TV vor 0.065 | sim 8.0s
+nsd_d32_D4_ns_sx1 ep250: Q1 5.75 (1.03x) True; Q2 conv 1.000 cov 8/8 True; Q True | IS ESS 0.0848 khat 0.52 logZ -0.040+-0.023 | raw TV vor 0.125 | sim 6.7s
+nsd_d32_D4_damp_sx2 ep250: Q1 5.79 (1.04x) True; Q2 conv 1.000 cov 7/8 False; Q False | IS ESS 0.0014 khat 1.02 logZ -0.182+-0.189 | raw TV vor 0.051 | sim 7.4s
+nsd_d32_D4_ns_sx2 ep250: Q1 5.80 (1.04x) True; Q2 conv 1.000 cov 8/8 True; Q True | IS ESS 0.0040 khat 0.99 logZ -0.110+-0.112 | raw TV vor 0.114 | sim 6.8s
+nsd_d32_D4_damp_sx1 ep500: Q1 5.71 (1.03x) True; Q2 conv 1.000 cov 8/8 True; Q True | IS ESS 0.1177 khat 0.43 logZ +0.019+-0.019 | raw TV vor 0.075 | sim 6.8s
+nsd_d32_D4_ns_sx1 ep500: Q1 5.68 (1.02x) True; Q2 conv 1.000 cov 8/8 True; Q True | IS ESS 0.1193 khat 0.46 logZ +0.012+-0.019 | raw TV vor 0.057 | sim 7.4s
+nsd_d32_D4_damp_sx2 ep500: Q1 5.68 (1.02x) True; Q2 conv 1.000 cov 7/8 False; Q False | IS ESS 0.0021 khat 0.80 logZ -0.075+-0.156 | raw TV vor 0.098 | sim 7.4s
+nsd_d32_D4_ns_sx2 ep500: Q1 5.72 (1.03x) True; Q2 conv 1.000 cov 8/8 True; Q True | IS ESS 0.0171 khat 0.74 logZ -0.015+-0.054 | raw TV vor 0.186 | sim 7.3s
+nsd_d32_D4_damp_sx1 ep750: Q1 5.65 (1.02x) True; Q2 conv 1.000 cov 8/8 True; Q True | IS ESS 0.1574 khat 0.44 logZ -0.007+-0.016 | raw TV vor 0.029 | sim 7.4s
+nsd_d32_D4_ns_sx1 ep750: Q1 5.64 (1.01x) True; Q2 conv 1.000 cov 8/8 True; Q True | IS ESS 0.1988 khat 0.41 logZ -0.015+-0.014 | raw TV vor 0.061 | sim 7.2s
+nsd_d32_D4_damp_sx2 ep750: Q1 5.68 (1.02x) True; Q2 conv 1.000 cov 8/8 True; Q True | IS ESS 0.0077 khat 0.74 logZ -0.083+-0.080 | raw TV vor 0.057 | sim 6.6s
+nsd_d32_D4_ns_sx2 ep750: Q1 5.69 (1.02x) True; Q2 conv 1.000 cov 8/8 True; Q True | IS ESS 0.0074 khat 0.62 logZ +0.098+-0.082 | raw TV vor 0.106 | sim 6.7s
+nsd_d32_D4_damp_sx1 ep1000: Q1 5.62 (1.01x) True; Q2 conv 1.000 cov 8/8 True; Q True | IS ESS 0.1587 khat 0.38 logZ -0.010+-0.016 | raw TV vor 0.027 | sim 7.1s
+nsd_d32_D4_ns_sx1 ep1000: Q1 5.64 (1.01x) True; Q2 conv 1.000 cov 8/8 True; Q True | IS ESS 0.2731 khat 0.24 logZ -0.012+-0.012 | raw TV vor 0.034 | sim 7.2s
+nsd_d32_D4_damp_sx2 ep1000: Q1 5.63 (1.01x) True; Q2 conv 1.000 cov 8/8 True; Q True | IS ESS 0.0080 khat 0.74 logZ +0.061+-0.079 | raw TV vor 0.046 | sim 7.3s
+nsd_d32_D4_ns_sx2 ep1000: Q1 5.66 (1.02x) True; Q2 conv 1.000 cov 8/8 True; Q True | IS ESS 0.0073 khat 0.60 logZ +0.091+-0.082 | raw TV vor 0.062 | sim 7.0s
+nsd_d32_D4_damp_sx1 ep1250: Q1 5.62 (1.01x) True; Q2 conv 1.000 cov 8/8 True; Q True | IS ESS 0.2060 khat 0.28 logZ -0.016+-0.014 | raw TV vor 0.023 | sim 7.4s
+nsd_d32_D4_ns_sx1 ep1250: Q1 5.64 (1.01x) True; Q2 conv 1.000 cov 8/8 True; Q True | IS ESS 0.2769 khat 0.22 logZ -0.006+-0.011 | raw TV vor 0.042 | sim 7.4s
+nsd_d32_D4_damp_sx2 ep1250: Q1 5.63 (1.01x) True; Q2 conv 1.000 cov 8/8 True; Q True | IS ESS 0.0114 khat 0.87 logZ +0.026+-0.066 | raw TV vor 0.039 | sim 7.4s
+nsd_d32_D4_ns_sx2 ep1250: Q1 5.65 (1.02x) True; Q2 conv 1.000 cov 8/8 True; Q True | IS ESS 0.0165 khat 0.61 logZ +0.054+-0.055 | raw TV vor 0.030 | sim 6.8s
+nsd_d32_D4_as_sx1 ep1500: Q1 5.62 (1.01x) True; Q2 conv 1.000 cov 8/8 True; Q True | IS ESS 0.2405 khat 0.29 logZ -0.003+-0.013 | raw TV vor 0.026 | sim 6.8s
+nsd_d32_D4_damp_sx1 ep1500: Q1 5.62 (1.01x) True; Q2 conv 1.000 cov 8/8 True; Q True | IS ESS 0.2214 khat 0.30 logZ +0.000+-0.013 | raw TV vor 0.024 | sim 0.5s
+nsd_d32_D4_ns_sx1 ep1500: Q1 5.64 (1.01x) True; Q2 conv 1.000 cov 8/8 True; Q True | IS ESS 0.2934 khat 0.24 logZ -0.011+-0.011 | raw TV vor 0.012 | sim 0.6s
+nsd_d32_D4_as_sx2 ep1500: Q1 5.63 (1.01x) True; Q2 conv 1.000 cov 8/8 True; Q True | IS ESS 0.0047 khat 0.70 logZ +0.075+-0.103 | raw TV vor 0.032 | sim 0.6s
+nsd_d32_D4_damp_sx2 ep1500: Q1 5.64 (1.01x) True; Q2 conv 1.000 cov 8/8 True; Q True | IS ESS 0.0078 khat 0.76 logZ +0.067+-0.080 | raw TV vor 0.037 | sim 0.6s
+nsd_d32_D4_ns_sx2 ep1500: Q1 5.62 (1.01x) True; Q2 conv 1.000 cov 8/8 True; Q True | IS ESS 0.0264 khat 0.54 logZ +0.033+-0.043 | raw TV vor 0.033 | sim 0.6s
+nsd_d32_D4_as_sx1: 10 eval dumps processed
+nsd_d32_D4_damp_sx1: 30 eval dumps processed
+nsd_d32_D4_ns_sx1: 30 eval dumps processed
+nsd_d32_D4_as_sx2: 0 eval dumps processed
+nsd_d32_D4_damp_sx2: 30 eval dumps processed
+nsd_d32_D4_ns_sx2: 30 eval dumps processed
+total 998.0 s
