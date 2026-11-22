@@ -1,0 +1,20 @@
+{
+ "coherence": {
+  "rel_dev_ptB": {
+   "triangle + pendant": -0.05838930066134851,
+   "path of 2 (3 particles)": -0.07186669776619703,
+   "2 disjoint pairs": 0.2363223199746609,
+   "K4 minus an edge": -0.10397699362853785,
+   "star (3 edges)": 0.7923613471853537
+  },
+  "rel_dev_refB_reported": {
+   "triangle + pendant": -0.018093081709590564,
+   "path of 2 (3 particles)": 0.22897382040229064,
+   "2 disjoint pairs": -0.01691787390608246,
+   "K4 minus an edge": -0.12664016508793607,
+   "star (3 edges)": 0.08585421808994487
+  },
+  "ok": false
+ },
+ "reading": "arr\u00eat : coh\u00e9rence non tenue (J = 1 ne reproduit pas l'\u00e9tape 1 \u00e0 15 % pr\u00e8s sur PT B)"
+}

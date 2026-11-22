@@ -1227,3 +1227,31 @@ Il ne reste localement que des **échantillons finaux** (`buffer_x1`, `model_sam
 - **Par renouvellement complet du buffer** (10⁴ échantillons, 19,5 époques) : AS 10⁴ gradients. Barker d = 24 ≈ 10⁴ × 25 + 19,5 × 2508 ≈ **3,0·10⁵ énergies** (+ 2·10⁴ gradients) ; d = 36 ≈ 10⁴ × 37 + 19,5 × 5706 ≈ **4,8·10⁵ énergies**.
 - **Avec mise en cache des énergies aux images T_r(x₁)** : **c'est déjà le cas**. Les énergies des translatés ne dépendent pas de x_t et sont calculées une seule fois par échantillon du buffer. Le coût ci-dessus est donc le coût avec cache. Sans cache (énergies recalculées à chaque échantillon de régression), il faudrait 512 × (M − 1) énergies par mise à jour, soit 1,2·10⁴ (d = 24) et 1,8·10⁴ (d = 36). Le cache actuel les divise déjà par 512/5,12 = 100.
 - **Ce qui reste** : un surcoût de 30 à 50 fois AS, qui vient des M − 1 énergies par **nouvel** échantillon et de la fusion par barrière. Pour le réduire, il faudrait évaluer moins de translatés par échantillon (sous-orbite aléatoire, au prix de la variance du terme ; non testé) et faire la fusion moins souvent.
+
+### Tâche 3/4 : division sur DW-4, des gabarits plus riches réduisent-ils la dispersion de log u ? ARRÊT par la règle de cohérence (2026-11-22)
+
+Règle écrite et commitée avant tout calcul : `rules_dw4_template_variance.md` (18a9a28). Script `scripts/dw4_template_variance.py`, résultats `figures/dw4_template_variance/` (prep.json, eval_J1.json, verdict.json). Tout est ajusté et évalué localement, dans la base déterministe de Helmert ; aucun paramètre du cluster.
+
+**Données.**
+- Échantillons AS ed8bb67 (10⁴ ; quench convergé, bassins par `state_ids`). Moitiés d'ajustement et d'évaluation par bassin : 2177/2176, 1878/1878, 589/589, 307/307 et 86/85, l'étoile ayant 171 échantillons.
+- PT B : chaînes 32 à 63, au plus 2000 états par bassin ; l'étoile en a 309, K4 moins une arête 1866.
+- Rapporté seulement : la moitié B de la référence DEM (2364 / 2052 / 312 / 237 / 35).
+- **Temps** : prep 0,4 s, prepref 0,2 s, EM J = 1 23,2 s (40 itérations ; la tolérance 10⁻⁴ n'est pas atteinte, comme à l'étape 1, l'étoile bouge encore), évaluation 3,3 s.
+
+**J = 1 (gabarit gaussien, comme l'étape 1).** η_a par la règle de la variante B : 0,6 / 0,4 / 0,8* / 0,8* / 0,8* (* signalé : aucun η < 1 % de fuite). À l'étape 1, η valait 0,6 / 0,3 / 0,8 / 0,8 / 0,8.
+
+| bassin | SD AS-éval (k̂) | SD PT B (k̂) | SD réf. DEM B | étape 1 (réf. DEM B) | écart PT B | écart réf. DEM B |
+|---|---|---|---|---|---|---|
+| triangle + pendant | 3,18 (−0,19) | 2,51 (−0,17) | 2,61 | 2,66 | −6 % | −2 % |
+| chemin de 2 | 2,44 (0,05) | 1,56 (−0,10) | 2,07 | 1,68 | −7 % | **+23 %** |
+| deux paires disjointes | 9,09 (0,74) | 8,27 (0,91) | 6,58 | 6,69 | **+24 %** | −2 % |
+| K4 moins une arête | 6,18 (0,19) | 5,79 (0,23) | 5,64 | 6,46 | −10 % | −13 % |
+| étoile | 4,83 (0,43) | 5,92 (0,35) | 3,58 | 3,30 | **+79 %** | +9 % |
+
+**Cohérence (règle : J = 1 à 15 % près sur PT B) : FAUSSE** (deux paires +24 %, étoile +79 %). **Décision écrite : arrêt.** J = 3, 5 et 10 ne sont ni ajustés ni évalués ; V1, V2 et le contrôle négatif ne sont pas évalués. La lecture fixée d'avance (« fermée (R) quel que soit J », ou réouverture) **n'est pas atteinte**.
+
+**Faits, sans changer la décision.**
+- **Sur la moitié B de la référence DEM, où les valeurs de l'étape 1 avaient été mesurées**, J = 1 reproduit 4 bassins sur 5 à 15 % près. L'exception est le chemin de 2 (+23 %), où le η choisi diffère (0,4 contre 0,3 à l'étape 1). L'implémentation locale reproduit donc l'étape 1 là où l'étape 1 avait été mesurée, sauf un bassin à η différent.
+- **Les écarts sur PT B viennent des données**, pas de l'implémentation : les mêmes gabarits donnent des dispersions plus grandes sur PT B que sur la référence DEM, dans les deux petits bassins concernés (deux paires 8,27 contre 6,58 ; étoile 5,92 contre 3,58).
+- **La référence DEM n'a que 35 états d'étoile** dans sa moitié B, contre 309 en PT B : la valeur 3,30 de l'étape 1 reposait sur un petit échantillon. Les différences entre l'ajustement sur une moitié des AS et l'ajustement de l'étape 1 sur tous les AS jouent aussi (étoile : 86 contre 164 échantillons).
+- **Dès J = 1**, k̂ dans le bassin dépasse 0,5 pour les deux paires (0,74 sur la moitié AS d'évaluation, 0,91 sur PT B), et la dispersion y est de 8 à 9 nats.

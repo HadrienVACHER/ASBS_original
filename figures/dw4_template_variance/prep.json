@@ -1,0 +1,41 @@
+{
+ "info": {
+  "triangle + pendant": {
+   "n_as": 4196,
+   "n_fit": 2098,
+   "n_eval": 2098,
+   "n_ptB": 2000,
+   "n_ptB_available": 21085
+  },
+  "path of 2 (3 particles)": {
+   "n_as": 3815,
+   "n_fit": 1908,
+   "n_eval": 1907,
+   "n_ptB": 2000,
+   "n_ptB_available": 24618
+  },
+  "2 disjoint pairs": {
+   "n_as": 1212,
+   "n_fit": 606,
+   "n_eval": 606,
+   "n_ptB": 2000,
+   "n_ptB_available": 3322
+  },
+  "K4 minus an edge": {
+   "n_as": 606,
+   "n_fit": 303,
+   "n_eval": 303,
+   "n_ptB": 1866,
+   "n_ptB_available": 1866
+  },
+  "star (3 edges)": {
+   "n_as": 171,
+   "n_fit": 86,
+   "n_eval": 85,
+   "n_ptB": 309,
+   "n_ptB_available": 309
+  }
+ },
+ "quench_conv": 1.0,
+ "time_s": 0.4305870532989502
+}
