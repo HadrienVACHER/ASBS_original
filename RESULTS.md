@@ -1165,3 +1165,42 @@ D30 bruité, σ fixé par la procédure écrite : graine 2 σ = 0,5 ; graine 3 �
 - **La dégradation concerne la géométrie, pas l'énergie.** Le darting γ = 30 améliore les proportions de bassins (critère (i), 3 graines sur 3) et energy_w2 (3 graines sur 3). Mais sur la graine 3, la géométrie des configurations du modèle final est nettement plus loin du PT que celle de l'AS de même graine.
 - **La réanalyse porte sur un seul instantané par run**, les échantillons du modèle final. Le bootstrap mesure le bruit de W2 à modèle fixé, pas la variabilité du modèle d'une évaluation à l'autre. Celle-ci est grande : eq_w2 par évaluation pendant l'entraînement allait de 0,30 à 0,81 pour D30 s4. Les valeurs ne sont donc pas comparables aux moyennes temporelles de la section de confirmation, qui étaient calculées contre la référence DEM (graine 3 : D30 0,499 contre C3 0,553).
 - Une seule graine dégradée sur trois suffit à faire échouer G3′ telle qu'écrite.
+
+### Tâche 2/4 : AS pondéré par IS tempéré (idée I1), quadrature 1D (2026-11-22)
+
+Règle écrite et commitée avant tout calcul : `rules_tempered_is_quadrature.md` (356ec61). Script `scripts/tempered_is_quadrature.py`, résultats `figures/tempered_is_quadrature.json`.
+
+**Méthode.** La régression pondérée par r^α est exactement la mise à jour d'AS évaluée sur q_α ∝ q^{1−α} π^α. Cette loi est calculée directement : la postérieure réciproque de q_α s'obtient par quadrature sur grille, puis par Gauss–Hermite quand la vraisemblance devient étroite. Elle est propagée par le Fokker–Planck de `cv_failure_modes_checks.py`, dans les unités de l'article (ν₁ = 1, σ² = 0,05).
+
+**Temps.** g 9,6 s, w 15,5 s, m 13,4 s, ESS < 0,1 s. Aucune séparation nécessaire.
+
+**Contrôle α = 0 (AS) : vrai sur les trois panneaux**, à l'identique du mémo : A = −2,15125, poids gauche 0,50025, masse gauche 2,1905·10⁻⁵.
+
+| panneau | α | résultat | prédiction | verdict | ESS/N |
+|---|---|---|---|---|---|
+| P_g (instabilité ; A_α) | 0 | −2,1513 | −2,1530 | ✓ | 1 |
+| | 0,25 | −1,6134 | −1,6147 | ✓ | 0,988 |
+| | 0,5 | −1,0756 | −1,0765 | ✓ | 0,951 |
+| | 0,9 | −0,2151 | −0,2153 | ✓ | 0,850 |
+| | 1 | −0,0000 | 0 | ✓ | 0,819 |
+| P_w (mauvais poids ; poids gauche) | 0 | 0,50025 | 0,5000 | (contrôle) | 1 |
+| | 0,25 | 0,63984 | 0,6401 (Δlogit −0,001) | ✓ | 0,927 |
+| | 0,5 | 0,75926 | 0,7597 (−0,003) | ✓ | 0,788 |
+| | 0,9 | 0,88774 | 0,8882 (−0,005) | ✓ | 0,624 |
+| | 1 | 0,90869 | 0,9091 (−0,005) | ✓ | 0,599 |
+| P_m (mode absent ; masse gauche / q_α(x < 0)) | 0 | 2,19·10⁻⁵ / 3,83·10⁻⁶ | (contrôle) | | 1 |
+| | 0,25 | 3,30·10⁻⁵ / 7,31·10⁻⁶ | (hors règle) | | 1,000 |
+| | 0,5 | 8,72·10⁻⁵ / 2,35·10⁻⁵ (**rapport 3,71**) | facteur 3 | **✗** | 0,500 |
+| | 0,9 | 0,0731 / 0,0266 (rapport 2,75) | facteur 3 | ✓ | **1,0·10⁻²⁵** |
+| | 1 | 0,5000 / 0,5000 | [0,47 ; 0,53] | ✓ | **7,2·10⁻³⁵** |
+
+**Verdicts tels qu'écrits.**
+- **P_g vraie** : A_α = (1 − α) A_m à 2·10⁻³ près, variance terminale inchangée (rapport 0,9998 à 1,0000).
+- **P_w vraie** : l'erreur de logit est multipliée par (1 − α), |Δlogit| ≤ 0,005.
+- **P_m fausse** : à α = 0,5, la masse gauche vaut 3,7 × q_α(x < 0), au-delà du facteur 3 ; vraie à α = 0,9 et 1.
+- Contrôle vrai.
+
+**Lecture (sans changer les verdicts).**
+- L'IS tempéré se comporte exactement comme un **amortissement en logit** : une fraction α de l'écart à π est corrigée par itération, que ce soit sur la moyenne (P_g) ou sur les poids (P_w). AS seul ne corrige pas les poids : c'est le Th. 3.8.
+- Sur le mode absent, une itération d'AS **amplifie** la masse gauche de q_α d'un facteur 2,7 à 5,7 (rapport > 1 à tout α < 1). L'échec de P_m à α = 0,5 vient de là ; c'était le point fragile annoncé dans la règle (bosse de q_α centrée sur la barrière).
+- **La vraie limite est l'ESS**, conforme à l'attente écrite : sur le mode absent, il n'est utile qu'à α ≤ 0,5, où q_α(x < 0) est d'environ 2·10⁻⁵ et ne transporte presque rien. Le gain n'apparaît qu'à α ≥ 0,9, où l'ESS vaut 10⁻²⁵ à 10⁻³⁴. Avec de vrais échantillons, l'IS tempéré ne peut donc pas découvrir un mode absent, en accord avec le Théorème C du mémo. Il corrige les poids et l'instabilité des modes déjà visités, avec un ESS raisonnable (0,6 à 0,95).
