@@ -1339,3 +1339,52 @@ Coûts du darting (évaluations d'énergie et de gradient) : 1,8·10⁵ (S = 1),
 - **Erreur de spécification de ma part (d32)** : la règle affirmait TV(bassin, Voronoï) = 0,004 pour le GMM-dk ; c'est vrai à Δ = 6, faux à Δ = 4. Mesuré en descriptif sur 10⁴ échantillons exacts, le TV par bassin contre la vérité de Voronoï vaut **0,066 à d = 32, Δ = 4** (0,010 à d = 128). À d32, darting et MALA sont tous deux à ce niveau : H_saut_bassin n'y est pas informatif. Par Voronoï (descriptif), darting et MALA seul sont aussi au même niveau à S = 10 (0,011 contre 0,011) : la lecture « pas locaux » ne change pas. À d32, l'IS n'est d'ailleurs qu'à moitié effondré (ESS 7·10⁻³, k̂ 0,66), et l'AS brut est déjà à 0,036.
 - **Ce que montrent d128 et d256** : sur des modes gaussiens à forme apprise (Q vrai) avec un sampler trop large, les sauts entre minima ramènent les proportions au plancher. Le MALA seul ne corrige presque rien (0,08 à 0,10), et l'IS de chemin est inutilisable (k̂ ≥ 1). C'est le cas « Q vrai, I vrai » de l'étape 4, jamais comparé jusqu'ici.
 - Un seul contrôleur par cible (une graine d'entraînement) ; les 3 jeux mesurent la variabilité de l'échantillonnage à contrôleur fixé, pas la variabilité de l'entraînement.
+
+
+## Étape A : robustesse du darting post hoc dans le régime où l'IS s'effondre (autres instantanés) et variance de log W par bassin (2026-11-23)
+
+Règle écrite et commitée avant tout calcul : `rules_darting_large_sigma_snapshots.md` (bd7743c). Même protocole et même script que la section précédente (`scripts/darting_large_sigma.py`). Résultats `figures/darting_large_sigma/` (`verdict_snapshots.json`, `lwvar.json`). CPU, aucune location ; toutes les exécutions durent moins de 7 s.
+
+Moyennes sur 3 jeux de 10⁴ points terminaux (± écart-type entre jeux), plancher 0,0100.
+| d | époque | AS brut Voronoï / bassin | IS réuni (3 × 10⁴) : TV, ESS, k̂ | darting S = 5 (Voronoï) | darting S = 10 Voronoï / bassin | MALA seul S = 10 Voronoï / bassin | TV_eq S = 5 / 10 | G H |
+|---|---|---|---|---|---|---|---|---|
+| 128 | 750 | 0.197 / 0.113 | 0.296, 1.4e-04, 1.07 | 0.0098 ± 0.0007 | 0.0076 ± 0.0011 / 0.0070 | 0.089 / 0.085 | 0.104 / 0.076 | ✓ ✓ |
+| 128 | 1000 | 0.211 / 0.125 | 0.106, 1.1e-03, 1.05 | 0.0100 ± 0.0027 | 0.0091 ± 0.0012 / 0.0106 | 0.103 / 0.100 | 0.037 / 0.027 | ✓ ✓ |
+| 128 | 1250 | 0.198 / 0.113 | 0.112, 3.2e-03, 0.89 | 0.0083 ± 0.0008 | 0.0104 ± 0.0013 / 0.0108 | 0.088 / 0.084 | 0.022 / 0.016 | ✓ ✓ |
+| 128 | 1500 | 0.194 / 0.110 | 0.127, 2.7e-03, 0.97 | 0.0115 ± 0.0047 | 0.0076 ± 0.0030 / 0.0090 | 0.087 / 0.084 | 0.024 / 0.017 | ✓ ✓ |
+| 256 | 750 | 0.185 / 0.097 | 0.771, 3.5e-05, 3.48 | 0.0098 ± 0.0041 | 0.0081 ± 0.0021 / 0.0093 | 0.086 / 0.082 | 0.210 / 0.153 | ✓ ✓ |
+| 256 | 1000 | 0.182 / 0.093 | 0.387, 1.7e-04, 3.19 | 0.0106 ± 0.0062 | 0.0095 ± 0.0032 / 0.0127 | 0.087 / 0.082 | 0.096 / 0.070 | ✓ ✓ |
+| 256 | 1250 | 0.177 / 0.087 | 0.519, 8.0e-05, 3.38 | 0.0111 ± 0.0035 | 0.0116 ± 0.0023 / 0.0146 | 0.078 / 0.074 | 0.139 / 0.101 | ✓ ✓ |
+| 256 | 1500 | 0.194 / 0.102 | 0.487, 1.1e-04, 3.40 | 0.0119 ± 0.0070 | 0.0091 ± 0.0022 / 0.0122 | 0.097 / 0.092 | 0.120 / 0.087 | ✓ ✓ |
+
+**Règle A1 : VRAIE.** G et H_saut_bassin sont vrais sur **3 instantanés sur 3** (750, 1000, 1250) à d = 128 comme à d = 256, et aussi à 1500. Le darting post hoc ramène le TV au plancher (0,007 à 0,015 à S = 10) à toutes les époques, avec un MALA seul à 0,07–0,10 et un IS de chemin dont l'ESS va de 3·10⁻⁵ à 3·10⁻³. Le résultat de l'époque 1500 est robuste d'un instantané à l'autre. Réserve inchangée : G repose sur la borne LB, retenue à chaque S.
+
+**Variance de log W par bassin (descriptif).** Pour × 0,75, ce sont les bassins des jeux ci-dessus ; pour × 0,5, les log w de l'étape 4 avec la cellule de Voronoï comme bassin (déclaré).
+| run, époque | Var(log W) | intra-bassin | inter-bassins (part) | ESS(W^0,25) | ESS(W^0,5) | ESS(W) |
+|---|---|---|---|---|---|---|
+| x0.75_d128_ep750 | 19.37 | 19.35 | 0.026 (0.1 %) | 0.390 | 2.87e-02 | 1.4e-04 |
+| x0.75_d128_ep1000 | 18.33 | 18.30 | 0.031 (0.2 %) | 0.414 | 5.59e-02 | 1.1e-03 |
+| x0.75_d128_ep1250 | 14.57 | 14.53 | 0.034 (0.2 %) | 0.470 | 7.96e-02 | 3.2e-03 |
+| x0.75_d128_ep1500 | 13.89 | 13.86 | 0.032 (0.2 %) | 0.491 | 8.41e-02 | 2.7e-03 |
+| x0.5_d128_ep250 | 1.33 | 1.10 | 0.229 (17.2 %) | 0.915 | 6.74e-01 | 6.4e-02 |
+| x0.5_d128_ep500 | 1.35 | 0.91 | 0.441 (32.6 %) | 0.906 | 6.36e-01 | 1.4e-01 |
+| x0.5_d128_ep750 | 1.33 | 0.88 | 0.443 (33.4 %) | 0.910 | 6.53e-01 | 1.6e-01 |
+| x0.5_d128_ep1000 | 1.28 | 0.86 | 0.416 (32.6 %) | 0.914 | 6.52e-01 | 3.5e-02 |
+| x0.5_d128_ep1250 | 1.24 | 0.88 | 0.367 (29.5 %) | 0.919 | 6.95e-01 | 2.4e-01 |
+| x0.5_d128_ep1500 | 1.28 | 0.84 | 0.433 (33.9 %) | 0.914 | 6.75e-01 | 1.9e-01 |
+| x0.75_d256_ep750 | 154.46 | 154.42 | 0.040 (0.0 %) | 0.005 | 8.39e-05 | 3.5e-05 |
+| x0.75_d256_ep1000 | 149.76 | 149.73 | 0.031 (0.0 %) | 0.010 | 5.26e-04 | 1.7e-04 |
+| x0.75_d256_ep1250 | 150.39 | 150.34 | 0.050 (0.0 %) | 0.009 | 3.76e-04 | 8.0e-05 |
+| x0.75_d256_ep1500 | 148.14 | 148.09 | 0.052 (0.0 %) | 0.013 | 6.47e-04 | 1.1e-04 |
+| x0.5_d256_ep250 | 1.66 | 1.61 | 0.056 (3.3 %) | 0.903 | 6.64e-01 | 2.0e-01 |
+| x0.5_d256_ep500 | 1.74 | 1.51 | 0.228 (13.1 %) | 0.895 | 6.35e-01 | 1.5e-01 |
+| x0.5_d256_ep750 | 1.74 | 1.43 | 0.316 (18.1 %) | 0.892 | 6.21e-01 | 1.4e-01 |
+| x0.5_d256_ep1000 | 1.67 | 1.44 | 0.225 (13.5 %) | 0.899 | 6.50e-01 | 1.9e-01 |
+| x0.5_d256_ep1250 | 1.65 | 1.42 | 0.227 (13.8 %) | 0.901 | 6.55e-01 | 1.9e-01 |
+| x0.5_d256_ep1500 | 1.68 | 1.41 | 0.277 (16.5 %) | 0.898 | 6.43e-01 | 1.6e-01 |
+
+Lecture (objection de Jensen) :
+- **À × 0,75, la variance de log W est presque entièrement intra-bassin** : 14 à 19 nats² à d = 128, environ 150 à d = 256, avec **0,0 à 0,2 % entre bassins** (0,03 à 0,05 nat²). L'information sur les masses que portent les poids (l'écart moyen de log W entre bassins) est donc noyée sous un bruit environ 500 fois plus grand.
+- À α = 0,5, l'ESS de W^α vaut encore 0,03 à 0,08 à d = 128, mais 10⁻⁴ à 6·10⁻⁴ à d = 256.
+- **À × 0,5**, la variance est de 1,2 à 1,7 nat², dont 13 à 34 % entre bassins, avec un ESS de W^0,5 de 0,62 à 0,69.
+- Une correction des masses par poids de trajectoire tempérés ne peut donc marcher que dans le second régime, ce qui est la prédiction écrite de l'étape B.
