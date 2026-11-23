@@ -1,0 +1,98 @@
+{
+ "mosw10": {
+  "s:buffer_x1": {
+   "n": 10000,
+   "tv_vor": 0.06436100000000003,
+   "tv_basin": 0.018944,
+   "cov_vor": 10,
+   "cov_basin": 10,
+   "q1_ratio": 4.260227682793968,
+   "frac_converged": 1.0
+  },
+  "s:model_samples": {
+   "n": 10000,
+   "tv_vor": 0.09363700000000001,
+   "tv_basin": 0.03849699999999997,
+   "cov_vor": 10,
+   "cov_basin": 10,
+   "q1_ratio": 5.215482816221128,
+   "frac_converged": 1.0
+  },
+  "a:buffer_x1": {
+   "n": 10000,
+   "tv_vor": 0.391206,
+   "tv_basin": 0.4208059999999999,
+   "cov_vor": 5,
+   "cov_basin": 4,
+   "q1_ratio": 1.8459861472473236,
+   "frac_converged": 1.0
+  },
+  "a:model_samples": {
+   "n": 10000,
+   "tv_vor": 0.39650599999999997,
+   "tv_basin": 0.42220599999999997,
+   "cov_vor": 4,
+   "cov_basin": 4,
+   "q1_ratio": 1.7706403791463219,
+   "frac_converged": 1.0
+  }
+ },
+ "d128": {
+  "s:buffer_x1": {
+   "n": 10000,
+   "tv_vor": 0.007893499999999986,
+   "tv_basin": 0.009934500000000035,
+   "cov_vor": 8,
+   "cov_basin": 8,
+   "q1_ratio": 1.000700280918235,
+   "frac_converged": 1.0
+  },
+  "s:model_samples": {
+   "n": 10000,
+   "tv_vor": 0.1213445,
+   "tv_basin": 0.04714449999999999,
+   "cov_vor": 8,
+   "cov_basin": 8,
+   "q1_ratio": 1.0494872934080062,
+   "frac_converged": 1.0
+  }
+ },
+ "k8d32": {
+  "s:buffer_x1": {
+   "n": 10000,
+   "tv_vor": 0.008464500000000003,
+   "tv_basin": 0.008464500000000003,
+   "cov_vor": 8,
+   "cov_basin": 8,
+   "q1_ratio": 1.0029213883376398,
+   "frac_converged": 1.0
+  },
+  "s:model_samples": {
+   "n": 10000,
+   "tv_vor": 0.0449305,
+   "tv_basin": 0.04443049999999999,
+   "cov_vor": 8,
+   "cov_basin": 8,
+   "q1_ratio": 1.0177319691955138,
+   "frac_converged": 1.0
+  },
+  "a:buffer_x1": {
+   "n": 10000,
+   "tv_vor": 0.654514,
+   "tv_basin": 0.654514,
+   "cov_vor": 1,
+   "cov_basin": 1,
+   "q1_ratio": 1.0109628980840382,
+   "frac_converged": 1.0
+  },
+  "a:model_samples": {
+   "n": 10000,
+   "tv_vor": 0.653814,
+   "tv_basin": 0.653814,
+   "cov_vor": 1,
+   "cov_basin": 1,
+   "q1_ratio": 1.0131681728576178,
+   "frac_converged": 1.0
+  }
+ }
+}

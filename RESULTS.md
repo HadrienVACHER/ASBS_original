@@ -1689,3 +1689,36 @@ Réserves :
 - (a) et (t) à d = 128 viennent de l'étape B ;
 - le coût en évaluations est environ 210 fois celui d'AS ;
 - la banque n'a pas eu à s'enrichir : le cas où la trempe depuis la loi de base ne trouve pas tous les minima n'est pas testé.
+
+### Suites de l'auto-entraînement (2026-11-23, décisions de l'utilisateur)
+- **S3 : verdict conservé faux tel qu'écrit** ; la lecture par bassin (point 4 des faits ci-dessus) reste descriptive.
+- **Convention pour toutes les règles futures** : la métrique de masse principale est la **TV par bassin**, déclarée d'avance, car la partition de Voronoï mélange erreurs de masse et de forme ; la TV de Voronoï est secondaire.
+- **A5 : étiquette I** (défaut de mesure : témoin négatif mal conçu, témoin positif qui s'effondre pour κ > 0,7). On ne poursuit pas.
+
+**Diagnostic buffer contre sampler** (données existantes, CPU, `scripts/selftrain_buffer_diag.py`, `figures/selftrain_dartbank/buffer_diag.json`). `samples_final.pt` contient `buffer_x1` : le buffer final, soit les 10⁴ derniers points, environ les 20 derniers rafraîchissements, **après correction** (pas un jeu de points bruts). Il est comparé au sampler (`model_samples`, même fichier, mêmes 10⁴ points). Les rafraîchissements un à un ne sont pas sauvegardés.
+| cellule, bras (s) | | TV bassin | TV Voronoï | couverture bassin | Q1 |
+|---|---|---|---|---|---|
+| MoS-w d = 10 | **buffer corrigé** | **0,019** | 0,064 | 10/10 | **4,26** |
+| | sampler | 0,039 | 0,094 | 10/10 | 5,22 |
+| | (a), pour mémoire : buffer / sampler | 0,421 / 0,422 | 0,391 / 0,397 | 4 / 4 | 1,85 / 1,77 |
+| (128, 8, 6) × 0,75 | **buffer corrigé** | **0,010** | **0,008** | 8/8 | **1,001** |
+| | sampler | 0,047 | 0,121 | 8/8 | 1,049 |
+| (32, 8, 8) × 0,5 | buffer corrigé | 0,0085 | 0,0085 | 8/8 | 1,003 |
+| | sampler | 0,044 | 0,045 | 8/8 | 1,018 |
+Lecture, **descriptive** (un seul état final, une graine) :
+- **MoS-w : l'échec de forme vient du buffer.** Le buffer corrigé a lui-même un Q1 de 4,26 : le darting à S = 10 règle les masses (TV par bassin 0,019) mais ne ramène pas les points aux minima (ni les sauts, qui sont des translations, ni 50 pas MALA). Le sampler ne fait qu'ajouter un peu (5,22). Un Q1 vrai demanderait un buffer meilleur, et pas seulement un meilleur apprentissage.
+- **d = 128 : l'échec vient de l'apprentissage.** Le buffer est au plancher (Q1 1,001, TV de Voronoï 0,008), le sampler est à 0,121 en Voronoï et 0,047 par bassin : le réseau ne reproduit ni la largeur ni les masses de son buffer en 500 époques.
+- **d = 32 (S1)** : même schéma, plus faible (0,0085 contre 0,044).
+
+**Décomposition du coût de (s)** (`scripts/selftrain_cost_decomp.py`, `figures/selftrain_dartbank/cost_decomp.json`). Les composantes sont recalculées à partir du code de `dart_lib` avec l'acceptation des sauts journalisée ; **le total retombe sur le coût journalisé à 10⁻⁵ près** dans les 3 cellules. Part du coût de darting par lot de 512 points (≈ 1,0·10⁵), puis du total (darting + trempe) :
+| composante | d = 32 | MoS-w | d = 128 |
+|---|---|---|---|
+| **pas MALA des balayages** (10 balayages × 5 pas × (énergie + gradient) × 512) | 50,1 % | 50,9 % | 49,4 % |
+| **réglage du pas MALA** (8 dichotomies × 5 pas sur 500 points + état pilote), refait à chaque lot | **40,2 %** | **40,7 %** | **39,6 %** |
+| **sauts** (1 énergie par proposition + 1 gradient par saut accepté) | 7,8 % | 6,7 % | 7,7 % |
+| état initial du lot | 1,0 % | 1,0 % | 1,0 % |
+| minima et Hessiennes | 0,9 % | 0,7 % | 2,4 % |
+| **trempe des nouveaux points** (en plus, hors darting) | 5,1 % du total | 6,2 % | 5,9 % |
+Le total par lot vaut 107 500 / 107 400 / 110 100, soit **210 / 210 / 215 fois** les 512 gradients d'AS par époque.
+- **Le facteur 210 se compose de** : environ 105 pour les pas MALA, environ 85 pour le réglage du pas, environ 16 pour les sauts, environ 11 pour la trempe, environ 4 pour le reste.
+- **Le réglage du pas est refait à chaque lot alors qu'il est stable d'un lot à l'autre** : le supprimer (pas réglé une fois, puis fixé) ramènerait le facteur à environ 125, **sans changer ce qui est calculé** ; ce n'est pas un test, c'est une remarque sur le code, non mise en œuvre. Le reste (pas MALA, sauts) dépend de S : le facteur est proportionnel à S pour ces deux parts.

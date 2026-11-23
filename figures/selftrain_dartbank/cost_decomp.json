@@ -1,0 +1,77 @@
+{
+ "k8d32": {
+  "n": 512.0,
+  "jump_acc": 0.5557000000000001,
+  "logged_dart_per_batch": 102100.72,
+  "computed_dart_per_batch": 102101.18400000001,
+  "check_ratio": 1.0000045445321053,
+  "components": {
+   "mala_sweeps": 51200.0,
+   "jumps": 7965.184,
+   "step_tuning": 41000,
+   "initial_state": 1024.0,
+   "minima_and_hessians": 912
+  },
+  "shares": {
+   "mala_sweeps": 0.5014633326876993,
+   "jumps": 0.07801265066622537,
+   "step_tuning": 0.40156243437882166,
+   "initial_state": 0.010029266653753985,
+   "minima_and_hessians": 0.008932315613499643
+  },
+  "quench_per_batch": 5431.290944123314,
+  "total_per_batch": 107532.01094412332,
+  "per_update": 1075.3201094412332,
+  "ratio_vs_a": 210.02345887524086
+ },
+ "mosw10": {
+  "n": 512.0,
+  "jump_acc": 0.31765999999999994,
+  "logged_dart_per_batch": 100671.074,
+  "computed_dart_per_batch": 100670.4192,
+  "check_ratio": 0.9999934956490085,
+  "components": {
+   "mala_sweeps": 51200.0,
+   "jumps": 6746.4192,
+   "step_tuning": 41000,
+   "initial_state": 1024.0,
+   "minima_and_hessians": 700
+  },
+  "shares": {
+   "mala_sweeps": 0.508590312893025,
+   "jumps": 0.06701491116866234,
+   "step_tuning": 0.40726958649636774,
+   "initial_state": 0.0101718062578605,
+   "minima_and_hessians": 0.006953383184084327
+  },
+  "quench_per_batch": 6686.905587668593,
+  "total_per_batch": 107357.97958766858,
+  "per_update": 1073.579795876686,
+  "ratio_vs_a": 209.6835538821652
+ },
+ "d128": {
+  "n": 512.0,
+  "jump_acc": 0.5545200000000001,
+  "logged_dart_per_batch": 103631.328,
+  "computed_dart_per_batch": 103631.1424,
+  "check_ratio": 0.9999982090357851,
+  "components": {
+   "mala_sweeps": 51200.0,
+   "jumps": 7959.142400000001,
+   "step_tuning": 41000,
+   "initial_state": 1024.0,
+   "minima_and_hessians": 2448
+  },
+  "shares": {
+   "mala_sweeps": 0.49405997863437623,
+   "jumps": 0.07680261179867107,
+   "step_tuning": 0.3956339672658091,
+   "initial_state": 0.009881199572687524,
+   "minima_and_hessians": 0.023622242728456113
+  },
+  "quench_per_batch": 6493.595375722543,
+  "total_per_batch": 110124.92337572254,
+  "per_update": 1101.2492337572255,
+  "ratio_vs_a": 215.0877409682081
+ }
+}

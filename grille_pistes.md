@@ -7,6 +7,9 @@
 ## Règle de fermeture (en vigueur à partir d'aujourd'hui)
 **Une méthode ne peut être déclarée fermée que si chacune de ses cases pertinentes est soit testée, soit exclue par un théorème** (cité, avec son emplacement). Une case « sans objet » (méthode inapplicable au régime, raison donnée) ne compte pas. Les fermetures antérieures restent écrites telles quelles. Elles valent pour les régimes testés, pas pour la méthode entière, tant que la grille contient des cases pertinentes non testées sur cette ligne.
 
+## Convention de métrique (utilisateur, 2026-11-23)
+Pour toutes les règles futures, la métrique de masse principale est la **TV par bassin** (déclarée d'avance : la partition de Voronoï mélange erreurs de masse et de forme), avec Voronoï en secondaire. Les règles antérieures restent écrites telles quelles.
+
 ## Légende
 - **T** = testé, avec le verdict tel qu'écrit, l'étiquette (R réfuté / C une configuration / I inconclusif) et le commit des règles → résultats.
 - **T₁D** = testé seulement en quadrature 1D (population exacte, pas de vrai AS).
@@ -42,7 +45,7 @@ Théorèmes cités :
 | 6. Darting post hoc | T (R) | T (C) ✓ | T (C) ✗ | X (Th. C) | N | N | N | — | T (C) partiel (A4) |
 | 7. Darting à l'entraînement | T (C) (γ = 30 ✗ ; γ = 1,75 : d8 ✓, d32 ✗) | T (C) ✗ (F2 faux) | N | X (Th. C) | — | — | T (I) | — | N |
 | 8. Bain thermique (dose 1) | T₁D (vraie) | N | N | T₁D (vraie, minima connus) | N | N | N | — | N |
-| 9. Division, gabarits gaussiens | T (C) ✗ tel qu'écrit, β non fiable (A5) ; démo 1D ✓ | N | N | X (Th. C) | N | T (C) ≈ Barker | T (R) ✗ | — | N |
+| 9. Division, gabarits gaussiens | T (I) (A5 : défaut de mesure, témoins ratés ; masses de Gelfand–Dey TV 0,014–0,022 en covariance commune) ; démo 1D ✓ | N | N | X (Th. C) | N | T (C) ≈ Barker | T (R) ✗ | — | N |
 | 10. Division, gabarits tronqués (ellipsoïde, χ²) | N | N | N | X (Th. C) | N | N | T, variante boîte (C) ✗ | — | N |
 | 11. VC de rapport, témoin de Rayleigh | N | N | N | N | N | N | N | N | N |
 | 12. Newton-Stein | T (C) | T (C) | T (C) | T (C) + X (Th. C) | X (Th. C) | X (Th. 3.8 FM) | N | T (R) ✓ | T (C) |
