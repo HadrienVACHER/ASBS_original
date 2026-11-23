@@ -1808,3 +1808,23 @@ Pas réglé sur le premier lot du fichier de départ, comparé au pas réglé su
 | gaussienne de même écart interquartile (1,46) | 0,00272 | −4,92 |
 
   **|A_m| > 1 dans les trois lectures** (de −4,9 à −5,7), alors que ce théorème suppose des composantes gaussiennes : à lire comme un ordre de grandeur, pas comme une valeur.
+
+## Contrôle par buffer oracle, deux bras (o-AS, o-DSM), (128, 8, 6) × 0,75 (2026-11-23, `rules_oracle_buffer.md`, règles commitées en d16cf79 avant la location)
+Écrit pour : Hadrien. Résultats : `figures/oracle_buffer/analysis_oracle.json` ; échantillons et contrôleurs : `results/selftrain_runs/sd_o_d128` et `sd_od_d128` (hors dépôt). Une graine, 500 époques, départ commun = contrôleur de l'étape B (entraîné par AS). Instance RTX 3070 (0,1122 $/h), 2 runs en parallèle, création → destruction 11,2 min, **coût ≤ 0,021 $** (plafond 0,15 $), instance détruite après rapatriement (0 instance restante).
+
+Moyennes sur les évaluations des époques 350, 400, 450 (écart-type entre évaluations) ; couverture 8/8 à chaque évaluation et en fin de run, pour les deux bras.
+
+| bras | TV par bassin (principale) | TV de Voronoï | Q1 | fin de run (bassin / Voronoï) |
+|---|---|---|---|---|
+| o-AS | **0,0470** (0,0019) | **0,1178** (0,0018) | 1,048 | 0,0513 / 0,1295 |
+| o-DSM | **0,0434** (0,0051) | **0,1131** (0,0086) | 1,088 | 0,0474 / 0,1275 |
+| (s), référence (ed2617a) | 0,0372 (0,0061) | 0,1192 (0,0065) | 1,050 | |
+
+- **O1 (o-AS, Voronoï ≤ 0,098) : FAUSSE** (0,1178). **O1b (o-AS, bassin ≤ 0,053) : VRAIE** (0,0470).
+- **O2 (o-DSM) : Voronoï FAUSSE (0,1131), bassin VRAIE (0,0434)**, même verdict qu'o-AS.
+- **Cas non listé dans la lecture fixée d'avance** (O1 faux avec O1b vrai) : rapporté tel quel. Par Voronoï, la lecture « O1 et O2 faux » s'applique : un buffer exact ne donne pas 0,098 en 500 époques, ni avec AS ni avec DSM, donc **le seuil de S3 est hors d'atteinte à ce budget, quelle que soit la qualité du buffer** ; l'échec de S3 par Voronoï n'est pas un échec de la correction. Par bassin (métrique principale), les deux oracles passent le seuil O1b.
+- **(s) égale l'oracle en Voronoï** (0,1192 contre 0,1178 et 0,1131 ; rapports 1,01 et 1,05, dans les écarts entre évaluations) **et fait mieux par bassin** (0,0372 contre 0,0470 et 0,0434 ; écart entre évaluations de (s) 0,006, celui des oracles 0,002 et 0,005 : la différence est de l'ordre d'un à deux écarts-types, **non établie**).
+- **DSM contre AS sur buffer exact** : écarts de 0,004 (bassin) et 0,005 (Voronoï) en faveur d'o-DSM, **inférieurs à l'écart entre évaluations d'o-DSM (0,005 et 0,009)** : pas de différence établie. Q1 un peu moins bon pour o-DSM (1,088 contre 1,048). « DSM est le meilleur apprenant » n'est donc **pas** établi, et « AS n'apporte rien » non plus : les deux apprenants sont indiscernables à une graine.
+- **Mémorisation (descriptif, non requise : buffer rafraîchi de 512 tirages neufs par époque)** : distance médiane au plus proche voisin dans le buffer final contre dans 10⁴ tirages exacts neufs : o-AS 13,33 / 13,33 ; o-DSM 13,64 / 13,66 ; pas de signe de mémorisation.
+- **Temps par époque** (2 runs en parallèle) : o-AS 0,72 s, o-DSM 0,83 s. Mes prédictions : O1 vraie 40 % (fausse), O1b vraie 65 % (vraie), O2 vraie 35 % (fausse en Voronoï, vraie par bassin), DSM meilleur 35 % (écart non établi).
+- **Limites** : une graine ; départ AS commun (le DSM repart d'un contrôleur AS) ; pondération DSM standard seule ; 500 époques.
