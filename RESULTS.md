@@ -1475,3 +1475,67 @@ La banque trouve les 8 minima : 90 % ✓. A3 vraie : 55 % ✓. Couverture 8/8 : 
 ### Lecture et limite
 - Une fois les minima connus, le darting post hoc corrige complètement la perte de modes d'AS sur ce problème, y compris quand AS n'a qu'un mode sur 8 ; MALA seul et l'IS de chemin ne le font pas.
 - **Limite forte : c'est le cas facile pour la banque.** Sur GMM-dk à Δ = 8, les bassins de trempe sont les cellules de Voronoï de 8 gaussiennes isotropes de même largeur, et la loi de base N(0, ν₁ I) est centrée et couvre toutes les cellules. Chaque minimum reçoit donc environ 1/8 des départs, même à × 0,5 (ν₁ = 2). Le nombre de départs (18 à 29) ne dit rien d'une énergie à bassins petits, inégaux ou loin de la loi de base (MoS, LJ, DW-4). C'est ce que A4 (MoS-w) teste en partie.
+
+## A4 : post hoc sur les 12 contrôleurs MoS-w de l'étape 3 (2026-11-23)
+
+Règle écrite et commitée avant tout calcul : `rules_mosw_posthoc.md` (c638022). Question, descriptive : la perte de modes en cours d'entraînement se rattrape-t-elle après coup ?
+
+Mise en œuvre :
+- CPU, à partir des points terminaux et des log W sauvegardés à l'étape 3, sans simulation nouvelle ;
+- chaque exécution < 20 s ;
+- code : `scripts/mosw_posthoc.py` ; résultats : `figures/mosw_posthoc/` (un JSON par contrôleur et par bras, `bank_d*.json`, `summary.json`).
+
+Mesure principale : TV par bassin contre p. Plancher (n = 10⁴) 0,0120 (d = 10) et 0,0108 (d = 50). « Rattrapé » = 10/10 bassins ET TV ≤ 2 × plancher ; « partiel » = TV ≤ 0,5 × TV brut (lecture fixée d'avance, bras à S = 40).
+
+**Banque (1000 départs de N(0, ν₁ I), ν₁ = 538)** :
+- d = 10 : **10/10 minima, trouvés tous en 107 départs** ; départs par minimum de 37 (poids 0,012) à 180 (poids 0,331) ;
+- d = 50 : **10/10, en 40 départs** (86 à 141 par minimum) ;
+- trempe convergée à 100 % en 12 à 13 itérations (≤ 1,3·10⁴ gradients).
+
+**d = 10** (TV par bassin ; entre parenthèses, bassins couverts sur 10) :
+| époque | brut | meilleur IS (2·10⁴) | darting d'origine S = 40 (minima trouvés) | MALA seul | **banque + darting S = 40** |
+|---|---|---|---|---|---|
+| 250 | 0,240 (7) | 0,315 (5) | 0,090 (9) [7] | 0,223 (9) | **0,0078 (10)** |
+| 500 | 0,388 (5) | 0,271 (5) | 0,154 (7) [6] | 0,377 (6) | **0,0147 (10)** |
+| 750 | 0,348 (4) | 0,266 (5) | 0,222 (5) [5] | 0,344 (5) | **0,0083 (10)** |
+| 1000 | 0,310 (5) | 0,281 (5) | 0,225 (5) [5] | 0,307 (5) | **0,0065 (10)** |
+| 1250 | 0,390 (4) | 0,281 (5) | 0,230 (5) [5] | 0,386 (5) | **0,0083 (10)** |
+| 1500 | 0,301 (5) | 0,257 (6) | 0,226 (5) [5] | 0,291 (5) | **0,0050 (10)** |
+
+**d = 50** :
+| époque | brut | meilleur IS | darting d'origine S = 40 [minima] | MALA seul | **banque + darting S = 40** | distance aux minima après darting (× π) |
+|---|---|---|---|---|---|---|
+| 250 | 0,301 (10) | 0,505 (2) | 0,130 (10) [9] | 0,298 (10) | 0,115 (10) | 7,0 |
+| 500 | 0,522 (9) | 0,845 (1) | 0,150 (10) [9] | 0,504 (9) | 0,161 (10) | 9,0 |
+| 750 | 0,605 (6) | 0,845 (1) | 0,150 (9) [8] | 0,583 (6) | 0,157 (10) | 8,3 |
+| 1000 | 0,695 (6) | 0,845 (1) | 0,269 (10) [8] | 0,669 (7) | 0,280 (10) | 9,1 |
+| 1250 | 0,785 (2) | 0,845 (1) | 0,671 (3) [2] | 0,767 (2) | 0,315 (10) | 9,2 |
+| 1500 | 0,817 (1) | 0,845 (1) | — [1 minimum : échec] | — | 0,341 (10) | 9,2 |
+
+Statistiques complémentaires :
+- IS de chemin à d = 50 : ESS 5·10⁻⁵ à 10⁻⁴, k̂ 7,3 à 7,9 ; à d = 10 : ESS 10⁻⁴ à 3·10⁻³, k̂ 0,9 à 1,7.
+- Acceptation des sauts avec la banque : 0,45 à 0,52 (d = 10), 0,19 à 0,26 (d = 50).
+
+### Réponse, telle que fixée d'avance
+- **d = 10 : « oui »**, 6 instantanés rattrapés sur 6, par la banque + darting seulement. Le TV par bassin tombe de 0,24–0,39 à 0,005–0,015 et la couverture passe de 4–7 à 10/10.
+  - Le darting d'origine n'y arrive pas : la découverte sur 500 points ne garde que les minima vus au moins 5 fois, soit 5 à 7 minima sur 10, alors que les 10 bassins sont atteints. Il est partiel à 250 et 500, nul ensuite.
+  - L'IS de chemin et MALA seul ne rattrapent rien.
+- **d = 50 : « en partie »**, 0 rattrapé, 6 partiels sur 6. La banque donne la couverture 10/10 partout, y compris à 1500 où AS n'a plus qu'un bassin et où le darting d'origine échoue (1 minimum découvert). Mais le TV reste à 0,11–0,34.
+  - Cause mesurée : la distance médiane aux minima reste à 7 à 9 fois celle de π après 40 balayages (8 à 10 fois avant), et les sauts sont acceptés à 20 % environ. Ce qui manque à d = 50, c'est la forme : les échantillons sont dans la queue lointaine. Ce ne sont pas les modes.
+  - Le TV baisse encore de S = 10 à S = 40 (par exemple 0,454 → 0,341 à 1500) : pas convergé.
+- **IS de chemin** : aucun contrôleur rattrapé. Il aggrave même le TV brut partout à d = 50 (le poids se concentre sur un seul bassin).
+- **MALA seul** ne change presque pas les masses par bassin : les pas locaux ne traversent pas.
+
+### Prédictions écrites
+- Banque 10/10 à d = 10 : 85 % ✓ ; à d = 50 : 60 % ✓.
+- « oui » à d = 10 : 60 % ✓.
+- « non » à d = 50 : 80 % ✗ (c'est « en partie »).
+- L'IS ne rattrape rien : 85 % ✓.
+
+### Complément hors règle
+MALA seul au pas et au coût de la **banque + darting** (`mala_bank`, ajouté parce que le témoin de la règle n'existe pas à d = 50, époque 1500) : mêmes chiffres que MALA seul (par exemple 0,804, 1 bassin, à d = 50, époque 1500). Ce sont donc les sauts vers les minima de la banque qui font la correction.
+
+### Lecture pour le n° 10 (banque à l'entraînement)
+- Avec A3, la perte de modes est rattrapable après coup dès que les formes sont à peu près justes : MoS-w d = 10, même à l'époque 250 où la distance aux minima vaut 3,2 × π, et GMM-dk (32, 8, 8).
+- La banque coûte presque rien (≤ 1,3·10⁴ gradients) et trouve tous les minima sur ces deux cibles. Mêmes réserves qu'en A3 : la loi de base couvre ici les bassins, et une seule graine d'entraînement.
+- Elle ne corrige pas un sampler diffus (MoS-w d = 50).

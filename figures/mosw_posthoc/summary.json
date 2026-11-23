@@ -1,0 +1,326 @@
+{
+ "d10": {
+  "floor": 0.012022,
+  "rows": {
+   "250": {
+    "raw_tv_basin": 0.24010599999999999,
+    "raw_cov_basin": 7,
+    "arms": {
+     "IS": {
+      "tv_basin": 0.31533118200400956,
+      "cov_basin": 5,
+      "status": "non"
+     },
+     "dart": {
+      "tv_basin": 0.08995399999999998,
+      "cov_basin": 9,
+      "status": "partiel"
+     },
+     "mala": {
+      "tv_basin": 0.22250599999999998,
+      "cov_basin": 9,
+      "status": "non"
+     },
+     "dartbank": {
+      "tv_basin": 0.00783100000000001,
+      "cov_basin": 10,
+      "status": "rattrapé"
+     }
+    }
+   },
+   "500": {
+    "raw_tv_basin": 0.38780599999999993,
+    "raw_cov_basin": 5,
+    "arms": {
+     "IS": {
+      "tv_basin": 0.27068882778259873,
+      "cov_basin": 5,
+      "status": "non"
+     },
+     "dart": {
+      "tv_basin": 0.15399999999999997,
+      "cov_basin": 7,
+      "status": "partiel"
+     },
+     "mala": {
+      "tv_basin": 0.377206,
+      "cov_basin": 6,
+      "status": "non"
+     },
+     "dartbank": {
+      "tv_basin": 0.014651000000000015,
+      "cov_basin": 10,
+      "status": "rattrapé"
+     }
+    }
+   },
+   "750": {
+    "raw_tv_basin": 0.348406,
+    "raw_cov_basin": 4,
+    "arms": {
+     "IS": {
+      "tv_basin": 0.26594590324238127,
+      "cov_basin": 5,
+      "status": "non"
+     },
+     "dart": {
+      "tv_basin": 0.22202,
+      "cov_basin": 5,
+      "status": "non"
+     },
+     "mala": {
+      "tv_basin": 0.343606,
+      "cov_basin": 5,
+      "status": "non"
+     },
+     "dartbank": {
+      "tv_basin": 0.008288999999999972,
+      "cov_basin": 10,
+      "status": "rattrapé"
+     }
+    }
+   },
+   "1000": {
+    "raw_tv_basin": 0.31030599999999997,
+    "raw_cov_basin": 5,
+    "arms": {
+     "IS": {
+      "tv_basin": 0.28087535851217893,
+      "cov_basin": 5,
+      "status": "non"
+     },
+     "dart": {
+      "tv_basin": 0.22471999999999998,
+      "cov_basin": 5,
+      "status": "non"
+     },
+     "mala": {
+      "tv_basin": 0.30680599999999997,
+      "cov_basin": 5,
+      "status": "non"
+     },
+     "dartbank": {
+      "tv_basin": 0.006488999999999992,
+      "cov_basin": 10,
+      "status": "rattrapé"
+     }
+    }
+   },
+   "1250": {
+    "raw_tv_basin": 0.38950599999999996,
+    "raw_cov_basin": 4,
+    "arms": {
+     "IS": {
+      "tv_basin": 0.2813734472349177,
+      "cov_basin": 5,
+      "status": "non"
+     },
+     "dart": {
+      "tv_basin": 0.22991999999999996,
+      "cov_basin": 5,
+      "status": "non"
+     },
+     "mala": {
+      "tv_basin": 0.385506,
+      "cov_basin": 5,
+      "status": "non"
+     },
+     "dartbank": {
+      "tv_basin": 0.008332999999999986,
+      "cov_basin": 10,
+      "status": "rattrapé"
+     }
+    }
+   },
+   "1500": {
+    "raw_tv_basin": 0.30139099999999996,
+    "raw_cov_basin": 5,
+    "arms": {
+     "IS": {
+      "tv_basin": 0.2564671625678288,
+      "cov_basin": 6,
+      "status": "non"
+     },
+     "dart": {
+      "tv_basin": 0.22602,
+      "cov_basin": 5,
+      "status": "non"
+     },
+     "mala": {
+      "tv_basin": 0.290891,
+      "cov_basin": 5,
+      "status": "non"
+     },
+     "dartbank": {
+      "tv_basin": 0.005037000000000024,
+      "cov_basin": 10,
+      "status": "rattrapé"
+     }
+    }
+   }
+  },
+  "n_rescued_bank": 6,
+  "n_at_least_partial_bank": 6,
+  "answer": "oui"
+ },
+ "d50": {
+  "floor": 0.010807,
+  "rows": {
+   "250": {
+    "raw_tv_basin": 0.300609,
+    "raw_cov_basin": 10,
+    "arms": {
+     "IS": {
+      "tv_basin": 0.5053857987278177,
+      "cov_basin": 2,
+      "status": "non"
+     },
+     "dart": {
+      "tv_basin": 0.129809,
+      "cov_basin": 10,
+      "status": "partiel"
+     },
+     "mala": {
+      "tv_basin": 0.298409,
+      "cov_basin": 10,
+      "status": "non"
+     },
+     "dartbank": {
+      "tv_basin": 0.11447300000000002,
+      "cov_basin": 10,
+      "status": "partiel"
+     }
+    }
+   },
+   "500": {
+    "raw_tv_basin": 0.5217040000000001,
+    "raw_cov_basin": 9,
+    "arms": {
+     "IS": {
+      "tv_basin": 0.8447499958228386,
+      "cov_basin": 1,
+      "status": "non"
+     },
+     "dart": {
+      "tv_basin": 0.15038000000000004,
+      "cov_basin": 10,
+      "status": "partiel"
+     },
+     "mala": {
+      "tv_basin": 0.503804,
+      "cov_basin": 9,
+      "status": "non"
+     },
+     "dartbank": {
+      "tv_basin": 0.16078000000000003,
+      "cov_basin": 10,
+      "status": "partiel"
+     }
+    }
+   },
+   "750": {
+    "raw_tv_basin": 0.6050499999999999,
+    "raw_cov_basin": 6,
+    "arms": {
+     "IS": {
+      "tv_basin": 0.8447458842831551,
+      "cov_basin": 1,
+      "status": "non"
+     },
+     "dart": {
+      "tv_basin": 0.14997200000000002,
+      "cov_basin": 9,
+      "status": "partiel"
+     },
+     "mala": {
+      "tv_basin": 0.58255,
+      "cov_basin": 6,
+      "status": "non"
+     },
+     "dartbank": {
+      "tv_basin": 0.15669100000000002,
+      "cov_basin": 10,
+      "status": "partiel"
+     }
+    }
+   },
+   "1000": {
+    "raw_tv_basin": 0.69455,
+    "raw_cov_basin": 6,
+    "arms": {
+     "IS": {
+      "tv_basin": 0.8447491570449426,
+      "cov_basin": 1,
+      "status": "non"
+     },
+     "dart": {
+      "tv_basin": 0.26944999999999997,
+      "cov_basin": 10,
+      "status": "partiel"
+     },
+     "mala": {
+      "tv_basin": 0.6684500000000001,
+      "cov_basin": 7,
+      "status": "non"
+     },
+     "dartbank": {
+      "tv_basin": 0.28035000000000004,
+      "cov_basin": 10,
+      "status": "partiel"
+     }
+    }
+   },
+   "1250": {
+    "raw_tv_basin": 0.78545,
+    "raw_cov_basin": 2,
+    "arms": {
+     "IS": {
+      "tv_basin": 0.8446327583991868,
+      "cov_basin": 1,
+      "status": "non"
+     },
+     "dart": {
+      "tv_basin": 0.671162,
+      "cov_basin": 3,
+      "status": "non"
+     },
+     "mala": {
+      "tv_basin": 0.76735,
+      "cov_basin": 2,
+      "status": "non"
+     },
+     "dartbank": {
+      "tv_basin": 0.31525,
+      "cov_basin": 10,
+      "status": "partiel"
+     }
+    }
+   },
+   "1500": {
+    "raw_tv_basin": 0.81725,
+    "raw_cov_basin": 1,
+    "arms": {
+     "IS": {
+      "tv_basin": 0.8447499999721308,
+      "cov_basin": 1,
+      "status": "non"
+     },
+     "dart": {
+      "status": "n/a"
+     },
+     "mala": {
+      "status": "n/a"
+     },
+     "dartbank": {
+      "tv_basin": 0.34075000000000005,
+      "cov_basin": 10,
+      "status": "partiel"
+     }
+    }
+   }
+  },
+  "n_rescued_bank": 0,
+  "n_at_least_partial_bank": 6,
+  "answer": "en partie"
+ }
+}
