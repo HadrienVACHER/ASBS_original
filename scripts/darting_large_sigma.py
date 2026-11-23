@@ -25,6 +25,9 @@ CTRL = {"d128": dict(d=128, K=8, delta=6.0, ckpt="figures/gmmdk_step4/controller
 for _d in (128, 256):                                                                           # rules_darting_large_sigma_snapshots.md: the other saved x0.75 snapshots
     for _e in (750, 1000, 1250):
         CTRL[f"d{_d}e{_e}"] = dict(CTRL[f"d{_d}"], ckpt=f"figures/gmmdk_step4/controllers/gmmdk4_d{_d}_sx0.75_ep{_e}.pt")
+for _m, _rd in (("x1", "results/gmm_dk_sweep/gmmdk_d32_K8_D8_s0"), ("x0.5", "results/gmm_dk_window/w1/gmmdk_d32_K8_D8_s0_sx0.5"), ("x0.75", "results/gmm_dk_window/w1/gmmdk_d32_K8_D8_s0_sx0.75"),
+                 ("x1.5", "results/gmm_dk_window/w1/gmmdk_d32_K8_D8_s0_sx1.5"), ("x2", "results/gmm_dk_window/w1/gmmdk_d32_K8_D8_s0_sx2")):   # rules_bank_darting_dk.md: (32, 8, 8)
+    CTRL[f"k8{_m}"] = dict(d=32, K=8, delta=8.0, ckpt=f"{_rd}/controller_final.pt", cfg=f"{_rd}/config.yaml", qjson=None)
 SW = (1, 5, 10); N = 10000
 OUTF = ROOT / "figures" / "darting_large_sigma"; OUTF.mkdir(parents=True, exist_ok=True)
 OUTR = ROOT / "results" / "darting_large_sigma"; OUTR.mkdir(parents=True, exist_ok=True)
@@ -125,6 +128,58 @@ else:
                            psis_tv_vor=L.weighted_stats(pw, cl, K, ptrue)["tv"], psis_tv_basin=L.tv(bprops(bb, K, pw), ptrue))
         res["time_s"] = time.perf_counter() - T0; jsave(OUTF / f"is_{c}.json", res)
         print(f"is {c}: pool n {len(lw)} TV vor {res['pool']['tv_vor']:.4f} basin {res['pool']['tv_basin']:.4f} ESS {res['pool']['ess']:.2e} khat {res['pool']['khat']:.2f} PSIS vor {res['pool']['psis_tv_vor']:.4f} ({res['time_s']:.1f} s)")
+
+    elif a.cmd == "bank":                                                                       # rules_bank_darting_dk.md: minima bank by quench from the base law N(0, nu_1 I), N_q = 1000 starts
+        from omegaconf import OmegaConf
+        import train  # noqa: F401 (resolvers)
+        D, K, DELTA, mu, pi, ptrue = target(c); cfg = OmegaConf.load(ROOT / CTRL[c]["cfg"]); OmegaConf.resolve(cfg)
+        nu1 = float(cfg.sigma_max) ** 2 - float(cfg.sigma_min) ** 2
+        X0 = np.random.default_rng(0).standard_normal((1000, D)) * np.sqrt(nu1)
+        Y, conv, its = B.quench(pi, X0)
+        bank, first = [], []
+        for i in range(len(Y)):
+            if not conv[i]:
+                continue
+            if bank and np.linalg.norm(np.array(bank) - Y[i], axis=1).min() < B.MERGE:
+                continue
+            bank.append(Y[i].copy()); first.append(i)
+        bank = np.array(bank); Mtrue = B.polish_minima(pi)
+        match = [int(np.linalg.norm(Mtrue - m, axis=1).argmin()) for m in bank]; dmatch = [float(np.linalg.norm(Mtrue - m, axis=1).min()) for m in bank]
+        found = sorted(set(j for j, dm in zip(match, dmatch) if dm < B.MERGE))
+        n_all = None
+        if len(found) == K:
+            seen = set()
+            for j, i0 in sorted(zip(match, first), key=lambda z: z[1]):
+                seen.add(j)
+                if len(seen) == K:
+                    n_all = i0 + 1; break
+        np.save(OUTR / f"bank_{c}.npy", bank)
+        r = dict(nu1=nu1, n_starts=1000, frac_converged=float(conv.mean()), quench_iterations=int(its), n_bank=int(len(bank)), true_minima_found=len(found), starts_to_find_all=n_all,
+                 grad_evals_upper_bound=int(1000 * its), start_counts_per_true_minimum=np.bincount(np.array([int(np.linalg.norm(Mtrue - y, axis=1).argmin()) for y, cv in zip(Y, conv) if cv and np.linalg.norm(Mtrue - y, axis=1).min() < B.MERGE], dtype=int), minlength=K).tolist(),
+                 time_s=time.perf_counter() - T0)
+        jsave(OUTF / f"bank_{c}.json", r); print(f"bank {c}: {r['n_bank']} minima ({r['true_minima_found']}/8 true), starts to find all 8: {n_all}, converged {r['frac_converged']:.3f}, iters {its} ({r['time_s']:.1f} s)")
+
+    elif a.cmd == "dartbank":                                                                   # darting with the external bank (same protocol) + MALA alone at equal cost
+        D, K, DL, mu, pi, ptrue = target(c); x, _ = endpoints(c, a.set); bank = np.load(OUTR / f"bank_{c}.npy")
+        dr = L.darting(pi, x, mu, ptrue, SW=SW, seed=99 + a.set, keep_final=True, minima=bank)
+        r = dict(minima=dr.get("minima_found"), error=dr.get("error"), mala_step=dr.get("mala_step"), by_S={})
+        for S in SW if dr.get("by_S") else []:
+            v = dr["by_S"][S]; Xf = v.pop("X_final"); pv = L.props(L.cells(Xf, mu), K)
+            r["by_S"][str(S)] = dict(tv_vor=v["tv"], coverage=int((pv >= 0.25 * ptrue).sum()), cost=int(v["cost"]), jump_acc=v.get("jump_acc"))
+        if dr.get("by_S"):
+            costs = [r["by_S"][str(S)]["cost"] for S in SW]
+            mo = L.mala_only(pi, x, mu, ptrue, dr["mala_step"], costs, seed=77 + a.set, keep_final=True)
+            r["mala"] = {str(k): dict(tv_vor=v["tv"], coverage=int((L.props(L.cells(v.pop("X_final"), mu), K) >= 0.25 * ptrue).sum())) for k, v in mo.items()}
+        pr = L.props(L.cells(x, mu), K); r["raw"] = dict(tv_vor=L.tv(pr, ptrue), coverage=int((pr >= 0.25 * ptrue).sum()))
+        r["time_s"] = time.perf_counter() - T0; jsave(OUTF / f"dartbank_{c}_s{a.set}.json", r)
+        print(f"dartbank {c} s{a.set}: raw TV {r['raw']['tv_vor']:.4f} cov {r['raw']['coverage']} | " + " ".join(f"S{S}: TV {v['tv_vor']:.4f} cov {v['coverage']} acc {v['jump_acc']:.2f}" for S, v in r["by_S"].items()) + f" ({r['time_s']:.1f} s)")
+
+    elif a.cmd == "verdict_bank":
+        fl = jload(OUTF / "floor_k8x1.json")["floor"]; out = {}
+        sets = [jload(OUTF / f"dartbank_k8x1_s{s}.json") for s in (1, 2, 3)]
+        tv10 = [z["by_S"]["10"]["tv_vor"] for z in sets]; cov10 = [z["by_S"]["10"]["coverage"] for z in sets]
+        out["A3"] = dict(tv_S10=[float(np.mean(tv10)), float(np.std(tv10, ddof=1))], coverage_S10=cov10, floor=fl, value=bool(all(c_ == 8 for c_ in cov10) and np.mean(tv10) <= 2 * fl))
+        jsave(OUTF / "verdict_bank.json", out); print(json.dumps(out, indent=1))
 
     elif a.cmd == "verdict_snap":                                                                # rule A1: G (S in {5, 10}) and H_saut_bassin on >= 2 of the 3 snapshots, at each dimension
         V = {}

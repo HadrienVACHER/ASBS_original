@@ -2,7 +2,7 @@
 
 *Lecture seule : RESULTS.md (en entier), `audit_fermetures.md`, tous les `rules_*.md`, `memo_cv_failure_modes.md`. Aucun calcul, aucune location.*
 
-**Notes de Hai-Dang : elles ne sont pas dans le dépôt.** Cette source est donc ignorée. Un fichier `~/Desktop/NTU/Recherche/Note.pdf` existe hors du dépôt ; il n'a pas été lu, conformément à la consigne. Les lignes 10 (division à gabarits tronqués sur ellipsoïde, normalisation χ²) et 11 (VC de rapport avec témoin de Rayleigh, étape M3) n'ont donc **pas de définition disponible ici**. Leurs cases sont « non testées, définition hors dépôt », sauf la variante voisine (boîte) de la ligne 10, testée sur DW-4.
+**Notes de Hai-Dang : elles ne sont pas dans le dépôt** (l'utilisateur les mettra dans `docs/` ; les définitions des lignes 10 et 11 ont été ajoutées le 2026-11-23 d'après son message). Cette source est donc ignorée. Un fichier `~/Desktop/NTU/Recherche/Note.pdf` existe hors du dépôt ; il n'a pas été lu, conformément à la consigne. Les lignes 10 (division à gabarits tronqués sur ellipsoïde, normalisation χ²) et 11 (VC de rapport avec témoin de Rayleigh, étape M3) n'ont donc **pas de définition disponible ici**. Leurs cases sont « non testées, définition hors dépôt », sauf la variante voisine (boîte) de la ligne 10, testée sur DW-4.
 
 ## Règle de fermeture (en vigueur à partir d'aujourd'hui)
 **Une méthode ne peut être déclarée fermée que si chacune de ses cases pertinentes est soit testée, soit exclue par un théorème** (cité, avec son emplacement). Une case « sans objet » (méthode inapplicable au régime, raison donnée) ne compte pas. Les fermetures antérieures restent écrites telles quelles. Elles valent pour les régimes testés, pas pour la méthode entière, tant que la grille contient des cases pertinentes non testées sur cette ligne.
@@ -36,11 +36,11 @@ Théorèmes cités :
 |---|---|---|---|---|---|---|---|---|---|
 | 1. AS seul | T (référence) | T (référence) | T (référence) | T (référence) | T (référence) | T (référence) | T (référence) | T (R) | T (référence) |
 | 2. IS de chemin post hoc | T (R) | T (C) | T (C) | X (Supp. + Th. C) | N | N | T (C) | — | N |
-| 3. AS + IS tempéré | T₁D (P_w vraie) | N | N | X (Th. C ; ESS 10⁻²⁵ mesuré) | N | N | N | T₁D (P_g vraie) | N |
+| 3. AS + IS tempéré | T (C) ✓ (d8 ; d32 ≈) + T₁D | T (C) ✓ meilleur bras | N | X (Th. C ; ESS 10⁻²⁵ mesuré) | N | N | N | T₁D (P_g vraie) | N |
 | 4. AS + rééchantillonnage IS du buffer | N | N | N | X (Th. C ; limite déclarée de SSS) | N | N | N | N (prédit : α = 1 de la ligne 3) | N |
 | 5. Barker réflexions / orbites | — | — | — | N | T (C) ✗ | T (succès, 3 graines × 2 d) | T (C) ✗ | — | N |
 | 6. Darting post hoc | T (R) | T (C) ✓ | T (C) ✗ | X (Th. C) | N | N | N | — | N |
-| 7. Darting à l'entraînement | T (C) ✗ | N | N | X (Th. C) | — | — | T (I) | — | N |
+| 7. Darting à l'entraînement | T (C) (γ = 30 ✗ ; γ = 1,75 : d8 ✓, d32 ✗) | T (C) ✗ (F2 faux) | N | X (Th. C) | — | — | T (I) | — | N |
 | 8. Bain thermique (dose 1) | T₁D (vraie) | N | N | T₁D (vraie, minima connus) | N | N | N | — | N |
 | 9. Division, gabarits gaussiens | N (démo 1D ✓) | N | N | X (Th. C) | N | T (C) ≈ Barker | T (R) ✗ | — | N |
 | 10. Division, gabarits tronqués (ellipsoïde, χ²) | N | N | N | X (Th. C) | N | N | T, variante boîte (C) ✗ | — | N |
@@ -50,7 +50,7 @@ Théorèmes cités :
 | 14. Banque de minima + darting | — | — | N | N | N | — | N | — | N |
 | 15. MALA seul post hoc (témoin) | T (C) | T (C) | T (C) | X (Th. C) | N | N | N | — | N |
 
-**Décompte (135 cases)** : **43 testées** (dont 5 en quadrature 1D seulement), **11 exclues par un théorème** (en comptant comme exclue la case D de Newton-Stein, aussi testée), **64 non testées**, **17 sans objet**.
+**Décompte (135 cases ; mis à jour le 2026-11-23 après les étapes A et B)** : **45 testées** (dont 4 en quadrature 1D seulement), **11 exclues par un théorème** (en comptant comme exclue la case D de Newton-Stein, aussi testée), **62 non testées**, **17 sans objet**. Version initiale : 43 / 11 / 64 / 17 (6c1b8b3).
 
 ## Détail par méthode (configuration ; ce qui n'a pas été exploré ; prédiction et actifs pour les cases N ; coût)
 
@@ -154,13 +154,22 @@ Théorèmes cités :
   - **Coût** : estimateur hors ligne de Gelfand–Dey sur les échantillons (comme l'étape 0 de DW-4) : CPU < 1 min. À l'entraînement : GPU ≈ 0,05 $.
 
 ### 10. Division, gabarits tronqués (postérieure tronquée sur ellipsoïde, normalisation χ²)
-- **Définition hors dépôt** (note de Hai-Dang non disponible). Variante voisine testée en **G, T (C) ✗** : composantes tronquées sur une **boîte** (c = 1,5, b4f26a4) ; k̂ de 2,4 à 6,5 dans les 3 petits bassins ; FAIL.
-- **D, X** : Th. C.
+**Définition (donnée par l'utilisateur le 2026-11-23, en attendant les notes dans `docs/`).** Pour chaque mode k et chaque x_t, f_k(x₁ ; x_t) = N(x₁ ; m_k(x_t), S_k(t)), la postérieure gaussienne du gabarit, restreinte à l'ellipsoïde {(x₁ − m_k)ᵀ S_k⁻¹ (x₁ − m_k) ≤ c²} et normalisée par F_{χ²_d}(c²). Badge r_k = f_k(x₁ ; x_t) e^{E(x₁)} / N(x_t ; κ x₁, v). Moyenne nulle exacte pour toute f_k(· ; x_t) normalisée ; badge borné à l'intérieur de l'ellipsoïde.
+- **G, T (C) ✗, variante voisine** : composantes tronquées sur une **boîte** (c = 1,5, b4f26a4), pas sur l'ellipsoïde de la postérieure. k̂ de 2,4 à 6,5 dans les 3 petits bassins ; FAIL.
+- **D, X** : Th. C (gabarits sur les modes connus).
 - **H, —** : un seul mode.
-- **Autres, N** : prédiction et coût impossibles sans la définition. Coût de départ : lire la note.
+- **Autres, N** :
+  - **Prédiction** : le badge est borné dans l'ellipsoïde, ce qui supprime les queues de poids. Mais la troncature ne lève pas la contrainte de domination mesurée sur DW-4 (tâche 3/4 : la dispersion vient du rétrécissement), à moins que l'ellipsoïde de la *postérieure* soit assez étroit aux petits κ.
+  - **Actifs** : contrôleurs GMM-dk et MoS-dk locaux.
+  - **Coût** : évaluation hors ligne des badges sur CPU (< 1 min par cible), comme A5.
 
-### 11. VC de rapport avec témoin de Rayleigh β ∝ Σ⁻¹μ (note 1, étape M3)
-- **Définition hors dépôt : les 9 cases sont N.** Ni prédiction ni pertinence ne sont jugeables ici ; même H (instabilité) n'est pas classable sans la définition. Coût de départ : lire la note.
+### 11. VC de rapport avec témoin de Rayleigh (note 1 de Hai-Dang, §7.2)
+**Définition (donnée par l'utilisateur le 2026-11-23).** Une banque finie de VC de rapport centrées C_j (par exemple les contrastes de modes (r_j − r_M)/π̃), combinées par β ∝ Σ̂⁻¹ μ̂, estimé sur les échantillons courants en validation croisée.
+- **D, X** : Th. C (les contrastes portent sur des modes représentés).
+- **H, —** : un seul mode, aucun contraste.
+- **Autres, N** :
+  - **Prédiction** : c'est un estimateur de type « VC optimale de Rayleigh » sur une famille finie. Il hérite des forces et des limites des badges C_j (ligne 9 et 10) et ajoute la variance d'estimation de β, d'où la validation croisée.
+  - **Coût** : CPU hors ligne si les C_j sont des badges de division (après A5).
 
 ### 12. Newton-Stein
 - **H, T (R) ✓** : Th. A prouvé et vérifié (P1a à P1d ; eea3ce1 → 2682f5d).

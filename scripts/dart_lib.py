@@ -68,10 +68,13 @@ def is_stats(lw, c, K, ptrue):
                 logz=float(logsumexp(lw) - math.log(n)), logz_se=float(wn.std() / math.sqrt(n)), p_hat=props(c, K, w).tolist())
 
 
-def darting(pi, X, mu, ptrue, discover=500, SW=(1, 5, 10), seed=99, keep_final=False):
-    """ protocol of the phase 0 (500 discovery samples, quench, Hessians by finite differences, 1 jump + 5 MALA steps per sweep, MALA step tuned once for 0.6): returns a dict (None-safe) with TV, acceptances and cost per S. """
+def darting(pi, X, mu, ptrue, discover=500, SW=(1, 5, 10), seed=99, keep_final=False, minima=None):
+    """ protocol of the phase 0 (500 discovery samples, quench, Hessians by finite differences, 1 jump + 5 MALA steps per sweep, MALA step tuned once for 0.6): returns a dict (None-safe) with TV, acceptances and cost per S.
+        minima (optional, rules_bank_darting_dk.md): an EXTERNAL bank of minima [m, d] used instead of the discovery on X (its search cost is counted by the caller). """
     K, d, n = pi.K, pi.d, len(X)
     cost = dict(E=0, G=0); res = {}
+    if minima is not None:
+        return _darting_from_minima(pi, X, mu, ptrue, np.asarray(minima, float), SW, seed, keep_final, cost, res)
     y = X[:discover].copy()
     for it in range(4000):
         _, g = pi.logp_grad(y); cost["G"] += len(y); y = y + 0.7 * g
@@ -82,7 +85,13 @@ def darting(pi, X, mu, ptrue, discover=500, SW=(1, 5, 10), seed=99, keep_final=F
             dist = np.linalg.norm(np.array(mins) - p, axis=1); i = int(dist.argmin())
             if dist[i] < 0.5: cnt[i] += 1; continue
         mins.append(p.copy()); cnt.append(1)
-    M = np.array([m for m, c in zip(mins, cnt) if c >= 5]); res["minima_found"] = int(len(M))
+    M = np.array([m for m, c in zip(mins, cnt) if c >= 5])
+    return _darting_from_minima(pi, X, mu, ptrue, M, SW, seed, keep_final, cost, res)
+
+
+def _darting_from_minima(pi, X, mu, ptrue, M, SW, seed, keep_final, cost, res):
+    K, d, n = pi.K, pi.d, len(X)
+    res["minima_found"] = int(len(M))
     if len(M) < 2:
         res["error"] = f"{len(M)} minima discovered"; return res
     for _ in range(50):
