@@ -1,6 +1,7 @@
 """ rules_selftrain_dartbank.md: local CPU analysis of the 7 continuation runs (results/selftrain_runs/sd_<arm>_<cell>/{eval_samples/ep00350.pt, ep00400.pt, ep00450.pt, samples_final.pt, stdout.log}).
     python scripts/selftrain_analyse.py CELL        CELL in {k8d32, mosw10, d128}  (one call per cell, < 1 min)
     python scripts/selftrain_analyse.py verdict
+    python scripts/selftrain_analyse.py oracle     (rules_oracle_buffer.md; needs results/selftrain_runs/sd_o_d128 and sd_od_d128)
     d128: arm (s) only; (a) and (t) are read from figures/train_weightfree/analysis_d128.json (step B, reused as declared in the rules). """
 import ast, json, re, sys, time
 from pathlib import Path
@@ -87,6 +88,35 @@ if c in ("k8d32", "mosw10", "d128"):
         print(f"{c} {arm}: TV vor {agg['tv_vor']['mean']:.4f}±{agg['tv_vor']['sd']:.4f} basin {agg['tv_basin']['mean']:.4f}±{agg['tv_basin']['sd']:.4f} | cov vor {[p['cov_vor'] for p in per]}+{fin['cov_vor']} "
               f"basin {[p['cov_basin'] for p in per]}+{fin['cov_basin']} | Q1 {agg['q1_ratio']['mean']:.3f} (final {fin['q1_ratio']:.3f}) | final vor {fin['tv_vor']:.4f}", flush=True)
     res["time_s"] = time.time() - T0; json.dump(res, open(OUT / f"analysis_{c}.json", "w"), indent=1, default=float); print(f"{c}: {res['time_s']:.1f} s")
+elif c == "oracle":                                                                                      # rules_oracle_buffer.md: arms o-AS (sd_o_d128) and o-DSM (sd_od_d128), (128, 8, 6) x 0.75
+    pi, mu, K, pt, M, med = target("d128"); res = dict(cell="d128", median_dist_exact=med, arms={}); rng = np.random.default_rng(4040)
+    fresh = torch.from_numpy(B.sample_exact(pi, 10000, rng)).float()
+    def nn_d(a, b):
+        out = []
+        for i in range(0, len(a), 500):
+            out.append(torch.cdist(a[i:i + 500], b).min(1).values)
+        return torch.cat(out)
+    for arm, name in (("o_as", "sd_o_d128"), ("o_dsm", "sd_od_d128")):
+        rd = RUNS / name; per = []
+        for e in EVALS:
+            x = torch.load(rd / "eval_samples" / f"ep{e:05d}.pt", map_location="cpu", weights_only=False).double().numpy()
+            per.append(dict(epoch=e, **stats(x, pi, mu, K, pt, M, med)))
+        dd = torch.load(rd / "samples_final.pt", map_location="cpu", weights_only=False); xf = dd["model_samples"].double().numpy(); fin = stats(xf, pi, mu, K, pt, M, med)
+        agg = {k: dict(mean=float(np.mean([p[k] for p in per])), sd=float(np.std([p[k] for p in per], ddof=1))) for k in ("tv_vor", "tv_basin", "q1_ratio", "cov_vor", "cov_basin")}
+        buf = dd["buffer_x1"].float()[:10000]; xm = dd["model_samples"].float()[:2000]
+        mem = dict(nn_to_buffer_median=float(nn_d(xm, buf).median()), nn_to_fresh_exact_median=float(nn_d(xm, fresh).median()), nn_buffer_vs_fresh_median=float(nn_d(buf[:2000], fresh).median()))
+        res["arms"][arm] = dict(evals=per, final=fin, agg=agg, memorisation=mem, log=log_stats("a", rd / "stdout.log"))
+        print(f"oracle {arm}: TV vor {agg['tv_vor']['mean']:.4f}+-{agg['tv_vor']['sd']:.4f} basin {agg['tv_basin']['mean']:.4f}+-{agg['tv_basin']['sd']:.4f} | cov vor {[p['cov_vor'] for p in per]}+{fin['cov_vor']} "
+              f"basin {[p['cov_basin'] for p in per]}+{fin['cov_basin']} | Q1 {agg['q1_ratio']['mean']:.3f} | final vor {fin['tv_vor']:.4f} basin {fin['tv_basin']:.4f} | mem {mem}", flush=True)
+    A = res["arms"]; ref_s = json.load(open(OUT / "analysis_d128.json"))["arms"]["s"]["agg"]
+    V = {}
+    for arm in A:
+        tvv, tvb = A[arm]["agg"]["tv_vor"]["mean"], A[arm]["agg"]["tv_basin"]["mean"]
+        V[arm] = dict(tv_vor=tvv, tv_basin=tvb, q1=A[arm]["agg"]["q1_ratio"]["mean"], O1_vor_le_0_098=bool(tvv <= 0.098), O1b_basin_le_0_053=bool(tvb <= 0.053),
+                      ratio_s_over_arm_vor=ref_s["tv_vor"]["mean"] / tvv, ratio_s_over_arm_basin=ref_s["tv_basin"]["mean"] / tvb)
+    res["verdict"] = dict(O1=V["o_as"]["O1_vor_le_0_098"], O1b=V["o_as"]["O1b_basin_le_0_053"], O2_vor=V["o_dsm"]["O1_vor_le_0_098"], O2_basin=V["o_dsm"]["O1b_basin_le_0_053"], arms=V)
+    res["time_s"] = time.time() - T0; (ROOT / "figures" / "oracle_buffer").mkdir(parents=True, exist_ok=True); json.dump(res, open(ROOT / "figures" / "oracle_buffer" / "analysis_oracle.json", "w"), indent=1, default=float)
+    print(json.dumps(res["verdict"], indent=1, default=float)); print(f"oracle: {res['time_s']:.1f} s")
 elif c == "verdict":
     R = {k: json.load(open(OUT / f"analysis_{k}.json")) for k in ("k8d32", "mosw10", "d128")}
     SB = json.load(open(ROOT / "figures" / "train_weightfree" / "analysis_d128.json"))["arms"]                                   # step B, reused (a) and (t) at d = 128

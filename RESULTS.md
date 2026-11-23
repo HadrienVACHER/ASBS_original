@@ -1795,3 +1795,16 @@ Pas réglé sur le premier lot du fichier de départ, comparé au pas réglé su
 
 ### Contrôle par buffer oracle à (128, 8, 6) × 0,75 : préparé, non lancé
 `rules_oracle_buffer.md` (règles O1 : TV de Voronoï ≤ 0,098, O1b : TV par bassin ≤ 0,053, O2 descriptif), `AdjointVEOracleMatcher`, configurations `adjoint_ve_oracle` et `gmm_dk_as_oracle`, `scripts/vast_oracle_remote.sh`. Essai local de 3 époques réussi (0,38 s par époque sur le Mac, buffer initial de 10⁴ tirages exacts, tirages exacts vérifiés). **Coût estimé : central 0,03 $ (15 à 20 min), pessimiste 0,06 $ (30 min), plafond proposé 0,10 $** ; aucune location sans décision de l'utilisateur.
+
+## Multiplicateur A_m du Thm 3.3 de Failure Modes aux deux cellules (2026-11-23, descriptif, CPU, calcul à la main)
+Écrit pour : Hadrien. Formule de l'utilisateur : s² = σ_tar² / ν₁, A_m = 1 + log s² / (1 − s²), ν₁ = σ_max² − σ_min². Aucun seuil, aucune règle.
+- **(128, 8, 6) × 0,75** : modes gaussiens de covariance I, donc σ_tar² = 1 pour les 8 modes ; σ_max = 1,602001, ν₁ = 2,5664 ; **s² = 0,3896, A_m = −0,544, |A_m| < 1** : pas d'inversion de signe amplifiée.
+- **MoS-w d = 10** : σ_max = 23,2, ν₁ = 538,24 ; composantes de Student à 2 degrés de liberté, d'échelle 1, **de variance infinie** : la formule n'est pas définie telle quelle. Trois lectures, identiques pour les 10 modes (même forme) :
+
+| σ_tar² retenu | s² | A_m |
+|---|---|---|
+| variance locale de Laplace (2/3 : inverse du Hessien (ν+1)/(ν s²) au mode) | 0,00124 | −5,70 |
+| carré de l'échelle (1) | 0,00186 | −5,30 |
+| gaussienne de même écart interquartile (1,46) | 0,00272 | −4,92 |
+
+  **|A_m| > 1 dans les trois lectures** (de −4,9 à −5,7), alors que ce théorème suppose des composantes gaussiennes : à lire comme un ordre de grandeur, pas comme une valeur.

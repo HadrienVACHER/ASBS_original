@@ -222,10 +222,11 @@ Détails dans RESULTS.md.
 - **À l'entraînement, T (C)** (`rules_selftrain_dartbank.md`, b15cf8a ; résultats dans RESULTS.md) : bras (s) = buffer corrigé par banque + darting (S = 10), 500 époques, graine 0.
   - **D, (32, 8, 8) × 0,5** : S1 vrai (8/8 sur les 4 jeux, TV 0,063 contre 0,662 pour AS).
   - **B, (128, 8, 6) × 0,75** : S3 faux tel qu'écrit (TV de Voronoï 0,119 contre le seuil 0,098), mais TV par bassin 0,037.
-  - **I, MoS-w d = 10 depuis l'époque 250** : 10/10 bassins, TV par bassin 0,070, mais Q1 4,8 (S2 et S4 faux).
-  - **Banque incomplète, jouet CPU** (`rules_bank_incomplete.md`) : mode lointain de forme différente trouvé dès ε ≈ 10⁻⁴ (80 % en 40 rafraîchissements), jamais à ε = 0 (support) ; translation et affine transfèrent la bonne masse ; plomberie seulement (sampler fixe).
+  - **C, MoS-w d = 10 depuis l'époque 250** (étiquette C décidée par l'utilisateur le 2026-11-23, paramètre S non exploré) : 10/10 bassins, TV par bassin 0,070, mais Q1 4,8 (S2 et S4 faux) à S = 10 ; le post hoc montre que S = 50 suffit pour la forme du buffer (M1).
+  - **Banque incomplète, jouet CPU** (`rules_bank_incomplete.md`) : mode lointain de forme différente trouvé dès ε ≈ 10⁻⁴ (80 % en 40 rafraîchissements), jamais à ε = 0 (support) ; translation et affine transfèrent la bonne masse ; plomberie validée (sampler fixe), pas d'autre suite décidée.
   - **Forme du buffer** : MoS-w post hoc, Q1 ≤ 1,5 et TV bassin ≤ 0,02 à S = 50 (M1 vraie), pas à S = 10 ; translation et affine identiques (Hessiennes égales).
-  - **Non exploré** : S ; la banque enrichie (aucun minimum ajouté en cours d'entraînement, la banque de départ était complète) ; d'autres graines ; le coût (210 fois les évaluations d'AS par mise à jour).
+  - **Pas MALA** : F1 fausse (MoS-w, rapport 0,85) ; réglage à chaque lot conservé (option `freeze_step` désactivée).
+  - **Non exploré** : S (S = 50 pour MoS-w) ; la banque enrichie (aucun minimum ajouté en cours d'entraînement, la banque de départ était complète) ; d'autres graines ; le coût (210 fois les évaluations d'AS par mise à jour).
 - **C, N** : MoS-w d = 10 ; actifs locaux ; CPU.
 - **E, N** : les minima de ManyWell sont donnés par la structure ; pas de contrôleur local (GPU ≈ 0,07 $).
 - **G, N** : les 5 minima de DW-4 sont connus ; CPU (ed8bb67).

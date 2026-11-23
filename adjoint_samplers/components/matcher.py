@@ -2060,3 +2060,28 @@ class AdjointVEOracleMatcher(AdjointVEMatcher):
         adjoint1 = self._compute_adjoint1(x1, is_asbs_init_stage).clone()
         self._check_buffer_sample_shape(x0, x1, adjoint1)
         self.buffer.add({"x0": x0.to("cpu"), "x1": x1.to("cpu"), "adjoint1": adjoint1.to("cpu")})
+
+
+class AdjointVEOracleDSMMatcher(AdjointVEOracleMatcher):
+    """ ORACLE control, arm o-DSM (rules_oracle_buffer.md): the SAME buffer of exact i.i.d. draws as AdjointVEOracleMatcher (same size, same refresh), the SAME VE bridge process (x_t | x0, x1 =
+        sde.sample_base_posterior), the same controller and sampler (dX = g^2 u dt + g dW), but trained by denoising score matching instead of adjoint matching: no energy gradient is used.
+        With s = int_0^t g^2, V = sigma_max^2 - sigma_min^2, r = s / V, the bridge drift in s-time is (x1 - x_t) / (V (1 - r)), so g^2 u = g^2 (x1 - x_t) / (V (1 - r)), i.e. u_cond = (x1 - x_t) / (V (1 - r)).
+        Its conditional mean given x_t is the optimal controller u* (exactly as the AS target -grad E(x1)); u_cond differs from the conditional score of p(x_t | x1) only by a term depending on (t, x_t),
+        so the weighted regression sw * (u - u_cond)^2 with sw = V r (1 - r) = Var(x_t | x1) is the standard DSM objective (weight lambda(t) = Var), bounded at both ends. """
+    def populate_buffer(self, x0, timesteps, is_asbs_init_stage):
+        with torch.no_grad():
+            x1 = self.grad_term_cost.energy.dist.sample((x0.shape[0],)).to(x0.device, x0.dtype)
+        adjoint1 = torch.zeros_like(x1)                                            # unused by DSM (kept so that the buffer layout is the usual one)
+        self._check_buffer_sample_shape(x0, x1, adjoint1)
+        self.buffer.add({"x0": x0.to("cpu"), "x1": x1.to("cpu"), "adjoint1": adjoint1.to("cpu")})
+
+    def prepare_target(self, data, device):
+        x0 = data["x0"].to(device); x1 = data["x1"].to(device)
+        t = self.sample_t(x0).to(device)
+        xt = self.sde.sample_base_posterior(t, x0, x1)
+        ref = self.sde.ref_sde
+        r = (ref._diffsquare_integral(t) / ref.total_var).clamp(0.0, 1.0 - 1e-7); V = ref.total_var
+        target = (x1 - xt) / (V * (1.0 - r))
+        self.sample_weight = (V * r * (1.0 - r)).reshape(-1).to(target.dtype)
+        return (t, xt), target
+
