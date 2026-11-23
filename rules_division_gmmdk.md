@@ -50,3 +50,9 @@ Question : sur DW-4, la division a échoué parce que la domination imposait un 
 
 ## Exécution
 `scripts/division_gmmdk.py` (commandes `snap E`, `control`, `verdict`). Résultats dans `figures/division_gmmdk/`. Section dans RESULTS.md.
+
+## Amendement daté (2026-11-23, après le verdict ; demandé par l'utilisateur ; écrit et commité avant la reprise)
+**Verdict d'origine, conservé** : A5 FAUSSE telle qu'écrite (dispersion > 1 nat dans les 5 plus petits bassins, β = 0,13). Mesure de β signalée non fiable : témoin positif 0,69 ± 0,27, témoin négatif 0,46 ± 0,34 (RESULTS.md, cd24a1f). **Cause : erreur de spécification** (R = 4 tirages de t par point, trop peu).
+- **Seul changement : R = 100 tirages par point** (erreur-type attendue ≈ 0,05). Tout le reste est inchangé : échantillons, moitiés, gabarits, masses de Gelfand–Dey, loi de t, graines, témoins et leurs seuils, règle A5, lecture.
+- Les dispersions et les masses ne dépendent pas de R : elles sont recalculées à l'identique.
+- Calcul découpé par gabarit (`snapR E partie`, chaque appel < 1 min). Résultats dans `figures/division_gmmdk/*_R100*.json`, verdict dans `verdict_R100.json`, à côté des fichiers d'origine, qui sont conservés.
