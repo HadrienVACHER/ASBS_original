@@ -22,6 +22,9 @@ T0 = time.perf_counter()
 CTRL = {"d128": dict(d=128, K=8, delta=6.0, ckpt="figures/gmmdk_step4/controllers/gmmdk4_d128_sx0.75_ep1500.pt", cfg="figures/gmmdk_step4/configs/gmmdk4_d128_sx0.5.config.yaml", qjson="figures/gmmdk_step4/q_gmmdk4_d128_sx0.75.json"),
         "d256": dict(d=256, K=8, delta=6.0, ckpt="figures/gmmdk_step4/controllers/gmmdk4_d256_sx0.75_ep1500.pt", cfg="figures/gmmdk_step4/configs/gmmdk4_d256_sx0.5.config.yaml", qjson="figures/gmmdk_step4/q_gmmdk4_d256_sx0.75.json"),
         "d32": dict(d=32, K=8, delta=4.0, ckpt="results/gmm_dk_window/w1/gmmdk_d32_K8_D4_s0_sx2/controller_final.pt", cfg="results/gmm_dk_window/w1/gmmdk_d32_K8_D4_s0_sx2/config.yaml", qjson=None)}
+for _d in (128, 256):                                                                           # rules_darting_large_sigma_snapshots.md: the other saved x0.75 snapshots
+    for _e in (750, 1000, 1250):
+        CTRL[f"d{_d}e{_e}"] = dict(CTRL[f"d{_d}"], ckpt=f"figures/gmmdk_step4/controllers/gmmdk4_d{_d}_sx0.75_ep{_e}.pt")
 SW = (1, 5, 10); N = 10000
 OUTF = ROOT / "figures" / "darting_large_sigma"; OUTF.mkdir(parents=True, exist_ok=True)
 OUTR = ROOT / "results" / "darting_large_sigma"; OUTR.mkdir(parents=True, exist_ok=True)
@@ -122,6 +125,56 @@ else:
                            psis_tv_vor=L.weighted_stats(pw, cl, K, ptrue)["tv"], psis_tv_basin=L.tv(bprops(bb, K, pw), ptrue))
         res["time_s"] = time.perf_counter() - T0; jsave(OUTF / f"is_{c}.json", res)
         print(f"is {c}: pool n {len(lw)} TV vor {res['pool']['tv_vor']:.4f} basin {res['pool']['tv_basin']:.4f} ESS {res['pool']['ess']:.2e} khat {res['pool']['khat']:.2f} PSIS vor {res['pool']['psis_tv_vor']:.4f} ({res['time_s']:.1f} s)")
+
+    elif a.cmd == "verdict_snap":                                                                # rule A1: G (S in {5, 10}) and H_saut_bassin on >= 2 of the 3 snapshots, at each dimension
+        V = {}
+        for dd in (128, 256):
+            snaps = {}
+            for e in (750, 1000, 1250, 1500):
+                c = f"d{dd}e{e}" if e != 1500 else f"d{dd}"
+                fl = jload(OUTF / f"floor_d{dd}.json")["floor"]; IS = jload(OUTF / f"is_{c}.json")
+                dj = {s: jload(OUTF / f"dart_{c}_s{s}.json") for s in (1, 2, 3)}; mj = {s: jload(OUTF / f"mala_{c}_s{s}.json") for s in (1, 2, 3)}
+                rj = {s: jload(OUTF / f"raw_{c}_s{s}.json") for s in (1, 2, 3)}
+                out = dict(raw_vor=float(np.mean([rj[s]["tv_vor"] for s in (1, 2, 3)])), raw_basin=float(np.mean([rj[s]["tv_basin"] for s in (1, 2, 3)])),
+                           IS_pool=IS["pool"], IS_set_ess=float(np.mean([IS["sets"][str(s)]["ess"] for s in (1, 2, 3)])), by_S={})
+                G = False
+                for S in (5, 10):
+                    d_v = [dj[s]["by_S"][str(S)]["tv_vor"] for s in (1, 2, 3)]; d_b = [dj[s]["by_S"][str(S)]["tv_basin"] for s in (1, 2, 3)]
+                    cost = float(np.mean([dj[s]["by_S"][str(S)]["cost"] for s in (1, 2, 3)])); LB = fl * math.sqrt(N / max(IS["pool"]["ess"] * cost, 1e-300)); TVeq = min(IS["pool"]["tv_vor"], LB)
+                    m_v = [mj[s]["by_cost"][str(dj[s]["by_S"][str(S)]["cost"])]["tv_vor"] for s in (1, 2, 3)]; m_b = [mj[s]["by_cost"][str(dj[s]["by_S"][str(S)]["cost"])]["tv_basin"] for s in (1, 2, 3)]
+                    g = bool(np.mean(d_v) <= 0.5 * TVeq and np.mean(d_v) <= 2 * fl); G |= g
+                    out["by_S"][str(S)] = dict(TV_eq=TVeq, LB=LB, dart_vor=[float(np.mean(d_v)), float(np.std(d_v, ddof=1))], dart_basin=[float(np.mean(d_b)), float(np.std(d_b, ddof=1))],
+                                               mala_vor=[float(np.mean(m_v)), float(np.std(m_v, ddof=1))], mala_basin=[float(np.mean(m_b)), float(np.std(m_b, ddof=1))], G=g)
+                H = bool(out["by_S"]["10"]["dart_basin"][0] <= 0.5 * out["by_S"]["10"]["mala_basin"][0])
+                out.update(G=G, H=H, both=bool(G and H)); snaps[e] = out
+                print(f"d{dd} ep{e}: G {G} H {H} | dart S10 vor {out['by_S']['10']['dart_vor'][0]:.4f} basin {out['by_S']['10']['dart_basin'][0]:.4f} | MALA basin {out['by_S']['10']['mala_basin'][0]:.4f} | IS pool ESS {IS['pool']['ess']:.2e} khat {IS['pool']['khat']:.2f}")
+            n_ok = sum(snaps[e]["both"] for e in (750, 1000, 1250))
+            V[f"d{dd}"] = dict(snapshots=snaps, n_both_750_1250=int(n_ok), A1=bool(n_ok >= 2))
+        V["A1"] = bool(all(V[f"d{dd}"]["A1"] for dd in (128, 256)))
+        jsave(OUTF / "verdict_snapshots.json", V); print("A1 (>= 2/3 snapshots at each dimension):", V["A1"], {k: V[k]["n_both_750_1250"] for k in ("d128", "d256")})
+
+    elif a.cmd == "lwvar":                                                                       # descriptive: Var(log W) within / between basins, and ESS of W^alpha
+        def decomp(lw, lab):
+            lw = np.asarray(lw, float); m = lab >= 0; lw, lab = lw[m], lab[m]
+            tot = float(lw.var()); ks = np.unique(lab); p = np.array([(lab == k).mean() for k in ks])
+            within = float(sum(pk * lw[lab == k].var() for pk, k in zip(p, ks))); between = float(sum(pk * (lw[lab == k].mean() - lw.mean()) ** 2 for pk, k in zip(p, ks)))
+            from scipy.special import logsumexp as lse
+            ess = {str(al): float(np.exp(2 * lse(al * lw) - lse(2 * al * lw)) / len(lw)) for al in (0.25, 0.5, 1.0)}
+            return dict(n=int(len(lw)), var=tot, within=within, between=between, between_frac=between / tot if tot > 0 else float("nan"), ess_alpha=ess)
+        R = {}
+        for dd in (128, 256):
+            for e in (750, 1000, 1250, 1500):                                                    # x0.75: our simulated sets, basins of the quench
+                c = f"d{dd}e{e}" if e != 1500 else f"d{dd}"
+                lws, labs = [], []
+                for s in (1, 2, 3):
+                    _, lw = endpoints(c, s); lws.append(lw); labs.append(np.load(OUTR / f"raw_{c}_s{s}.npz")["basins"])
+                R[f"x0.75_d{dd}_ep{e}"] = decomp(np.concatenate(lws), np.concatenate(labs))
+            for e in (250, 500, 750, 1000, 1250, 1500):                                          # x0.5: step-4 log w, Voronoi cell as the basin proxy (declared)
+                z = np.load(ROOT / "figures" / "gmmdk_step4" / "logw" / f"is_logw_gmmdk4_d{dd}_sx0.5_ep{e}.npz")
+                R[f"x0.5_d{dd}_ep{e}"] = decomp(z["lw"], z["cells"])
+        for k, v in R.items():
+            print(f"{k:22} var {v['var']:9.3f} within {v['within']:9.3f} between {v['between']:8.3f} (between {100 * v['between_frac']:5.1f} %)  ESS(W^a) a=0.25 {v['ess_alpha']['0.25']:.3f} a=0.5 {v['ess_alpha']['0.5']:.3e} a=1 {v['ess_alpha']['1.0']:.2e}")
+        jsave(OUTF / "lwvar.json", R)
 
     elif a.cmd == "verdict":
         V = {}
