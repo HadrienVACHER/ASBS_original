@@ -1296,3 +1296,46 @@ Aux petits bassins, presque tous les η_j valent 0,8 et sont signalés (aucun η
 - **Les gabarits ne sont pas en cause.** Non rétrécis, ils suivent π à moins d'un nat près dès J = 1 dans 4 bassins sur 5, et à moins de 0,95 nat partout dès J = 3.
 - **La dispersion de 5 à 9 nats vient du rétrécissement** qu'impose la règle de fuite : P(paire dans [3,5 ; 4,5]) < 1 %, sans solution dans les petits bassins, d'où η = 0,8 et des covariances × 0,2. Ce rétrécissement sert à garder N̄_a dominé par π et confiné à son bassin, condition de la division. C'est aussi pourquoi le contrôle « covariances × 2 » réduit la dispersion : il annule en partie le rétrécissement.
 - **L'échec de la division sur DW-4 tient donc à la contrainte de domination et de confinement**, pas à la richesse des gabarits. Enrichir les gabarits (J) n'y change rien, ce que dit aussi la lecture fixée d'avance. Le contrôle négatif, mal conçu, ne permet pas de dire plus.
+
+## Darting post hoc dans le régime où l'IS de chemin s'effondre (réouverture n° 2 de l'audit, élargie ; 2026-11-23)
+
+Règle écrite et commitée avant tout calcul : `rules_darting_large_sigma.md` (f8957c1). Script `scripts/darting_large_sigma.py`, résultats `figures/darting_large_sigma/` (floor, raw, dart, mala, is, verdict.json). CPU du Mac, aucune location, aucun entraînement.
+
+**Données et protocole.**
+- **Contrôleurs** :
+  - **d128** = GMM-dk (128, 8, 6), σ_max × 0,75, époque 1500 ;
+  - **d256** = (256, 8, 6), × 0,75, époque 1500 (étape 4) ;
+  - **d32** = (32, 8, 4), × 2, bras AS du test Newton-Stein.
+- **Configuration des runs × 0,75** : celle du run × 0,5, avec σ_max remplacé par celui du JSON de Q (déclaré).
+- **Jeux de points** : 3 jeux indépendants de 10⁴ points terminaux par contrôleur, simulés sur CPU.
+- **Temps** : simulation 2,6 à 6,9 s par jeu ; darting 0,9 à 6,3 s ; MALA 1,0 à 4,8 s ; bassins < 1 s ; IS < 0,5 s. Aucune exécution au-delà de 7 s.
+- **Planchers** (n = 10⁴) : 0,0093 (d32), 0,0100 (d128, d256).
+- **Comparateur de coût égal** (déviation déclarée) : TV_eq = min(TV de l'IS sur les 3 × 10⁴ trajectoires réunies, borne LB au nombre d'échantillons effectifs à coût égal). **Pour les trois contrôleurs et à tous les S, c'est LB qui est retenue.**
+
+Moyenne ± écart-type sur les 3 jeux ; TV par Voronoï / par bassin.
+| | d128 | d256 | d32 |
+|---|---|---|---|
+| AS brut | 0,195 ± 0,003 / 0,110 ± 0,004 | 0,194 ± 0,009 / 0,102 ± 0,007 | 0,036 ± 0,003 / 0,074 ± 0,007 |
+| IS de chemin (10⁴) : TV | 0,202 ± 0,115 / 0,202 ± 0,114 | 0,536 ± 0,129 / 0,531 ± 0,127 | 0,106 ± 0,064 / 0,131 ± 0,013 |
+| IS de chemin (10⁴) : ESS, k̂ | 3,7·10⁻³ ± 1,7·10⁻³, 1,00 ± 0,08 | 3,0·10⁻⁴ ± 1,1·10⁻⁴, 3,67 ± 0,33 | 8,9·10⁻³ ± 5,1·10⁻³, 0,67 ± 0,08 |
+| PSIS (10⁴) : TV Voronoï | 0,209 ± 0,077 | 0,352 ± 0,101 | 0,069 ± 0,020 |
+| IS réuni (3 × 10⁴) : TV, ESS, k̂ | 0,127 / 0,125, 2,7·10⁻³, 0,97 | 0,487 / 0,467, 1,1·10⁻⁴, 3,40 | 0,073 / 0,094, 6,9·10⁻³, 0,66 |
+| darting S = 1 | 0,055 ± 0,003 / 0,047 ± 0,003 | 0,058 ± 0,005 / 0,048 ± 0,005 | 0,011 ± 0,003 / 0,062 ± 0,004 |
+| darting S = 5 | **0,012 ± 0,005** / 0,012 ± 0,003 | **0,012 ± 0,007** / 0,012 ± 0,005 | 0,010 ± 0,001 / 0,062 ± 0,004 |
+| darting S = 10 | **0,008 ± 0,003** / 0,009 ± 0,002 | **0,009 ± 0,002** / 0,012 ± 0,003 | 0,011 ± 0,001 / 0,063 ± 0,006 |
+| MALA seul, coût de S = 1 | 0,119 ± 0,004 / 0,109 ± 0,003 | 0,109 ± 0,006 / 0,098 ± 0,006 | 0,017 ± 0,002 / 0,064 ± 0,007 |
+| MALA seul, coût de S = 5 | 0,100 ± 0,001 / 0,097 ± 0,000 | 0,100 ± 0,004 / 0,094 ± 0,004 | 0,010 ± 0,002 / 0,061 ± 0,000 |
+| MALA seul, coût de S = 10 | 0,087 ± 0,002 / 0,084 ± 0,003 | 0,097 ± 0,004 / 0,092 ± 0,003 | 0,011 ± 0,006 / 0,062 ± 0,001 |
+| TV_eq = LB (S = 1 / 5 / 10) | 0,045 / 0,024 / 0,017 | 0,223 / 0,120 / 0,087 | 0,026 / 0,014 / 0,010 |
+Coûts du darting (évaluations d'énergie et de gradient) : 1,8·10⁵ (S = 1), 6,4·10⁵ (S = 5), 1,2·10⁶ (S = 10) ; 8 minima sur 8 découverts dans les 9 jeux.
+
+### Verdicts tels qu'écrits
+- **d128 : G VRAI** (S = 5 et 10 ; 2 jeux sur 3 seuls), **H_saut_bassin VRAI** (0,009 contre 0,5 × 0,084 ; 3 jeux sur 3). **Lecture : le darting tient là où l'IS s'effondre**, et on le garde comme bras d'entraînement de la famille 2.
+- **d256 : G VRAI** (S = 5 et 10 ; 3 jeux sur 3), **H_saut_bassin VRAI** (0,012 contre 0,5 × 0,092 ; 3 jeux sur 3). **Même lecture.**
+- **d32 : G VRAI** (S = 1 seulement ; 2 jeux sur 3), **H_saut_bassin FAUX** (3 jeux sur 3). **Lecture : la correction vient des pas locaux.**
+
+### Réserves (faits ; les verdicts ne changent pas)
+- **G repose sur la borne LB**, pas sur un IS de coût égal simulé. LB utilise l'ESS mesuré sur 3 × 10⁴ trajectoires avec k̂ de 0,97 (d128) et 3,40 (d256), une estimation peu fiable, présumée surestimée, donc défavorable au darting. Le darting atteint de toute façon le plancher (0,008 à 0,012) à S = 5 et 10 sur d128 et d256, alors que l'IS réellement calculé reste à 0,13 et 0,49.
+- **Erreur de spécification de ma part (d32)** : la règle affirmait TV(bassin, Voronoï) = 0,004 pour le GMM-dk ; c'est vrai à Δ = 6, faux à Δ = 4. Mesuré en descriptif sur 10⁴ échantillons exacts, le TV par bassin contre la vérité de Voronoï vaut **0,066 à d = 32, Δ = 4** (0,010 à d = 128). À d32, darting et MALA sont tous deux à ce niveau : H_saut_bassin n'y est pas informatif. Par Voronoï (descriptif), darting et MALA seul sont aussi au même niveau à S = 10 (0,011 contre 0,011) : la lecture « pas locaux » ne change pas. À d32, l'IS n'est d'ailleurs qu'à moitié effondré (ESS 7·10⁻³, k̂ 0,66), et l'AS brut est déjà à 0,036.
+- **Ce que montrent d128 et d256** : sur des modes gaussiens à forme apprise (Q vrai) avec un sampler trop large, les sauts entre minima ramènent les proportions au plancher. Le MALA seul ne corrige presque rien (0,08 à 0,10), et l'IS de chemin est inutilisable (k̂ ≥ 1). C'est le cas « Q vrai, I vrai » de l'étape 4, jamais comparé jusqu'ici.
+- Un seul contrôleur par cible (une graine d'entraînement) ; les 3 jeux mesurent la variabilité de l'échantillonnage à contrôleur fixé, pas la variabilité de l'entraînement.
