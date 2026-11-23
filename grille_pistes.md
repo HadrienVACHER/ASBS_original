@@ -90,7 +90,12 @@ Détails dans RESULTS.md.
   - P_g vraie : A_α = (1 − α) A_m ;
   - P_m fausse à α = 0,5 ; ESS 10⁻²⁵ à α = 0,9 sur le mode absent.
 - **D, X** : Th. C ; l'ESS mesuré interdit la découverte.
-- **Non exploré** : aucun vrai AS ; itérations répétées ; panneau (b).
+- **A et B, T (C)** (étape B, 8592ed2 → eac7339) : α = 0,5, 500 époques, graine 0.
+  - (8, 8, 8) : 0,034 contre 0,182 ;
+  - (128, 8, 6) × 0,75 : **meilleur bras**, 0,113 contre 0,196 ;
+  - **la prédiction écrite « (t) se dégrade en famille 2 » est fausse** ;
+  - coût : ESS de l'IS de chemin du contrôleur final 0,0015, contre 0,0044 pour AS.
+- **Non exploré** : itérations répétées ; panneau (b) ; α autre que 0,5 ; graines. L'ESS du matcher est journalisé à chaque insertion depuis le 2026-11-23.
 - **B, C, E, F, G, I, N** :
   - **Prédiction** : amortissement en logit à la vitesse α par itération, limité par l'ESS du chemin à la puissance α. En B, l'ESS est de 10⁻⁴ à α = 1 mais de l'ordre de ESS^{α²} pour α petit (conjecture, non vérifiée).
   - **Actifs** : contrôleurs B, C et G locaux pour une continuation.
@@ -136,7 +141,14 @@ Détails dans RESULTS.md.
 - **D, X** : Th. C, minima tirés du buffer. Avec une banque externe, voir la ligne 14.
 - **E, F, —** : c'est la ligne 5 (orbite produit et simplexe).
 - **H, —** : un seul mode. Quadrature 1D à deux modes (A en 1D) : H_CV soutenue (c204938 → bed2cf3).
-- **B, N** : **la plus prometteuse**, puisque le post hoc marche en B. Actifs : contrôleurs d128 et d256 × 0,75 et (32, 8, 4) × 2 locaux, matcher `AdjointVEGMMDartingMatcher` existant. Continuation de 500 époques, γ = 1,75 : GPU ≈ 0,03 à 0,05 $.
+- **B, T (C) ✗** (étape B, `rules_train_weightfree.md`, 8592ed2 → eac7339 ; étiquette C confirmée par l'utilisateur le 2026-11-23, et non R) : (128, 8, 6) × 0,75 depuis l'époque 1500, γ = 1,75, 500 époques, graine 0.
+  - F2 faux : TV 0,190 contre 0,196 pour AS et 0,113 pour l'IS tempéré.
+  - Une seule configuration.
+  - **Non explorés** :
+    - l'échantillonnage des instants, t_focus vers les petits κ (92 % des instants de régression ont κ > 0,7, où le terme est nul) ;
+    - γ (une seule valeur) ;
+    - la durée d'entraînement (500 époques) ;
+    - les graines.
 - **C, N** : MoS-dk d = 128 × 0,75 (contrôleurs locaux, `figures/dk_step5/controllers`), GPU ≈ 0,03 $.
 - **I, N** : MoS-w d = 10 (contrôleurs locaux) : le rafraîchissement des minima peut-il empêcher la perte en cours de route ? GPU ≈ 0,03 $.
 

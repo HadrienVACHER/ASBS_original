@@ -1,7 +1,7 @@
 _target_: adjoint_samplers.components.matcher.AdjointVETemperedISMatcher
 
 alpha: 0.5 # weights W^alpha / mean_buffer(W^alpha), W = path importance weight stored at generation (rules_train_weightfree.md)
-stats_every: 10
+stats_every: 1   # ESS logged at every insertion (rules_selftrain_dartbank.md)
 
 grad_state_cost:
   _target_: adjoint_samplers.components.state_cost.ZeroGradStateCost

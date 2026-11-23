@@ -1934,8 +1934,8 @@ class AdjointVETemperedISMatcher(AdjointVEMatcher):
         its epoch) gets the weight w_i = W_i^alpha / mean_buffer(W^alpha), W_i = the path-space importance weight of its path (girsanov.log_path_weights: pi(X1) B(path | X1) / q(path)),
         log W stored at generation, the normalisation over the WHOLE current buffer (recomputed after every insertion). train_one_epoch multiplies the squared error by
         `sample_weight` (set by prepare_target). Population minimiser: the AS update evaluated on q_alpha ~ q^(1-alpha) pi^alpha (rules_tempered_is_quadrature.md). alpha = 0: plain AS. """
-    def __init__(self, alpha: float = 0.5, stats_every: int = 10, **kwargs):
-        super().__init__(**kwargs)
+    def __init__(self, alpha: float = 0.5, stats_every: int = 1, **kwargs):
+        super().__init__(**kwargs)                                                    # stats_every = 1 (default since rules_selftrain_dartbank.md): ESS logged and printed at every buffer insertion
         self.alpha, self.stats_every = float(alpha), stats_every
         self.sample_weight, self._lognorm, self._pop, self._stats = None, 0.0, 0, {}
 
@@ -1946,7 +1946,8 @@ class AdjointVETemperedISMatcher(AdjointVEMatcher):
             la = self.alpha * lw
             self._stats = {"tis/ess_alpha": float(torch.exp(2 * torch.logsumexp(la, 0) - torch.logsumexp(2 * la, 0)) / len(lw)),
                            "tis/ess_w": float(torch.exp(2 * torch.logsumexp(lw, 0) - torch.logsumexp(2 * lw, 0)) / len(lw)),
-                           "tis/logw_sd": float(lw.std()), "tis/n_buffer": float(len(lw))}
+                           "tis/logw_sd": float(lw.std()), "tis/n_buffer": float(len(lw)), "tis/pop": float(self._pop)}
+            print(f"[tis] pop {self._pop} ess_alpha {self._stats['tis/ess_alpha']:.4g} ess_w {self._stats['tis/ess_w']:.4g} logw_sd {self._stats['tis/logw_sd']:.3f} n {len(lw)}", flush=True)
 
     def add_initial(self, x1, logw, x0):
         """ initial buffer from given end points WITH their path log weights (train.py init_buffer, key 'logw') """
