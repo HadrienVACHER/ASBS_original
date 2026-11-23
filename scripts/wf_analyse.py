@@ -8,7 +8,7 @@ import torch
 ROOT = Path(__file__).resolve().parents[1]; sys.path.insert(0, str(ROOT)); sys.path.insert(0, str(ROOT / "scripts"))
 import dart_lib as L, basin_lib as B, gmm_dk
 T0 = time.time()
-OUT = ROOT / "figures" / "train_weightfree"; RUNS = OUT / "runs"
+OUT = ROOT / "figures" / "train_weightfree"; RUNS = ROOT / "results" / "train_weightfree_runs"   # eval and final samples (large) stay outside the repository
 CELLS = {"d8": (8, 8, 8.0), "d32": (32, 8, 6.0), "d128": (128, 8, 6.0)}
 EVALS = (350, 400, 450)
 

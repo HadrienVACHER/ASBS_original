@@ -1,0 +1,21 @@
+{
+ "nu1": 4.499997542399999,
+ "n_starts": 1000,
+ "frac_converged": 1.0,
+ "quench_iterations": 12,
+ "n_bank": 8,
+ "true_minima_found": 8,
+ "starts_to_find_all": 18,
+ "grad_evals_upper_bound": 12000,
+ "start_counts_per_true_minimum": [
+  138,
+  131,
+  124,
+  130,
+  122,
+  140,
+  123,
+  92
+ ],
+ "time_s": 0.8572262910020072
+}

@@ -1436,3 +1436,42 @@ TV brut sans poids (moyenne ± écart-type sur les évaluations des époques 350
 - **Famille 1** : à (8, 8, 8), les deux corrections divisent le TV d'AS par 4 à 5. À (32, 8, 6), AS est déjà à 4 fois le plancher et aucun bras ne fait mieux de façon nette.
 
 Réserves : une graine d'entraînement, 500 époques de reprise, une valeur de α et une de γ ; les moyennes sur 3 évaluations donnent la variabilité entre évaluations, pas entre graines.
+
+## A3 : banque de minima (trempe depuis la loi de base) + darting post hoc sur GMM-dk (32, 8, 8) (2026-11-23)
+
+Règle écrite et commitée avant tout calcul : `rules_bank_darting_dk.md` (8733002). CPU uniquement, chaque exécution < 2 s. Code : `scripts/darting_large_sigma.py` (commandes `bank`, `dartbank`, `verdict_bank`) ; `dart_lib.darting(..., minima=)`. Résultats : `figures/darting_large_sigma/{bank,dartbank,dart,raw,is,floor}_k8*.json`, `verdict_bank.json`.
+
+**Banque.** 1000 départs tirés de N(0, ν₁ I), trempe convergée pour 100 % des départs en 10 itérations, donc au plus 10⁴ gradients (moins de 1 % du coût du darting à S = 10, 1,2·10⁶ énergies).
+| contrôleur | ν₁ | minima dans la banque | vrais minima trouvés | **départs pour trouver les 8** | départs par minimum (min – max) |
+|---|---|---|---|---|---|
+| × 1 (principal) | 8,0 | 8 | 8/8 | **18** | 95 – 142 |
+| × 0,5 | 2,0 | 8 | 8/8 | 18 | 78 – 150 |
+| × 0,75 | 4,5 | 8 | 8/8 | 18 | 92 – 140 |
+| × 1,5 | 18,0 | 8 | 8/8 | 18 | 100 – 143 |
+| × 2 | 32,0 | 8 | 8/8 | 29 | 104 – 145 |
+
+**Darting avec la banque, contrôleur principal** (TV de Voronoï contre la vérité exacte ; plancher 0,0099 à n = 10⁴ ; couverture = cellules avec p̂ ≥ 0,25 p) :
+| jeu | brut (AS) | S = 1 | S = 5 | **S = 10** | MALA seul à coût égal (S = 10) |
+|---|---|---|---|---|---|
+| 1 | 0,420 (3/8) | 0,219 (8/8) | 0,0103 (8/8) | **0,0089 (8/8)** | 0,419 (3/8) |
+| 2 | 0,422 (3/8) | 0,209 (8/8) | 0,0217 (8/8) | **0,0082 (8/8)** | 0,419 (3/8) |
+| 3 | 0,421 (3/8) | 0,211 (8/8) | 0,0101 (8/8) | **0,0069 (8/8)** | 0,419 (3/8) |
+Taux d'acceptation des sauts à S = 10 : 0,52.
+
+**Témoins, contrôleur principal** (3 jeux) :
+- darting avec les minima découverts sur les échantillons (protocole d'origine) : 3 minima seulement, TV 0,321 à S = 10 ;
+- IS de chemin : TV 0,324 (ESS 0,04 à 0,08, k̂ 0,42 à 0,65).
+Les deux rééquilibrent les 3 modes présents ; 0,324 est la masse des 5 modes absents.
+
+### Verdict tel qu'écrit
+**A3 VRAIE** : couverture 8/8 dans les 3 jeux ; TV moyen 0,0080 ± 0,0010 ≤ 2 × 0,0099. Le TV est au plancher.
+
+### Contrôleurs descriptifs (1 jeu chacun, S = 10)
+× 0,5 : 0,0102 (brut 0,668, 1/8) ; × 0,75 : 0,0098 (brut 0,619) ; × 1,5 : 0,0085 (brut 0,601) ; × 2 : 0,0128 (brut 0,887, 1/8). Couverture 8/8 partout, partant de 1 à 3 modes ; MALA seul reste à la couverture brute.
+
+### Prédictions écrites
+La banque trouve les 8 minima : 90 % ✓. A3 vraie : 55 % ✓. Couverture 8/8 : 75 % ✓.
+
+### Lecture et limite
+- Une fois les minima connus, le darting post hoc corrige complètement la perte de modes d'AS sur ce problème, y compris quand AS n'a qu'un mode sur 8 ; MALA seul et l'IS de chemin ne le font pas.
+- **Limite forte : c'est le cas facile pour la banque.** Sur GMM-dk à Δ = 8, les bassins de trempe sont les cellules de Voronoï de 8 gaussiennes isotropes de même largeur, et la loi de base N(0, ν₁ I) est centrée et couvre toutes les cellules. Chaque minimum reçoit donc environ 1/8 des départs, même à × 0,5 (ν₁ = 2). Le nombre de départs (18 à 29) ne dit rien d'une énergie à bassins petits, inégaux ou loin de la loi de base (MoS, LJ, DW-4). C'est ce que A4 (MoS-w) teste en partie.
