@@ -35,22 +35,29 @@ Théorèmes cités :
 | méthode | A | B | C | D | E | F | G | H | I |
 |---|---|---|---|---|---|---|---|---|---|
 | 1. AS seul | T (référence) | T (référence) | T (référence) | T (référence) | T (référence) | T (référence) | T (référence) | T (R) | T (référence) |
-| 2. IS de chemin post hoc | T (R) | T (C) | T (C) | X (Supp. + Th. C) | N | N | T (C) | — | N |
+| 2. IS de chemin post hoc | T (R) | T (C) | T (C) | X (Supp. + Th. C) | N | N | T (C) | — | T (C) ✗ (A4) |
 | 3. AS + IS tempéré | T (C) ✓ (d8 ; d32 ≈) + T₁D | T (C) ✓ meilleur bras | N | X (Th. C ; ESS 10⁻²⁵ mesuré) | N | N | N | T₁D (P_g vraie) | N |
 | 4. AS + rééchantillonnage IS du buffer | N | N | N | X (Th. C ; limite déclarée de SSS) | N | N | N | N (prédit : α = 1 de la ligne 3) | N |
 | 5. Barker réflexions / orbites | — | — | — | N | T (C) ✗ | T (succès, 3 graines × 2 d) | T (C) ✗ | — | N |
-| 6. Darting post hoc | T (R) | T (C) ✓ | T (C) ✗ | X (Th. C) | N | N | N | — | N |
+| 6. Darting post hoc | T (R) | T (C) ✓ | T (C) ✗ | X (Th. C) | N | N | N | — | T (C) partiel (A4) |
 | 7. Darting à l'entraînement | T (C) (γ = 30 ✗ ; γ = 1,75 : d8 ✓, d32 ✗) | T (C) ✗ (F2 faux) | N | X (Th. C) | — | — | T (I) | — | N |
 | 8. Bain thermique (dose 1) | T₁D (vraie) | N | N | T₁D (vraie, minima connus) | N | N | N | — | N |
-| 9. Division, gabarits gaussiens | N (démo 1D ✓) | N | N | X (Th. C) | N | T (C) ≈ Barker | T (R) ✗ | — | N |
+| 9. Division, gabarits gaussiens | T (C) ✗ tel qu'écrit, β non fiable (A5) ; démo 1D ✓ | N | N | X (Th. C) | N | T (C) ≈ Barker | T (R) ✗ | — | N |
 | 10. Division, gabarits tronqués (ellipsoïde, χ²) | N | N | N | X (Th. C) | N | N | T, variante boîte (C) ✗ | — | N |
 | 11. VC de rapport, témoin de Rayleigh | N | N | N | N | N | N | N | N | N |
 | 12. Newton-Stein | T (C) | T (C) | T (C) | T (C) + X (Th. C) | X (Th. C) | X (Th. 3.8 FM) | N | T (R) ✓ | T (C) |
 | 13. Amortissement η fixé | T (C) | T (C) | T (C) | T (C) | N | X (Th. 3.8 FM) | N | T (R) | T (C) |
-| 14. Banque de minima + darting | — | — | N | N | N | — | N | — | N |
-| 15. MALA seul post hoc (témoin) | T (C) | T (C) | T (C) | X (Th. C) | N | N | N | — | N |
+| 14. Banque de minima + darting | — | — | T (C) partiel (A4, d = 50) | T (C) ✓ (A3) | N | — | N | — | T (C) ✓ (A4, d = 10) |
+| 15. MALA seul post hoc (témoin) | T (C) | T (C) | T (C) | X (Th. C) | N | N | N | — | T (C) ✗ (A4) |
 
-**Décompte (135 cases ; mis à jour le 2026-11-23 après les étapes A et B)** : **45 testées** (dont 4 en quadrature 1D seulement), **11 exclues par un théorème** (en comptant comme exclue la case D de Newton-Stein, aussi testée), **62 non testées**, **17 sans objet**. Version initiale : 43 / 11 / 64 / 17 (6c1b8b3).
+**Décompte (135 cases ; mis à jour le 2026-11-23 après A3, A4 et A5)** : **52 testées** (dont 4 en quadrature 1D seulement), **11 exclues par un théorème** (en comptant comme exclue la case D de Newton-Stein, aussi testée), **55 non testées**, **17 sans objet**. Après les étapes A et B : 45 / 11 / 62 / 17. Version initiale : 43 / 11 / 64 / 17 (6c1b8b3).
+
+*Mise à jour A3–A5 (2026-11-23)* :
+- 14-D (`rules_bank_darting_dk.md`) : A3 vraie ;
+- 2-I, 6-I, 14-C, 14-I, 15-I (`rules_mosw_posthoc.md`) : d = 10 « oui » par la banque seule, d = 50 « en partie » ;
+- 9-A (`rules_division_gmmdk.md`) : A5 fausse telle qu'écrite, β non fiable (témoins ratés).
+
+Détails dans RESULTS.md.
 
 ## Détail par méthode (configuration ; ce qui n'a pas été exploré ; prédiction et actifs pour les cases N ; coût)
 

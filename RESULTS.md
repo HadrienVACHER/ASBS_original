@@ -1539,3 +1539,63 @@ MALA seul au pas et au coût de la **banque + darting** (`mala_bank`, ajouté pa
 - Avec A3, la perte de modes est rattrapable après coup dès que les formes sont à peu près justes : MoS-w d = 10, même à l'époque 250 où la distance aux minima vaut 3,2 × π, et GMM-dk (32, 8, 8).
 - La banque coûte presque rien (≤ 1,3·10⁴ gradients) et trouve tous les minima sur ces deux cibles. Mêmes réserves qu'en A3 : la loi de base couvre ici les bassins, et une seule graine d'entraînement.
 - Elle ne corrige pas un sampler diffus (MoS-w d = 50).
+
+## A5 : division hors ligne sur les modes gaussiens du GMM-dk (32, 8, 6) × 0,5, gabarits non rétrécis (2026-11-23)
+
+Règle écrite et commitée avant tout calcul : `rules_division_gmmdk.md` (bf7ee07).
+
+Mise en œuvre :
+- CPU, chaque exécution < 3 s ;
+- code : `scripts/division_gmmdk.py` ; les témoins sont calculés dans chaque appel `snap` ; résultats : `figures/division_gmmdk/` (snap_*.json, verdict.json).
+
+Échantillons :
+- AS, bras (a) de l'étape B, époques 350, 400 et 450 ; TV par bassin 0,044 / 0,042 / 0,038 ;
+- départ de l'étape B rapporté à côté (TV 0,089) ;
+- points d'ajustement par bassin : de 1500–1670 (poids 0,30) à 160–170 (poids 0,03).
+
+**Dispersion de log u_k** (moitié d'évaluation AS, moyenne sur les 3 instantanés ; bassins rangés par poids décroissant) :
+| gabarit | bassins 1 → 8 | repère « bruit d'estimation seul » | sur π exact |
+|---|---|---|---|
+| principal (estimateur de DW-4, n₀ = 50) | 0,62 / 0,71 / 0,91 / **1,13 / 1,35 / 1,43 / 1,48 / 1,81** | 0,53–0,62 … 1,65–1,70 | identique (par exemple 0,56 … 1,86) |
+| covariance commune | 0,39 / 0,41 / 0,42 / 0,45 / 0,49 / 0,50 / 0,53 / 0,57 | 0,33–0,34 | identique |
+| oracle N(μ_k, I) | 0,05 – 0,09 | 0 | identique |
+
+Lecture :
+- La dispersion du gabarit principal est presque entièrement le bruit d'estimation d'une covariance pleine à d = 32 (repère √(½ tr((Σ̂⁻¹ − I)²)) : 0,53–1,65 contre 0,58–1,73 mesurés à l'époque 350).
+- Elle est la même sur π exact : ce n'est pas la forme d'AS.
+
+**Coefficient β de la correction de la moyenne sur la correction exacte** (moyenne ± écart-type entre instantanés ; erreur-type bootstrap par instantané de 0,11 à 0,29) :
+| | principal | covariance commune | oracle | **témoin positif** (doit être dans [0,8 ; 1,2]) | **témoin négatif** (doit être ≤ 0,2 en valeur absolue) |
+|---|---|---|---|---|---|
+| β | 0,13 ± 0,15 | 0,36 ± 0,11 | 0,44 ± 0,02 | **0,69 ± 0,27 ✗** | **0,46 ± 0,34 ✗** |
+
+**Masses par Gelfand–Dey** (rapporté ; TV contre p, à comparer au TV d'AS ; projection sur la correction exacte des masses) :
+| | principal | covariance commune | oracle |
+|---|---|---|---|
+| TV, époques 350 / 400 / 450 (AS : 0,044 / 0,042 / 0,038) | 0,205 / 0,204 / 0,195 | **0,022 / 0,014 / 0,021** | 0,002 / 0,002 / 0,003 |
+| projection | −2,7 / −1,8 / −0,8 | 0,66 / 0,89 / 0,83 | 0,98 / 1,00 / 1,00 |
+| départ de l'étape B (AS 0,089) | 0,166 | 0,019 (projection 0,97) | 0,002 |
+
+### Verdict tel qu'écrit
+**A5 FAUSSE**, sur les deux critères du gabarit principal :
+- dispersion > 1 nat dans les 5 plus petits bassins ;
+- β = 0,13 < 0,5.
+
+**La mesure de β est signalée comme non fiable** : le témoin positif est hors de [0,8 ; 1,2] (0,69 ± 0,27), et le témoin négatif ne discrimine pas (0,46).
+
+La lecture déclarée d'avance (« échec attribué à l'estimation des covariances » si la covariance commune passe les deux critères) **ne s'applique pas**. La covariance commune passe la dispersion (≤ 0,57 nat partout), mais son β (0,36) n'est pas établi.
+
+### Prédictions écrites
+- Dispersion ≤ 1 nat (principal) : 30 % ✓ (fausse comme prévu, dans les petits bassins).
+- β ≥ 0,5 (principal) : 60 % ✗.
+- Covariance commune : dispersion ≤ 1 nat 85 % ✓ ; β ≥ 0,5 70 % ✗ (non établi).
+- A5 vraie : 25 % (fausse).
+- Témoins : positif 85 % ✗ ; négatif 80 % ✗.
+
+### Cause du témoin raté (erreur de spécification de ma part)
+R = 4 tirages de t par point est trop peu : le terme de division est grand devant la correction exacte, qui est petite parce qu'AS est déjà à TV 0,04. L'erreur-type par instantané est de 0,1 à 0,3 et β ne peut pas être mesuré à ce nombre de tirages. C'est le même défaut que le test (c) de l'étape 1 de la division (1500 tirages insuffisants, 24 000 suffisants).
+
+### Ce qui est établi sans β (descriptif)
+- Sur des modes gaussiens, sans rétrécissement et avec une covariance bien estimée (commune), la dispersion de log u est de 0,4 à 0,6 nat dans tous les bassins.
+- Les masses de Gelfand–Dey divisent alors par 2 à 4,7 l'erreur de masse d'AS : TV 0,014–0,022 contre 0,038–0,044 ; 0,019 contre 0,089 au départ.
+- Avec l'estimateur de DW-4 à d/n ≈ 0,2, la division dégrade les masses d'un facteur 5.
