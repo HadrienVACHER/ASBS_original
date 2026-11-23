@@ -242,6 +242,12 @@ def main(cfg):
             # of the CURRENT target, orbit, denoised points) from them instead of simulating the SDE
             import adjoint_samplers.components.matcher as matcher_module
             X = torch.load(hydra.utils.to_absolute_path(cfg.init_buffer), map_location="cpu", weights_only=False)[cfg.get("init_buffer_key") or "model_samples"][: adjoint_matcher.buffer.buffer_size].to(device)
+            if hasattr(adjoint_matcher, "add_initial"):                                            # tempered-IS matcher: the initial end points come with their path log weights
+                dd = torch.load(hydra.utils.to_absolute_path(cfg.init_buffer), map_location="cpu", weights_only=False)
+                n0 = adjoint_matcher.buffer.buffer_size
+                adjoint_matcher.add_initial(X, dd["logw"][:n0].to(device), source.sample([len(X),]).to(device))
+                print(f"Initial buffer (with path log weights): {len(adjoint_matcher.buffer)} samples from {cfg.init_buffer}")
+                X = X[:0]
             if hasattr(adjoint_matcher, "init_wells"):
                 print(f"Well bank initialised from the initial buffer: {adjoint_matcher.init_wells(X)} double-well coordinates")
             real_sdeint, chunk = matcher_module.sdeint, 500

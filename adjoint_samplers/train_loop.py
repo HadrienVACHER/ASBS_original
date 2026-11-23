@@ -56,7 +56,11 @@ def train_one_epoch(
         input, target = matcher.prepare_target(data, device)
         output = model(*input)
 
-        loss = loss_scale * ((output - target)**2).mean()
+        sw = getattr(matcher, "sample_weight", None)   # per-sample regression weights (AdjointVETemperedISMatcher only; None for every other matcher)
+        if sw is None:
+            loss = loss_scale * ((output - target)**2).mean()
+        else:
+            loss = loss_scale * (sw.reshape(-1, 1) * (output - target)**2).mean()
         loss.backward()
 
         if cfg.clip_grad_norm:
