@@ -1388,3 +1388,51 @@ Lecture (objection de Jensen) :
 - À α = 0,5, l'ESS de W^α vaut encore 0,03 à 0,08 à d = 128, mais 10⁻⁴ à 6·10⁻⁴ à d = 256.
 - **À × 0,5**, la variance est de 1,2 à 1,7 nat², dont 13 à 34 % entre bassins, avec un ESS de W^0,5 de 0,62 à 0,69.
 - Une correction des masses par poids de trajectoire tempérés ne peut donc marcher que dans le second régime, ce qui est la prédiction écrite de l'étape B.
+
+## Étape B : correction des masses à l'entraînement, darting (sans poids) contre IS tempéré (poids de chemin) (2026-11-23)
+
+Règle écrite et commitée avant la location : `rules_train_weightfree.md` (8592ed2). Code :
+- `AdjointVETemperedISMatcher` (log W stocké à la génération, normalisation sur tout le buffer ; `tests/test_tempered_is_matcher.py` T1–T4 réussis) ;
+- poids de perte dans `train_loop.py` ;
+- buffer initial avec log W (`scripts/wf_make_start.py`) ;
+- script distant `scripts/vast_train_weightfree_remote.sh` ; analyse locale `scripts/wf_analyse.py`.
+
+Résultats : `figures/train_weightfree/` (analysis_*.json, verdict.json, final_ess_d128.json ; journaux, configurations et contrôleurs des époques 100 à 500 et finaux des 9 runs). Les échantillons d'évaluation restent hors dépôt (`results/train_weightfree_runs/`).
+
+**Coût : 0,063 $** (RTX 3070, offre 57456548, 0,1339 $/h, 28,3 min ; estimation 0,06 à 0,09 $, plafond 0,20 $). Instance détruite dès le rapatriement ; aucun arrêt déclenché, aucun NaN.
+- Vitesses (vague 1, 6 runs) : (a) 0,8 s par époque, (t) 1,2–1,3 s, (d) 1,9 s.
+- **Énergies par mise à jour de gradient** (code) :
+  - (a) 5,12 gradients ;
+  - (t) 5,12 gradients + 5,12 énergies (fin de chemin) ;
+  - (d) 5,12 gradients + **(M + 1) × 512 = 4608 énergies**, calculées à chaque échantillon de régression, sans cache, plus la découverte des minima toutes les 25 époques.
+
+TV brut sans poids (moyenne ± écart-type sur les évaluations des époques 350, 400 et 450 ; 10⁴ échantillons chacune), Voronoï / bassin ; couverture 8/8 partout ; Q1 = rapport de distance à π.
+| cellule | (a) AS | (t) IS tempéré α = 0,5 | (d) darting γ = 1,75 | Q1 (a / t / d) |
+|---|---|---|---|---|
+| (8, 8, 8) × 0,5 | 0,182 ± 0,009 / 0,182 | **0,034 ± 0,015** / 0,034 | **0,043 ± 0,012** / 0,043 | 1,017 / 1,017 / 1,015 |
+| (32, 8, 6) × 0,5 | 0,041 ± 0,003 / 0,041 | 0,034 ± 0,002 / 0,037 | 0,042 ± 0,008 / 0,043 | 1,014 / 1,014 / 1,014 |
+| (128, 8, 6) × 0,75 | 0,196 ± 0,009 / 0,106 | **0,113 ± 0,007** / 0,080 | 0,190 ± 0,009 / 0,100 | 1,046 / 1,057 / 1,046 |
+
+### Verdicts tels qu'écrits
+- **F1 FAUX** : vrai en (8, 8, 8) (0,043 ≤ 0,5 × 0,182), faux en (32, 8, 6) (0,042 > 0,5 × 0,041 ; l'AS y est déjà à 0,04).
+- **F2 FAUX** : en famille 2, le darting à l'entraînement ne corrige presque rien (0,190 contre 0,196 pour AS ; par bassin 0,100 contre 0,106), et il est moins bon que l'IS tempéré (0,113).
+- **F3 VRAI** dans les 3 cellules (Q1 de (t) 1,057 contre 1,046 à d = 128, dans la marge de 10 %).
+- **Lecture fixée d'avance : F2 faux.** La correction sans poids ne marche pas à l'entraînement dans le régime où elle marche après coup (A1). La contribution prévue n'est pas établie.
+
+### Prédictions écrites
+- F1 vraie à 40 % ✗ (fausse) ; F2 vraie à 55 % ✗ (fausse) ; F3 vraie à 70 % ✓.
+- **« (t) se dégrade en famille 2 » : FAUX.** (t) est le meilleur bras à d = 128 (0,113 contre 0,196 par Voronoï ; 0,080 contre 0,106 par bassin), malgré un ESS de départ de W^0,5 de 0,089.
+
+### Faits descriptifs (sans changer les verdicts)
+- **Dose réelle du darting à l'entraînement.** Rapport ‖terme‖/‖cible‖ moyen par plage de κ ([0 ; 0,1] / [0,1 ; 0,7] / [0,7 ; 1]) :
+  - d8 : 0,35 / 0,12 / 0,0007 ;
+  - d32 : 0,60 / 0,10 / 0,0000 ;
+  - d128 : 0,15 / 0,06 / 0,0001.
+  Les κ > 0,7 font 92 % des instants de régression. 8 minima sur 8 découverts, aucun terme non fini.
+  **Hypothèse, non testée** : à d = 128, le terme est trop faible aux petits κ pour déplacer les masses en 500 époques ; et l'excès de TV de Voronoï y tient surtout à la largeur des échantillons (rapport Q1 1,046), que le darting post hoc corrige par ses pas MALA et que le terme d'entraînement ne touche pas.
+- **Ce que fait l'IS tempéré** (hypothèse cohérente avec l'étape A : 99,8 % de la variance de log W est intra-bassin à × 0,75) : les poids corrigent surtout la largeur dans chaque bassin, ce qui améliore le TV de Voronoï, et le TV par bassin aussi (0,106 → 0,080).
+- **Mais (t) rend ses poids de chemin moins utilisables après coup.** ESS de l'IS de chemin des contrôleurs finaux à d = 128, sur 10⁴ trajectoires, CPU : W 0,0044 (a), 0,0015 (t), 0,0049 (d) ; W^0,5 0,114 / 0,065 / 0,117.
+- **Défaut de journalisation** : les statistiques ESS du matcher (t) n'ont été imprimées qu'une fois, au départ (ESS de W^0,5 0,089 à d128), d'où la mesure finale ci-dessus.
+- **Famille 1** : à (8, 8, 8), les deux corrections divisent le TV d'AS par 4 à 5. À (32, 8, 6), AS est déjà à 4 fois le plancher et aucun bras ne fait mieux de façon nette.
+
+Réserves : une graine d'entraînement, 500 époques de reprise, une valeur de α et une de γ ; les moyennes sur 3 évaluations donnent la variabilité entre évaluations, pas entre graines.

@@ -1,0 +1,669 @@
+/workspace/asbs/train.py:66: Hydra14MigrationWarning: 
+version_base="1.1" selects Hydra 1.1 compatibility behavior.
+Hydra 1.4 will remove this compatibility behavior.
+Before upgrading to Hydra 1.4, set version_base="1.3" and test your application.
+See https://hydra.cc/docs/upgrades/1.3_to_1.4/prepare_for_1_4/ for preparation instructions.
+  @hydra.main(config_path="configs", config_name="train.yaml", version_base="1.1")
+/opt/conda/lib/python3.11/site-packages/hydra/_internal/hydra.py:119: UserWarning: Future Hydra versions will no longer change working directory at job runtime by default.
+See https://hydra.cc/docs/1.2/upgrades/1.1_to_1.2/changes_to_job_working_dir/ for more information.
+  ret = run_job(
+Found 1 CUDA devices.
+NVIDIA GeForce RTX 3070 	 Memory: 7.66GB
+{'SHELL': '/bin/bash', 'NVIDIA_VISIBLE_DEVICES': 'all', 'PYTHONUNBUFFERED': '1', 'NO_NEW_RUN_REL': '3482', 'PWD': '/workspace/asbs', 'LOGNAME': 'root', 'NVIDIA_DRIVER_CAPABILITIES': 'compute,utility', 'MOTD_SHOWN': 'pam', 'HOME': '/root', 'LANG': 'C.UTF-8', 'PYTORCH_VERSION': '2.5.1', 'SSH_CONNECTION': '155.69.169.66 5318 172.17.0.3 22', 'USER': 'root', 'WANDB_API_KEY': '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', 'PYTHONFAULTHANDLER': '1', 'SHLVL': '1', 'MPLBACKEND': 'Agg', 'LD_LIBRARY_PATH': '/usr/local/nvidia/lib:/usr/local/nvidia/lib64', 'SSH_CLIENT': '155.69.169.66 5318 22', 'OMP_NUM_THREADS': '2', 'PATH': '/usr/local/nvidia/bin:/usr/local/cuda/bin:/opt/conda/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin', 'MKL_NUM_THREADS': '2', 'DEBIAN_FRONTEND': 'noninteractive', 'OLDPWD': '/workspace/asbs', '_': '/opt/conda/bin/python', 'CUDA_MODULE_LOADING': 'LAZY'}
+job dir: /workspace/asbs/adjoint_samplers/utils
+Not using distributed mode
+Saving cfg to cfg.yaml
+{'project': 'train_weightfree', 'train_itr_per_epoch': 100, 'init_stage': 'adjoint', 'ema_decay': None, 'ema_buffer': False, 'seed': 0, 'dump_final': True, 'dump_n_samples': 10000, 'correction_every': None, 'correction_warmup': 100, 'correction_chains': 2000, 'correction_steps': 60, 'correction_burn': 15, 'correction_memory': True, 'clip_grad_norm': False, 'checkpoint': None, 'save_freq': 100, 'timesteps': {'t0': 0.0, 't1': 1.0, 'steps': '${nfe}', 'rescale_t': '${rescale_t}'}, 'resample_batch_size': 512, 'train_batch_size': 512, 'eval_batch_size': 2000, 'num_eval_samples': 10000, 'fast_sampling': True, 'buffer_on_device': True, 'fast_train': True, 'init_controller': 'results/wf_start/d8/controller_start.pt', 'init_buffer': 'results/wf_start/d8/start_samples.pt', 'init_buffer_key': 'buffer_x1', 'compile_mode': None, 'dim': 8, 'K': 8, 'delta': 8, 'energy': {'_target_': 'adjoint_samplers.energies.dist_energy.DistEnergy', 'dist': {'_target_': 'adjoint_samplers.utils.dist_utils.GMMDK', 'dim': '${dim}', 'K': '${K}', 'delta': '${delta}'}}, 'evaluator': {'_target_': 'adjoint_samplers.components.evaluator.GMMEvaluator', 'w2_samples': 2000, 'cover_ratio': 0.1}, 'source': {'_target_': 'adjoint_samplers.utils.dist_utils.Delta', 'dim': '${dim}'}, 'ref_sde': {'_target_': 'adjoint_samplers.components.sde.VESDE', 'sigma_max': '${sigma_max}', 'sigma_min': '${sigma_min}'}, 'controller': {'_target_': 'adjoint_samplers.components.model.FourierMLP', 'dim': '${dim}', 'num_layers': 4, 'channels': 128, 'activation': {'_target_': 'torch.nn.GELU'}, 'last_bias_init': {'_target_': 'torch.nn.init.zeros_', '_partial_': True}, 'last_weight_init': {'_target_': 'torch.nn.init.zeros_', '_partial_': True}}, 'state_cost': {'_target_': 'adjoint_samplers.components.state_cost.ZeroGradStateCost'}, 'term_cost': {'_target_': 'adjoint_samplers.components.term_cost.ScoreGradTermCost', 'max_grad_E_norm': '${max_grad_E_norm}'}, 'adjoint_matcher': {'_target_': 'adjoint_samplers.components.matcher.AdjointVEGMMDartingMatcher', 'gamma': 1.75, 'refresh_every': 25, 'n_minima_samples': 500, 'stats_every': 10, 'grad_state_cost': {'_target_': 'adjoint_samplers.components.state_cost.ZeroGradStateCost'}, 'buffer': {'_target_': 'adjoint_samplers.components.buffer.BatchBuffer', 'buffer_size': '${adjoint_matcher.buffer_size}'}, 'buffer_size': 10000, 'duplicates': 10, 'resample_size': 1000, 'num_epochs_per_stage': '${num_epochs}', 'optim': {'lr': 0.0001, 'weight_decay': 0}}, 'exp_name': 'wf_d_d8', 'nfe': 200, 'sigma_max': 2.236068, 'sigma_min': 0.001, 'rescale_t': None, 'num_epochs': 500, 'max_grad_E_norm': None, 'use_wandb': True, 'eval_freq': 50, 'dump_eval_samples': True, 'code_commit': '4e907c8', 'save_controller_epochs': [100, 200, 300, 400, 500], 'distributed': False, 'rank': 0, 'world_size': 1}
+Sampling with CUDA graphs.
+Training with fused Adam and torch.compile.
+Instantiating energy...
+/opt/conda/lib/python3.11/site-packages/torch/distributions/distribution.py:56: UserWarning: <class 'adjoint_samplers.utils.dist_utils.GMMDK'> does not define `arg_constraints`. Please set `arg_constraints = {}` or initialize the distribution with `validate_args=False` to turn off validation.
+  warnings.warn(
+Instantiating source...
+/opt/conda/lib/python3.11/site-packages/torch/distributions/distribution.py:56: UserWarning: <class 'adjoint_samplers.utils.dist_utils.Delta'> does not define `arg_constraints`. Please set `arg_constraints = {}` or initialize the distribution with `validate_args=False` to turn off validation.
+  warnings.warn(
+Instantiating model...
+Loaded controller from results/wf_start/d8/controller_start.pt
+Instantiating grad of costs...
+Instantiating adjoint matcher...
+Instantiating optimizer...
+/opt/conda/lib/python3.11/site-packages/torch/_inductor/compile_fx.py:167: UserWarning: TensorFloat32 tensor cores for float32 matrix multiplication available but not enabled. Consider setting `torch.set_float32_matmul_precision('high')` for better performance.
+  warnings.warn(
+torch.compile check FAILED (BackendCompilerFailed: backend='inductor' raised:
+RuntimeError: Failed to find C compiler. Please specify via CC environment variable.
+
+Set TORCH_LOGS="+dynamo" and TORCHDYNAMO_VERBOSE=1 for more information
+
+
+You can suppress this exception and fall back to eager by setting:
+    import torch._dynamo
+    torch._dynamo.config.suppress_errors = True
+); training with the eager model.
+Instantiating writer...
+wandb: [wandb.login()] Loaded credentials for https://api.forge.coreweave.com from WANDB_API_KEY.
+wandb: Currently logged in as: hadrien-vacher (CCDS_NTU) to https://api.forge.coreweave.com. Use `wandb login --relogin` to force relogin
+wandb: Tracking run with wandb version 0.31.2
+wandb: Run data is saved locally in /workspace/asbs/results/wf_d_d8/wandb/run-20261123_032528-ytvuxc36
+wandb: Run `wandb offline` to turn off syncing.
+wandb: Syncing run wf_d_d8_K8_s0
+wandb: ⭐️ View project at https://forge.coreweave.com/wandb/CCDS_NTU/train_weightfree
+wandb: 🚀 View run at https://forge.coreweave.com/wandb/CCDS_NTU/train_weightfree/runs/ytvuxc36
+Instantiating evaluator...
+[2026-11-23 03:25:30,064][matplotlib.font_manager][INFO] - generated new fontManager
+Initial buffer: 10000 samples from results/wf_start/d8/start_samples.pt
+Starting from 0/500 epochs...
+[adjoint | ep=0000] loss=0.0952 t=3.47s
+Generated 2000 samples (total: 2000/10000)
+Generated 2000 samples (total: 4000/10000)
+Generated 2000 samples (total: 6000/10000)
+Generated 2000 samples (total: 8000/10000)
+Generated 2000 samples (total: 10000/10000)
+Computing energy W2...
+Computing mode metrics...
+Computing sample W2...
+Evaluated @epoch=0!
+{'energy_w2': 0.3274146840936348, 'sample_w2': 2.629672703614278, 'frac_in_modes': 0.9979999661445618, 'mass_covered': 1.0, 'modes_covered': 1.0, 'mode_tv': 0.13758298754692078, 'eff_modes_ratio': 1.1530876159667969, 'mode_spread': 1.0297619104385376, 'mode_ratio/0': 0.6604809165000916, 'mode_ratio/1': 0.9899580478668213, 'mode_ratio/2': 0.7900419235229492, 'mode_ratio/3': 1.2842721939086914, 'mode_ratio/4': 1.4130301475524902, 'mode_ratio/5': 1.4009580612182617, 'mode_ratio/6': 1.546339750289917, 'mode_ratio/7': 1.7877678871154785, 'frac_in_modes_floor': 0.9990799903869629, 'mass_covered_floor': 1.0, 'modes_covered_floor': 1.0, 'mode_tv_floor': 0.007866191864013671, 'eff_modes_ratio_floor': 0.9992376446723938, 'mode_spread_floor': 0.9982112646102905, 'buffer/frac_in_modes': 0.9980999827384949, 'buffer/mass_covered': 1.0, 'buffer/modes_covered': 1.0, 'buffer/mode_tv': 0.20058295130729675, 'buffer/eff_modes_ratio': 1.1967259645462036, 'buffer/mode_spread': 1.0255608558654785, 'buffer/mode_ratio/0': 0.5843352675437927, 'buffer/mode_ratio/1': 0.8901342749595642, 'buffer/mode_ratio/2': 0.6730696558952332, 'buffer/mode_ratio/3': 1.3597655296325684, 'buffer/mode_ratio/4': 1.5401411056518555, 'buffer/mode_ratio/5': 1.6221619844436646, 'buffer/mode_ratio/6': 2.2420737743377686, 'buffer/mode_ratio/7': 1.860602855682373}
+{'time/epoch_s': 3.471468359231949, 'dart/kappa[0,0.1]/frac_t': 0.0056640625, 'dart/kappa[0,0.1]/term_over_gradg': 0.29858819251006696, 'dart/kappa[0,0.1]/mean_omega': 0.3200162384488312, 'dart/kappa[0.1,0.7]/frac_t': 0.0705078125, 'dart/kappa[0.1,0.7]/term_over_gradg': 0.14602372724210527, 'dart/kappa[0.1,0.7]/mean_omega': 0.10452214269345854, 'dart/kappa[0.7,1]/frac_t': 0.923828125, 'dart/kappa[0.7,1]/term_over_gradg': 0.0002229548135376342, 'dart/kappa[0.7,1]/mean_omega': 4.282595508060598e-05, 'dart/gamma': 1.75, 'dart/n_minima': 8.0, 'dart/hessian_dev_from_I': 1.301159180400191e-11, 'dart/nonfinite_frac': 0.0}
+[adjoint | ep=0001] loss=0.0956 t=1.70s
+[adjoint | ep=0002] loss=0.0942 t=1.96s
+[adjoint | ep=0003] loss=0.0967 t=1.91s
+[adjoint | ep=0004] loss=0.0949 t=2.60s
+[adjoint | ep=0005] loss=0.0967 t=1.86s
+[adjoint | ep=0006] loss=0.0969 t=1.91s
+[adjoint | ep=0007] loss=0.0956 t=2.06s
+[adjoint | ep=0008] loss=0.0954 t=1.91s
+[adjoint | ep=0009] loss=0.0948 t=1.93s
+[adjoint | ep=0010] loss=0.0938 t=1.94s
+[adjoint | ep=0011] loss=0.0966 t=1.93s
+[adjoint | ep=0012] loss=0.0959 t=1.91s
+[adjoint | ep=0013] loss=0.0947 t=1.91s
+[adjoint | ep=0014] loss=0.0972 t=1.92s
+[adjoint | ep=0015] loss=0.0950 t=1.93s
+[adjoint | ep=0016] loss=0.0958 t=1.92s
+[adjoint | ep=0017] loss=0.0947 t=1.93s
+[adjoint | ep=0018] loss=0.0969 t=1.93s
+[adjoint | ep=0019] loss=0.0962 t=2.06s
+[adjoint | ep=0020] loss=0.0971 t=1.85s
+[adjoint | ep=0021] loss=0.0963 t=1.95s
+[adjoint | ep=0022] loss=0.0959 t=1.96s
+[adjoint | ep=0023] loss=0.0948 t=1.93s
+[adjoint | ep=0024] loss=0.0941 t=1.92s
+[adjoint | ep=0025] loss=0.0952 t=1.95s
+[adjoint | ep=0026] loss=0.0953 t=1.94s
+[adjoint | ep=0027] loss=0.0951 t=1.97s
+[adjoint | ep=0028] loss=0.0961 t=1.92s
+[adjoint | ep=0029] loss=0.0957 t=2.76s
+[adjoint | ep=0030] loss=0.0919 t=1.70s
+[adjoint | ep=0031] loss=0.0928 t=1.96s
+[adjoint | ep=0032] loss=0.0954 t=2.00s
+[adjoint | ep=0033] loss=0.0935 t=2.00s
+[adjoint | ep=0034] loss=0.0957 t=1.94s
+[adjoint | ep=0035] loss=0.0948 t=1.96s
+[adjoint | ep=0036] loss=0.0956 t=1.97s
+[adjoint | ep=0037] loss=0.0948 t=1.95s
+[adjoint | ep=0038] loss=0.0956 t=1.95s
+[adjoint | ep=0039] loss=0.0947 t=1.94s
+[adjoint | ep=0040] loss=0.0950 t=2.03s
+[adjoint | ep=0041] loss=0.0956 t=1.87s
+[adjoint | ep=0042] loss=0.0950 t=1.97s
+[adjoint | ep=0043] loss=0.0960 t=1.93s
+[adjoint | ep=0044] loss=0.0962 t=1.97s
+[adjoint | ep=0045] loss=0.0958 t=1.94s
+[adjoint | ep=0046] loss=0.0958 t=1.95s
+[adjoint | ep=0047] loss=0.0955 t=1.95s
+[adjoint | ep=0048] loss=0.0943 t=1.95s
+[adjoint | ep=0049] loss=0.0944 t=1.95s
+[adjoint | ep=0050] loss=0.0949 t=1.95s
+Generated 2000 samples (total: 2000/10000)
+Generated 2000 samples (total: 4000/10000)
+Generated 2000 samples (total: 6000/10000)
+Generated 2000 samples (total: 8000/10000)
+Generated 2000 samples (total: 10000/10000)
+Computing energy W2...
+Computing mode metrics...
+Computing sample W2...
+Evaluated @epoch=50!
+{'energy_w2': 0.20795896735611433, 'sample_w2': 2.2701031263681077, 'frac_in_modes': 0.9987999796867371, 'mass_covered': 1.0, 'modes_covered': 1.0, 'mode_tv': 0.06803557276725769, 'eff_modes_ratio': 1.0820270776748657, 'mode_spread': 1.021442174911499, 'mode_ratio/0': 0.8256839513778687, 'mode_ratio/1': 0.9292357563972473, 'mode_ratio/2': 1.0182336568832397, 'mode_ratio/3': 1.2096672058105469, 'mode_ratio/4': 1.2365556955337524, 'mode_ratio/5': 1.028855323791504, 'mode_ratio/6': 1.1698812246322632, 'mode_ratio/7': 1.4103502035140991, 'frac_in_modes_floor': 0.9990799903869629, 'mass_covered_floor': 1.0, 'modes_covered_floor': 1.0, 'mode_tv_floor': 0.007866191864013671, 'eff_modes_ratio_floor': 0.9992376446723938, 'mode_spread_floor': 0.9982112646102905, 'buffer/frac_in_modes': 0.9993999600410461, 'buffer/mass_covered': 1.0, 'buffer/modes_covered': 1.0, 'buffer/mode_tv': 0.055135577917099, 'buffer/eff_modes_ratio': 1.0728224515914917, 'buffer/mode_spread': 1.016014575958252, 'buffer/mode_ratio/0': 0.8399198651313782, 'buffer/mode_ratio/1': 0.9687972068786621, 'buffer/mode_ratio/2': 1.0393269062042236, 'buffer/mode_ratio/3': 1.0950952768325806, 'buffer/mode_ratio/4': 1.1526376008987427, 'buffer/mode_ratio/5': 1.1608917713165283, 'buffer/mode_ratio/6': 1.2032382488250732, 'buffer/mode_ratio/7': 1.2448161840438843}
+{'time/epoch_s': 1.9513787641189992, 'dart/kappa[0,0.1]/frac_t': 0.008029513888888888, 'dart/kappa[0,0.1]/term_over_gradg': 0.3678465618090706, 'dart/kappa[0,0.1]/mean_omega': 0.36505912667098567, 'dart/kappa[0.1,0.7]/frac_t': 0.0681640625, 'dart/kappa[0.1,0.7]/term_over_gradg': 0.12419554588648662, 'dart/kappa[0.1,0.7]/mean_omega': 0.08548503622206949, 'dart/kappa[0.7,1]/frac_t': 0.924609375, 'dart/kappa[0.7,1]/term_over_gradg': 4.6058890511498456e-05, 'dart/kappa[0.7,1]/mean_omega': 1.0244436674371484e-05, 'dart/gamma': 1.75, 'dart/n_minima': 8.0, 'dart/hessian_dev_from_I': 1.301159180400191e-11, 'dart/nonfinite_frac': 0.0}
+[adjoint | ep=0051] loss=0.0928 t=1.95s
+[adjoint | ep=0052] loss=0.0937 t=1.98s
+[adjoint | ep=0053] loss=0.0944 t=1.85s
+[adjoint | ep=0054] loss=0.0936 t=2.76s
+[adjoint | ep=0055] loss=0.0957 t=1.89s
+[adjoint | ep=0056] loss=0.0941 t=1.70s
+[adjoint | ep=0057] loss=0.0956 t=1.95s
+[adjoint | ep=0058] loss=0.0949 t=1.94s
+[adjoint | ep=0059] loss=0.0941 t=2.07s
+[adjoint | ep=0060] loss=0.0949 t=1.83s
+[adjoint | ep=0061] loss=0.0949 t=1.99s
+[adjoint | ep=0062] loss=0.0933 t=1.93s
+[adjoint | ep=0063] loss=0.0940 t=1.96s
+[adjoint | ep=0064] loss=0.0954 t=2.33s
+[adjoint | ep=0065] loss=0.0949 t=1.72s
+[adjoint | ep=0066] loss=0.0949 t=1.95s
+[adjoint | ep=0067] loss=0.0944 t=1.95s
+[adjoint | ep=0068] loss=0.0943 t=1.94s
+[adjoint | ep=0069] loss=0.0948 t=1.95s
+[adjoint | ep=0070] loss=0.0943 t=1.95s
+[adjoint | ep=0071] loss=0.0942 t=1.94s
+[adjoint | ep=0072] loss=0.0947 t=1.94s
+[adjoint | ep=0073] loss=0.0948 t=1.96s
+[adjoint | ep=0074] loss=0.0958 t=1.94s
+[adjoint | ep=0075] loss=0.0939 t=1.98s
+[adjoint | ep=0076] loss=0.0943 t=1.93s
+[adjoint | ep=0077] loss=0.0937 t=2.06s
+[adjoint | ep=0078] loss=0.0920 t=2.05s
+[adjoint | ep=0079] loss=0.0931 t=2.82s
+[adjoint | ep=0080] loss=0.0942 t=1.98s
+[adjoint | ep=0081] loss=0.0937 t=1.94s
+[adjoint | ep=0082] loss=0.0949 t=1.78s
+[adjoint | ep=0083] loss=0.0953 t=1.95s
+[adjoint | ep=0084] loss=0.0957 t=2.03s
+[adjoint | ep=0085] loss=0.0945 t=1.97s
+[adjoint | ep=0086] loss=0.0936 t=2.00s
+[adjoint | ep=0087] loss=0.0924 t=1.97s
+[adjoint | ep=0088] loss=0.0944 t=2.01s
+[adjoint | ep=0089] loss=0.0951 t=1.96s
+[adjoint | ep=0090] loss=0.0962 t=2.05s
+[adjoint | ep=0091] loss=0.0944 t=2.01s
+[adjoint | ep=0092] loss=0.0962 t=1.99s
+[adjoint | ep=0093] loss=0.0945 t=2.05s
+[adjoint | ep=0094] loss=0.0937 t=2.09s
+[adjoint | ep=0095] loss=0.0962 t=2.04s
+[adjoint | ep=0096] loss=0.0925 t=1.97s
+[adjoint | ep=0097] loss=0.0943 t=2.10s
+[adjoint | ep=0098] loss=0.0967 t=2.10s
+[adjoint | ep=0099] loss=0.0946 t=1.90s
+[adjoint | ep=0100] loss=0.0944 t=2.13s
+Generated 2000 samples (total: 2000/10000)
+Generated 2000 samples (total: 4000/10000)
+Generated 2000 samples (total: 6000/10000)
+Generated 2000 samples (total: 8000/10000)
+Generated 2000 samples (total: 10000/10000)
+Computing energy W2...
+Computing mode metrics...
+Computing sample W2...
+Evaluated @epoch=100!
+{'energy_w2': 0.16525286402178935, 'sample_w2': 2.266881315282825, 'frac_in_modes': 0.9983999729156494, 'mass_covered': 1.0, 'modes_covered': 1.0, 'mode_tv': 0.05328291654586792, 'eff_modes_ratio': 1.0381157398223877, 'mode_spread': 1.0318398475646973, 'mode_ratio/0': 1.0028053522109985, 'mode_ratio/1': 0.7548890113830566, 'mode_ratio/2': 1.0591418743133545, 'mode_ratio/3': 1.0462467670440674, 'mode_ratio/4': 1.2797486782073975, 'mode_ratio/5': 1.1660360097885132, 'mode_ratio/6': 1.0769578218460083, 'mode_ratio/7': 1.0263111591339111, 'frac_in_modes_floor': 0.9990799903869629, 'mass_covered_floor': 1.0, 'modes_covered_floor': 1.0, 'mode_tv_floor': 0.007866191864013671, 'eff_modes_ratio_floor': 0.9992376446723938, 'mode_spread_floor': 0.9982112646102905, 'buffer/frac_in_modes': 0.9983999729156494, 'buffer/mass_covered': 1.0, 'buffer/modes_covered': 1.0, 'buffer/mode_tv': 0.028635621070861816, 'buffer/eff_modes_ratio': 1.0278819799423218, 'buffer/mode_spread': 1.0262776613235474, 'buffer/mode_ratio/0': 1.001812219619751, 'buffer/mode_ratio/1': 0.8933543562889099, 'buffer/mode_ratio/2': 0.9658198356628418, 'buffer/mode_ratio/3': 1.031148076057434, 'buffer/mode_ratio/4': 1.1069765090942383, 'buffer/mode_ratio/5': 1.1265966892242432, 'buffer/mode_ratio/6': 1.1651158332824707, 'buffer/mode_ratio/7': 0.9965150356292725}
+{'time/epoch_s': 2.1310964012518525, 'dart/kappa[0,0.1]/frac_t': 0.0078125, 'dart/kappa[0,0.1]/term_over_gradg': 0.34309571183389154, 'dart/kappa[0,0.1]/mean_omega': 0.3607959605997505, 'dart/kappa[0.1,0.7]/frac_t': 0.0732421875, 'dart/kappa[0.1,0.7]/term_over_gradg': 0.11898939480190043, 'dart/kappa[0.1,0.7]/mean_omega': 0.07804621274484491, 'dart/kappa[0.7,1]/frac_t': 0.9189453125, 'dart/kappa[0.7,1]/term_over_gradg': 0.00010581586501262138, 'dart/kappa[0.7,1]/mean_omega': 2.4320314483393022e-05, 'dart/gamma': 1.75, 'dart/n_minima': 8.0, 'dart/hessian_dev_from_I': 1.301159180400191e-11, 'dart/nonfinite_frac': 0.0}
+[adjoint | ep=0101] loss=0.0955 t=2.02s
+[adjoint | ep=0102] loss=0.0948 t=1.94s
+[adjoint | ep=0103] loss=0.0939 t=1.96s
+[adjoint | ep=0104] loss=0.0934 t=2.53s
+[adjoint | ep=0105] loss=0.0929 t=1.94s
+[adjoint | ep=0106] loss=0.0947 t=1.99s
+[adjoint | ep=0107] loss=0.0958 t=1.82s
+[adjoint | ep=0108] loss=0.0951 t=1.74s
+[adjoint | ep=0109] loss=0.0949 t=1.96s
+[adjoint | ep=0110] loss=0.0952 t=1.97s
+[adjoint | ep=0111] loss=0.0944 t=2.06s
+[adjoint | ep=0112] loss=0.0936 t=1.91s
+[adjoint | ep=0113] loss=0.0945 t=1.94s
+[adjoint | ep=0114] loss=0.0947 t=1.92s
+[adjoint | ep=0115] loss=0.0927 t=1.94s
+[adjoint | ep=0116] loss=0.0952 t=1.95s
+[adjoint | ep=0117] loss=0.0941 t=1.95s
+[adjoint | ep=0118] loss=0.0955 t=1.95s
+[adjoint | ep=0119] loss=0.0956 t=1.93s
+[adjoint | ep=0120] loss=0.0959 t=2.08s
+[adjoint | ep=0121] loss=0.0937 t=1.86s
+[adjoint | ep=0122] loss=0.0945 t=2.05s
+[adjoint | ep=0123] loss=0.0940 t=2.05s
+[adjoint | ep=0124] loss=0.0956 t=1.96s
+[adjoint | ep=0125] loss=0.0945 t=1.96s
+[adjoint | ep=0126] loss=0.0932 t=2.06s
+[adjoint | ep=0127] loss=0.0932 t=1.98s
+[adjoint | ep=0128] loss=0.0941 t=2.01s
+[adjoint | ep=0129] loss=0.0941 t=2.77s
+[adjoint | ep=0130] loss=0.0934 t=1.95s
+[adjoint | ep=0131] loss=0.0945 t=2.01s
+[adjoint | ep=0132] loss=0.0947 t=1.95s
+[adjoint | ep=0133] loss=0.0915 t=1.98s
+[adjoint | ep=0134] loss=0.0947 t=1.63s
+[adjoint | ep=0135] loss=0.0948 t=1.83s
+[adjoint | ep=0136] loss=0.0943 t=1.80s
+[adjoint | ep=0137] loss=0.0945 t=1.77s
+[adjoint | ep=0138] loss=0.0937 t=1.77s
+[adjoint | ep=0139] loss=0.0941 t=1.85s
+[adjoint | ep=0140] loss=0.0947 t=1.79s
+[adjoint | ep=0141] loss=0.0956 t=1.92s
+[adjoint | ep=0142] loss=0.0930 t=1.86s
+[adjoint | ep=0143] loss=0.0950 t=1.77s
+[adjoint | ep=0144] loss=0.0947 t=1.80s
+[adjoint | ep=0145] loss=0.0937 t=1.79s
+[adjoint | ep=0146] loss=0.0944 t=1.79s
+[adjoint | ep=0147] loss=0.0938 t=1.79s
+[adjoint | ep=0148] loss=0.0952 t=1.77s
+[adjoint | ep=0149] loss=0.0933 t=1.79s
+[adjoint | ep=0150] loss=0.0945 t=1.79s
+Generated 2000 samples (total: 2000/10000)
+Generated 2000 samples (total: 4000/10000)
+Generated 2000 samples (total: 6000/10000)
+Generated 2000 samples (total: 8000/10000)
+Generated 2000 samples (total: 10000/10000)
+Computing energy W2...
+Computing mode metrics...
+Computing sample W2...
+Evaluated @epoch=150!
+{'energy_w2': 0.15654370536843773, 'sample_w2': 2.143600617324804, 'frac_in_modes': 0.9988999962806702, 'mass_covered': 1.0, 'modes_covered': 1.0, 'mode_tv': 0.02957591414451599, 'eff_modes_ratio': 1.038457989692688, 'mode_spread': 1.015234351158142, 'mode_ratio/0': 0.9865829944610596, 'mode_ratio/1': 0.8947344422340393, 'mode_ratio/2': 0.9894699454307556, 'mode_ratio/3': 0.9911810755729675, 'mode_ratio/4': 1.1180832386016846, 'mode_ratio/5': 1.088871955871582, 'mode_ratio/6': 1.2056208848953247, 'mode_ratio/7': 1.168670415878296, 'frac_in_modes_floor': 0.9990799903869629, 'mass_covered_floor': 1.0, 'modes_covered_floor': 1.0, 'mode_tv_floor': 0.007866191864013671, 'eff_modes_ratio_floor': 0.9992376446723938, 'mode_spread_floor': 0.9982112646102905, 'buffer/frac_in_modes': 0.9982999563217163, 'buffer/mass_covered': 1.0, 'buffer/modes_covered': 1.0, 'buffer/mode_tv': 0.02944082021713257, 'buffer/eff_modes_ratio': 1.0301071405410767, 'buffer/mode_spread': 1.0232845544815063, 'buffer/mode_ratio/0': 0.9733403325080872, 'buffer/mode_ratio/1': 0.9066948890686035, 'buffer/mode_ratio/2': 1.0175944566726685, 'buffer/mode_ratio/3': 1.0053915977478027, 'buffer/mode_ratio/4': 1.1477012634277344, 'buffer/mode_ratio/5': 1.114593267440796, 'buffer/mode_ratio/6': 1.1365240812301636, 'buffer/mode_ratio/7': 0.9634082317352295}
+{'time/epoch_s': 1.7875962718389928, 'dart/kappa[0,0.1]/frac_t': 0.006944444444444444, 'dart/kappa[0,0.1]/term_over_gradg': 0.30973722559342154, 'dart/kappa[0,0.1]/mean_omega': 0.33068023034655103, 'dart/kappa[0.1,0.7]/frac_t': 0.073046875, 'dart/kappa[0.1,0.7]/term_over_gradg': 0.1154698389032891, 'dart/kappa[0.1,0.7]/mean_omega': 0.07987601595408259, 'dart/kappa[0.7,1]/frac_t': 0.920703125, 'dart/kappa[0.7,1]/term_over_gradg': 8.062931560685722e-05, 'dart/kappa[0.7,1]/mean_omega': 1.712134685385931e-05, 'dart/gamma': 1.75, 'dart/n_minima': 8.0, 'dart/hessian_dev_from_I': 1.301159180400191e-11, 'dart/nonfinite_frac': 0.0}
+[adjoint | ep=0151] loss=0.0946 t=1.78s
+[adjoint | ep=0152] loss=0.0959 t=1.76s
+[adjoint | ep=0153] loss=0.0959 t=1.78s
+[adjoint | ep=0154] loss=0.0937 t=2.41s
+[adjoint | ep=0155] loss=0.0967 t=1.78s
+[adjoint | ep=0156] loss=0.0946 t=1.74s
+[adjoint | ep=0157] loss=0.0957 t=1.76s
+[adjoint | ep=0158] loss=0.0953 t=1.71s
+[adjoint | ep=0159] loss=0.0945 t=1.95s
+[adjoint | ep=0160] loss=0.0937 t=1.68s
+[adjoint | ep=0161] loss=0.0952 t=1.76s
+[adjoint | ep=0162] loss=0.0966 t=1.61s
+[adjoint | ep=0163] loss=0.0950 t=1.98s
+[adjoint | ep=0164] loss=0.0947 t=1.68s
+[adjoint | ep=0165] loss=0.0958 t=1.78s
+[adjoint | ep=0166] loss=0.0956 t=1.77s
+[adjoint | ep=0167] loss=0.0944 t=1.79s
+[adjoint | ep=0168] loss=0.0945 t=1.79s
+[adjoint | ep=0169] loss=0.0957 t=1.78s
+[adjoint | ep=0170] loss=0.0943 t=1.78s
+[adjoint | ep=0171] loss=0.0942 t=1.80s
+[adjoint | ep=0172] loss=0.0928 t=1.76s
+[adjoint | ep=0173] loss=0.0945 t=1.79s
+[adjoint | ep=0174] loss=0.0927 t=1.79s
+[adjoint | ep=0175] loss=0.0949 t=1.84s
+[adjoint | ep=0176] loss=0.0961 t=2.05s
+[adjoint | ep=0177] loss=0.0932 t=1.96s
+[adjoint | ep=0178] loss=0.0959 t=1.94s
+[adjoint | ep=0179] loss=0.0943 t=2.76s
+[adjoint | ep=0180] loss=0.0954 t=1.95s
+[adjoint | ep=0181] loss=0.0939 t=1.93s
+[adjoint | ep=0182] loss=0.0953 t=1.96s
+[adjoint | ep=0183] loss=0.0943 t=1.94s
+[adjoint | ep=0184] loss=0.0923 t=2.23s
+[adjoint | ep=0185] loss=0.0954 t=1.71s
+[adjoint | ep=0186] loss=0.0949 t=1.94s
+[adjoint | ep=0187] loss=0.0957 t=1.96s
+[adjoint | ep=0188] loss=0.0945 t=1.94s
+[adjoint | ep=0189] loss=0.0933 t=1.73s
+[adjoint | ep=0190] loss=0.0938 t=1.88s
+[adjoint | ep=0191] loss=0.0942 t=1.95s
+[adjoint | ep=0192] loss=0.0943 t=1.96s
+[adjoint | ep=0193] loss=0.0946 t=2.07s
+[adjoint | ep=0194] loss=0.0940 t=1.86s
+[adjoint | ep=0195] loss=0.0930 t=1.94s
+[adjoint | ep=0196] loss=0.0931 t=1.96s
+[adjoint | ep=0197] loss=0.0936 t=2.23s
+[adjoint | ep=0198] loss=0.0946 t=1.81s
+[adjoint | ep=0199] loss=0.0932 t=1.96s
+[adjoint | ep=0200] loss=0.0940 t=1.97s
+Generated 2000 samples (total: 2000/10000)
+Generated 2000 samples (total: 4000/10000)
+Generated 2000 samples (total: 6000/10000)
+Generated 2000 samples (total: 8000/10000)
+Generated 2000 samples (total: 10000/10000)
+Computing energy W2...
+Computing mode metrics...
+Computing sample W2...
+Evaluated @epoch=200!
+{'energy_w2': 0.150357543844964, 'sample_w2': 2.199327065556085, 'frac_in_modes': 0.9984999895095825, 'mass_covered': 1.0, 'modes_covered': 1.0, 'mode_tv': 0.048188209533691406, 'eff_modes_ratio': 1.0492174625396729, 'mode_spread': 1.0183095932006836, 'mode_ratio/0': 0.8975256681442261, 'mode_ratio/1': 0.9945582747459412, 'mode_ratio/2': 0.9102100729942322, 'mode_ratio/3': 1.1013123989105225, 'mode_ratio/4': 1.1995329856872559, 'mode_ratio/5': 1.1403146982192993, 'mode_ratio/6': 1.260421872138977, 'mode_ratio/7': 0.9336121082305908, 'frac_in_modes_floor': 0.9990799903869629, 'mass_covered_floor': 1.0, 'modes_covered_floor': 1.0, 'mode_tv_floor': 0.007866191864013671, 'eff_modes_ratio_floor': 0.9992376446723938, 'mode_spread_floor': 0.9982112646102905, 'buffer/frac_in_modes': 0.9979999661445618, 'buffer/mass_covered': 1.0, 'buffer/modes_covered': 1.0, 'buffer/mode_tv': 0.0469001829624176, 'buffer/eff_modes_ratio': 1.0451754331588745, 'buffer/mode_spread': 1.023006558418274, 'buffer/mode_ratio/0': 0.9408956170082092, 'buffer/mode_ratio/1': 0.941656231880188, 'buffer/mode_ratio/2': 0.912127673625946, 'buffer/mode_ratio/3': 1.0853255987167358, 'buffer/mode_ratio/4': 1.2254488468170166, 'buffer/mode_ratio/5': 0.9551207423210144, 'buffer/mode_ratio/6': 1.3986155986785889, 'buffer/mode_ratio/7': 1.0097577571868896}
+{'time/epoch_s': 1.97445547580719, 'dart/kappa[0,0.1]/frac_t': 0.008463541666666666, 'dart/kappa[0,0.1]/term_over_gradg': 0.33979264883410415, 'dart/kappa[0,0.1]/mean_omega': 0.33258943662340074, 'dart/kappa[0.1,0.7]/frac_t': 0.0767578125, 'dart/kappa[0.1,0.7]/term_over_gradg': 0.13591324016121997, 'dart/kappa[0.1,0.7]/mean_omega': 0.09394062811089435, 'dart/kappa[0.7,1]/frac_t': 0.915625, 'dart/kappa[0.7,1]/term_over_gradg': 0.00047332344468619254, 'dart/kappa[0.7,1]/mean_omega': 9.697182124738465e-05, 'dart/gamma': 1.75, 'dart/n_minima': 8.0, 'dart/hessian_dev_from_I': 1.301159180400191e-11, 'dart/nonfinite_frac': 0.0}
+[adjoint | ep=0201] loss=0.0952 t=1.98s
+[adjoint | ep=0202] loss=0.0924 t=1.97s
+[adjoint | ep=0203] loss=0.0940 t=1.95s
+[adjoint | ep=0204] loss=0.0951 t=2.71s
+[adjoint | ep=0205] loss=0.0938 t=1.49s
+[adjoint | ep=0206] loss=0.0955 t=1.41s
+[adjoint | ep=0207] loss=0.0942 t=1.41s
+[adjoint | ep=0208] loss=0.0951 t=1.42s
+[adjoint | ep=0209] loss=0.0939 t=1.43s
+[adjoint | ep=0210] loss=0.0941 t=1.44s
+[adjoint | ep=0211] loss=0.0943 t=1.55s
+[adjoint | ep=0212] loss=0.0949 t=1.41s
+[adjoint | ep=0213] loss=0.0955 t=1.43s
+[adjoint | ep=0214] loss=0.0931 t=1.43s
+[adjoint | ep=0215] loss=0.0957 t=1.33s
+[adjoint | ep=0216] loss=0.0959 t=1.31s
+[adjoint | ep=0217] loss=0.0951 t=1.40s
+[adjoint | ep=0218] loss=0.0961 t=1.45s
+[adjoint | ep=0219] loss=0.0951 t=1.45s
+[adjoint | ep=0220] loss=0.0973 t=1.43s
+[adjoint | ep=0221] loss=0.0945 t=1.44s
+[adjoint | ep=0222] loss=0.0956 t=1.42s
+[adjoint | ep=0223] loss=0.0951 t=1.37s
+[adjoint | ep=0224] loss=0.0966 t=1.38s
+[adjoint | ep=0225] loss=0.0958 t=1.38s
+[adjoint | ep=0226] loss=0.0949 t=1.39s
+[adjoint | ep=0227] loss=0.0939 t=1.44s
+[adjoint | ep=0228] loss=0.0958 t=1.44s
+[adjoint | ep=0229] loss=0.0957 t=2.08s
+[adjoint | ep=0230] loss=0.0961 t=1.56s
+[adjoint | ep=0231] loss=0.0947 t=1.43s
+[adjoint | ep=0232] loss=0.0943 t=1.44s
+[adjoint | ep=0233] loss=0.0948 t=1.43s
+[adjoint | ep=0234] loss=0.0952 t=1.45s
+[adjoint | ep=0235] loss=0.0961 t=1.44s
+[adjoint | ep=0236] loss=0.0956 t=1.43s
+[adjoint | ep=0237] loss=0.0955 t=1.43s
+[adjoint | ep=0238] loss=0.0964 t=1.63s
+[adjoint | ep=0239] loss=0.0944 t=1.45s
+[adjoint | ep=0240] loss=0.0951 t=1.45s
+[adjoint | ep=0241] loss=0.0955 t=1.46s
+[adjoint | ep=0242] loss=0.0956 t=1.43s
+[adjoint | ep=0243] loss=0.0938 t=1.32s
+[adjoint | ep=0244] loss=0.0969 t=1.39s
+[adjoint | ep=0245] loss=0.0951 t=1.46s
+[adjoint | ep=0246] loss=0.0949 t=1.43s
+[adjoint | ep=0247] loss=0.0962 t=1.40s
+[adjoint | ep=0248] loss=0.0950 t=1.37s
+[adjoint | ep=0249] loss=0.0971 t=1.52s
+[adjoint | ep=0250] loss=0.0950 t=1.43s
+Generated 2000 samples (total: 2000/10000)
+Generated 2000 samples (total: 4000/10000)
+Generated 2000 samples (total: 6000/10000)
+Generated 2000 samples (total: 8000/10000)
+Generated 2000 samples (total: 10000/10000)
+Computing energy W2...
+Computing mode metrics...
+Computing sample W2...
+Evaluated @epoch=250!
+{'energy_w2': 0.16791906255097416, 'sample_w2': 2.029843309383013, 'frac_in_modes': 0.9991999864578247, 'mass_covered': 1.0, 'modes_covered': 1.0, 'mode_tv': 0.034075915813446045, 'eff_modes_ratio': 1.0367751121520996, 'mode_spread': 1.0301710367202759, 'mode_ratio/0': 0.9836034178733826, 'mode_ratio/1': 0.9655771255493164, 'mode_ratio/2': 0.8891167640686035, 'mode_ratio/3': 0.9618719816207886, 'mode_ratio/4': 1.1106786727905273, 'mode_ratio/5': 1.2140493392944336, 'mode_ratio/6': 1.1412893533706665, 'mode_ratio/7': 1.1951559782028198, 'frac_in_modes_floor': 0.9990799903869629, 'mass_covered_floor': 1.0, 'modes_covered_floor': 1.0, 'mode_tv_floor': 0.007866191864013671, 'eff_modes_ratio_floor': 0.9992376446723938, 'mode_spread_floor': 0.9982112646102905, 'buffer/frac_in_modes': 0.9987999796867371, 'buffer/mass_covered': 1.0, 'buffer/modes_covered': 1.0, 'buffer/mode_tv': 0.04628297686576843, 'buffer/eff_modes_ratio': 1.0642719268798828, 'buffer/mode_spread': 1.0280382633209229, 'buffer/mode_ratio/0': 0.9011674523353577, 'buffer/mode_ratio/1': 0.976157546043396, 'buffer/mode_ratio/2': 0.928107500076294, 'buffer/mode_ratio/3': 1.0666743516921997, 'buffer/mode_ratio/4': 1.0847629308700562, 'buffer/mode_ratio/5': 1.1694656610488892, 'buffer/mode_ratio/6': 1.2913962602615356, 'buffer/mode_ratio/7': 1.2845442295074463}
+{'time/epoch_s': 1.4340497492812574, 'dart/kappa[0,0.1]/frac_t': 0.0083984375, 'dart/kappa[0,0.1]/term_over_gradg': 0.3210455478030594, 'dart/kappa[0,0.1]/mean_omega': 0.3595861660391603, 'dart/kappa[0.1,0.7]/frac_t': 0.07421875, 'dart/kappa[0.1,0.7]/term_over_gradg': 0.11205611787364991, 'dart/kappa[0.1,0.7]/mean_omega': 0.07593245674897318, 'dart/kappa[0.7,1]/frac_t': 0.9173828125, 'dart/kappa[0.7,1]/term_over_gradg': 0.00033457564083554846, 'dart/kappa[0.7,1]/mean_omega': 7.771436898330991e-05, 'dart/gamma': 1.75, 'dart/n_minima': 8.0, 'dart/hessian_dev_from_I': 1.301159180400191e-11, 'dart/nonfinite_frac': 0.0}
+[adjoint | ep=0251] loss=0.0932 t=1.44s
+[adjoint | ep=0252] loss=0.0950 t=1.42s
+[adjoint | ep=0253] loss=0.0945 t=1.40s
+[adjoint | ep=0254] loss=0.0958 t=2.13s
+[adjoint | ep=0255] loss=0.0928 t=1.43s
+[adjoint | ep=0256] loss=0.0953 t=1.42s
+[adjoint | ep=0257] loss=0.0945 t=1.43s
+[adjoint | ep=0258] loss=0.0966 t=1.44s
+[adjoint | ep=0259] loss=0.0937 t=1.44s
+[adjoint | ep=0260] loss=0.0949 t=1.44s
+[adjoint | ep=0261] loss=0.0950 t=1.44s
+[adjoint | ep=0262] loss=0.0951 t=1.44s
+[adjoint | ep=0263] loss=0.0948 t=1.41s
+[adjoint | ep=0264] loss=0.0942 t=1.37s
+[adjoint | ep=0265] loss=0.0952 t=1.38s
+[adjoint | ep=0266] loss=0.0943 t=1.43s
+[adjoint | ep=0267] loss=0.0928 t=1.54s
+[adjoint | ep=0268] loss=0.0931 t=1.43s
+[adjoint | ep=0269] loss=0.0943 t=1.67s
+[adjoint | ep=0270] loss=0.0934 t=1.76s
+[adjoint | ep=0271] loss=0.0954 t=1.55s
+[adjoint | ep=0272] loss=0.0949 t=1.47s
+[adjoint | ep=0273] loss=0.0932 t=1.42s
+[adjoint | ep=0274] loss=0.0942 t=1.44s
+[adjoint | ep=0275] loss=0.0941 t=1.42s
+[adjoint | ep=0276] loss=0.0949 t=1.42s
+[adjoint | ep=0277] loss=0.0945 t=1.44s
+[adjoint | ep=0278] loss=0.0944 t=1.44s
+[adjoint | ep=0279] loss=0.0943 t=2.24s
+[adjoint | ep=0280] loss=0.0939 t=1.43s
+[adjoint | ep=0281] loss=0.0925 t=1.43s
+[adjoint | ep=0282] loss=0.0933 t=1.40s
+[adjoint | ep=0283] loss=0.0922 t=1.41s
+[adjoint | ep=0284] loss=0.0928 t=1.41s
+[adjoint | ep=0285] loss=0.0946 t=1.46s
+[adjoint | ep=0286] loss=0.0941 t=1.40s
+[adjoint | ep=0287] loss=0.0944 t=1.40s
+[adjoint | ep=0288] loss=0.0943 t=1.40s
+[adjoint | ep=0289] loss=0.0946 t=1.41s
+[adjoint | ep=0290] loss=0.0960 t=1.40s
+[adjoint | ep=0291] loss=0.0951 t=1.42s
+[adjoint | ep=0292] loss=0.0945 t=1.40s
+[adjoint | ep=0293] loss=0.0916 t=1.40s
+[adjoint | ep=0294] loss=0.0937 t=1.42s
+[adjoint | ep=0295] loss=0.0933 t=1.40s
+[adjoint | ep=0296] loss=0.0948 t=1.35s
+[adjoint | ep=0297] loss=0.0940 t=1.25s
+[adjoint | ep=0298] loss=0.0945 t=1.40s
+[adjoint | ep=0299] loss=0.0950 t=1.41s
+[adjoint | ep=0300] loss=0.0960 t=1.41s
+Generated 2000 samples (total: 2000/10000)
+Generated 2000 samples (total: 4000/10000)
+Generated 2000 samples (total: 6000/10000)
+Generated 2000 samples (total: 8000/10000)
+Generated 2000 samples (total: 10000/10000)
+Computing energy W2...
+Computing mode metrics...
+Computing sample W2...
+Evaluated @epoch=300!
+{'energy_w2': 0.07535922159071932, 'sample_w2': 2.195133503764176, 'frac_in_modes': 0.9982999563217163, 'mass_covered': 1.0, 'modes_covered': 1.0, 'mode_tv': 0.041747212409973145, 'eff_modes_ratio': 1.0033223628997803, 'mode_spread': 1.0141453742980957, 'mode_ratio/0': 0.9362607002258301, 'mode_ratio/1': 1.0930020809173584, 'mode_ratio/2': 1.0438013076782227, 'mode_ratio/3': 0.9076945185661316, 'mode_ratio/4': 0.9132247567176819, 'mode_ratio/5': 1.1454589366912842, 'mode_ratio/6': 0.8791978359222412, 'mode_ratio/7': 1.1488063335418701, 'frac_in_modes_floor': 0.9990799903869629, 'mass_covered_floor': 1.0, 'modes_covered_floor': 1.0, 'mode_tv_floor': 0.007866191864013671, 'eff_modes_ratio_floor': 0.9992376446723938, 'mode_spread_floor': 0.9982112646102905, 'buffer/frac_in_modes': 0.9983999729156494, 'buffer/mass_covered': 1.0, 'buffer/modes_covered': 1.0, 'buffer/mode_tv': 0.02382451295852661, 'buffer/eff_modes_ratio': 1.0085268020629883, 'buffer/mode_spread': 1.0268595218658447, 'buffer/mode_ratio/0': 0.9948598146438599, 'buffer/mode_ratio/1': 1.0189391374588013, 'buffer/mode_ratio/2': 0.9901091456413269, 'buffer/mode_ratio/3': 0.9423326253890991, 'buffer/mode_ratio/4': 0.8243704438209534, 'buffer/mode_ratio/5': 1.1471737623214722, 'buffer/mode_ratio/6': 1.055513858795166, 'buffer/mode_ratio/7': 1.2381948232650757}
+{'time/epoch_s': 1.4089818689972162, 'dart/kappa[0,0.1]/frac_t': 0.007421875, 'dart/kappa[0,0.1]/term_over_gradg': 0.27375201032958635, 'dart/kappa[0,0.1]/mean_omega': 0.3158627494234103, 'dart/kappa[0.1,0.7]/frac_t': 0.0673828125, 'dart/kappa[0.1,0.7]/term_over_gradg': 0.1352461347215312, 'dart/kappa[0.1,0.7]/mean_omega': 0.0861620845547135, 'dart/kappa[0.7,1]/frac_t': 0.9251953125, 'dart/kappa[0.7,1]/term_over_gradg': 0.00021804225109983108, 'dart/kappa[0.7,1]/mean_omega': 5.243473766512249e-05, 'dart/gamma': 1.75, 'dart/n_minima': 8.0, 'dart/hessian_dev_from_I': 1.301159180400191e-11, 'dart/nonfinite_frac': 0.0}
+[adjoint | ep=0301] loss=0.0942 t=1.41s
+[adjoint | ep=0302] loss=0.0928 t=1.41s
+[adjoint | ep=0303] loss=0.0947 t=1.46s
+[adjoint | ep=0304] loss=0.0949 t=2.14s
+[adjoint | ep=0305] loss=0.0934 t=1.45s
+[adjoint | ep=0306] loss=0.0956 t=1.45s
+[adjoint | ep=0307] loss=0.0917 t=1.44s
+[adjoint | ep=0308] loss=0.0944 t=1.41s
+[adjoint | ep=0309] loss=0.0929 t=1.43s
+[adjoint | ep=0310] loss=0.0940 t=1.49s
+[adjoint | ep=0311] loss=0.0905 t=1.54s
+[adjoint | ep=0312] loss=0.0934 t=1.43s
+[adjoint | ep=0313] loss=0.0951 t=1.44s
+[adjoint | ep=0314] loss=0.0930 t=1.42s
+[adjoint | ep=0315] loss=0.0928 t=1.42s
+[adjoint | ep=0316] loss=0.0919 t=1.43s
+[adjoint | ep=0317] loss=0.0955 t=1.43s
+[adjoint | ep=0318] loss=0.0944 t=1.42s
+[adjoint | ep=0319] loss=0.0941 t=1.54s
+[adjoint | ep=0320] loss=0.0944 t=1.43s
+[adjoint | ep=0321] loss=0.0963 t=1.58s
+[adjoint | ep=0322] loss=0.0939 t=1.42s
+[adjoint | ep=0323] loss=0.0948 t=1.30s
+[adjoint | ep=0324] loss=0.0938 t=1.40s
+[adjoint | ep=0325] loss=0.0942 t=1.41s
+[adjoint | ep=0326] loss=0.0934 t=1.43s
+[adjoint | ep=0327] loss=0.0948 t=1.45s
+[adjoint | ep=0328] loss=0.0954 t=1.49s
+[adjoint | ep=0329] loss=0.0926 t=2.12s
+[adjoint | ep=0330] loss=0.0941 t=1.58s
+[adjoint | ep=0331] loss=0.0951 t=1.45s
+[adjoint | ep=0332] loss=0.0959 t=1.47s
+[adjoint | ep=0333] loss=0.0956 t=1.48s
+[adjoint | ep=0334] loss=0.0931 t=1.46s
+[adjoint | ep=0335] loss=0.0959 t=1.49s
+[adjoint | ep=0336] loss=0.0941 t=1.47s
+[adjoint | ep=0337] loss=0.0953 t=1.47s
+[adjoint | ep=0338] loss=0.0942 t=1.47s
+[adjoint | ep=0339] loss=0.0948 t=1.48s
+[adjoint | ep=0340] loss=0.0943 t=1.49s
+[adjoint | ep=0341] loss=0.0952 t=1.50s
+[adjoint | ep=0342] loss=0.0952 t=1.52s
+[adjoint | ep=0343] loss=0.0943 t=1.46s
+[adjoint | ep=0344] loss=0.0938 t=1.48s
+[adjoint | ep=0345] loss=0.0943 t=1.49s
+[adjoint | ep=0346] loss=0.0951 t=1.46s
+[adjoint | ep=0347] loss=0.0964 t=1.46s
+[adjoint | ep=0348] loss=0.0945 t=1.38s
+[adjoint | ep=0349] loss=0.0934 t=1.42s
+[adjoint | ep=0350] loss=0.0945 t=1.60s
+Generated 2000 samples (total: 2000/10000)
+Generated 2000 samples (total: 4000/10000)
+Generated 2000 samples (total: 6000/10000)
+Generated 2000 samples (total: 8000/10000)
+Generated 2000 samples (total: 10000/10000)
+Computing energy W2...
+Computing mode metrics...
+Computing sample W2...
+Evaluated @epoch=350!
+{'energy_w2': 0.1740355005857732, 'sample_w2': 2.0769603528536424, 'frac_in_modes': 0.9980999827384949, 'mass_covered': 1.0, 'modes_covered': 1.0, 'mode_tv': 0.03333154320716858, 'eff_modes_ratio': 1.0106613636016846, 'mode_spread': 1.029821753501892, 'mode_ratio/0': 0.9773131608963013, 'mode_ratio/1': 1.028139591217041, 'mode_ratio/2': 0.8948695063591003, 'mode_ratio/3': 1.1510491371154785, 'mode_ratio/4': 0.8762020468711853, 'mode_ratio/5': 1.001419186592102, 'mode_ratio/6': 1.0745751857757568, 'mode_ratio/7': 1.168670415878296, 'frac_in_modes_floor': 0.9990799903869629, 'mass_covered_floor': 1.0, 'modes_covered_floor': 1.0, 'mode_tv_floor': 0.007866191864013671, 'eff_modes_ratio_floor': 0.9992376446723938, 'mode_spread_floor': 0.9982112646102905, 'buffer/frac_in_modes': 0.998199999332428, 'buffer/mass_covered': 1.0, 'buffer/modes_covered': 1.0, 'buffer/mode_tv': 0.049501627683639526, 'buffer/eff_modes_ratio': 1.0333428382873535, 'buffer/mode_spread': 1.0227487087249756, 'buffer/mode_ratio/0': 0.9190451502799988, 'buffer/mode_ratio/1': 1.051600456237793, 'buffer/mode_ratio/2': 0.8987045884132385, 'buffer/mode_ratio/3': 1.144831895828247, 'buffer/mode_ratio/4': 0.8873088359832764, 'buffer/mode_ratio/5': 1.1488885879516602, 'buffer/mode_ratio/6': 0.998330295085907, 'buffer/mode_ratio/7': 1.3805540800094604}
+{'time/epoch_s': 1.5965493824332952, 'dart/kappa[0,0.1]/frac_t': 0.00625, 'dart/kappa[0,0.1]/term_over_gradg': 0.36603183051745214, 'dart/kappa[0,0.1]/mean_omega': 0.39580402233648754, 'dart/kappa[0.1,0.7]/frac_t': 0.076171875, 'dart/kappa[0.1,0.7]/term_over_gradg': 0.12667342368038986, 'dart/kappa[0.1,0.7]/mean_omega': 0.0868833173074666, 'dart/kappa[0.7,1]/frac_t': 0.917578125, 'dart/kappa[0.7,1]/term_over_gradg': 0.0003547984560777274, 'dart/kappa[0.7,1]/mean_omega': 7.40676863741118e-05, 'dart/gamma': 1.75, 'dart/n_minima': 8.0, 'dart/hessian_dev_from_I': 1.301159180400191e-11, 'dart/nonfinite_frac': 0.0}
+[adjoint | ep=0351] loss=0.0949 t=1.37s
+[adjoint | ep=0352] loss=0.0965 t=1.37s
+[adjoint | ep=0353] loss=0.0941 t=1.37s
+[adjoint | ep=0354] loss=0.0929 t=2.04s
+[adjoint | ep=0355] loss=0.0953 t=1.40s
+[adjoint | ep=0356] loss=0.0951 t=1.43s
+[adjoint | ep=0357] loss=0.0952 t=1.38s
+[adjoint | ep=0358] loss=0.0954 t=1.44s
+[adjoint | ep=0359] loss=0.0943 t=1.38s
+[adjoint | ep=0360] loss=0.0937 t=1.39s
+[adjoint | ep=0361] loss=0.0953 t=1.37s
+[adjoint | ep=0362] loss=0.0957 t=1.47s
+[adjoint | ep=0363] loss=0.0946 t=1.22s
+[adjoint | ep=0364] loss=0.0941 t=1.24s
+[adjoint | ep=0365] loss=0.0925 t=1.22s
+[adjoint | ep=0366] loss=0.0936 t=1.23s
+[adjoint | ep=0367] loss=0.0953 t=1.23s
+[adjoint | ep=0368] loss=0.0952 t=1.23s
+[adjoint | ep=0369] loss=0.0963 t=1.34s
+[adjoint | ep=0370] loss=0.0953 t=1.15s
+[adjoint | ep=0371] loss=0.0960 t=1.23s
+[adjoint | ep=0372] loss=0.0956 t=1.23s
+[adjoint | ep=0373] loss=0.0942 t=1.22s
+[adjoint | ep=0374] loss=0.0967 t=1.18s
+[adjoint | ep=0375] loss=0.0956 t=1.21s
+[adjoint | ep=0376] loss=0.0949 t=1.25s
+[adjoint | ep=0377] loss=0.0947 t=1.24s
+[adjoint | ep=0378] loss=0.0950 t=1.24s
+[adjoint | ep=0379] loss=0.0941 t=1.86s
+[adjoint | ep=0380] loss=0.0955 t=1.24s
+[adjoint | ep=0381] loss=0.0948 t=1.24s
+[adjoint | ep=0382] loss=0.0958 t=1.24s
+[adjoint | ep=0383] loss=0.0960 t=1.23s
+[adjoint | ep=0384] loss=0.0956 t=1.23s
+[adjoint | ep=0385] loss=0.0963 t=1.23s
+[adjoint | ep=0386] loss=0.0963 t=1.22s
+[adjoint | ep=0387] loss=0.0952 t=1.22s
+[adjoint | ep=0388] loss=0.0957 t=1.24s
+[adjoint | ep=0389] loss=0.0967 t=1.24s
+[adjoint | ep=0390] loss=0.0963 t=1.24s
+[adjoint | ep=0391] loss=0.0949 t=1.23s
+[adjoint | ep=0392] loss=0.0946 t=1.25s
+[adjoint | ep=0393] loss=0.0946 t=1.24s
+[adjoint | ep=0394] loss=0.0958 t=1.24s
+[adjoint | ep=0395] loss=0.0944 t=1.25s
+[adjoint | ep=0396] loss=0.0946 t=1.25s
+[adjoint | ep=0397] loss=0.0936 t=1.26s
+[adjoint | ep=0398] loss=0.0955 t=1.25s
+[adjoint | ep=0399] loss=0.0936 t=1.24s
+[adjoint | ep=0400] loss=0.0946 t=1.19s
+Generated 2000 samples (total: 2000/10000)
+Generated 2000 samples (total: 4000/10000)
+Generated 2000 samples (total: 6000/10000)
+Generated 2000 samples (total: 8000/10000)
+Generated 2000 samples (total: 10000/10000)
+Computing energy W2...
+Computing mode metrics...
+Computing sample W2...
+Evaluated @epoch=400!
+{'energy_w2': 0.15622040741361987, 'sample_w2': 2.1035702964696075, 'frac_in_modes': 0.9990999698638916, 'mass_covered': 1.0, 'modes_covered': 1.0, 'mode_tv': 0.0398600697517395, 'eff_modes_ratio': 1.0470502376556396, 'mode_spread': 1.0198564529418945, 'mode_ratio/0': 0.9048092365264893, 'mode_ratio/1': 0.9954782724380493, 'mode_ratio/2': 1.0738433599472046, 'mode_ratio/3': 0.9592074751853943, 'mode_ratio/4': 0.9317360520362854, 'mode_ratio/5': 1.1488885879516602, 'mode_ratio/6': 1.1460546255111694, 'mode_ratio/7': 1.4169715642929077, 'frac_in_modes_floor': 0.9990799903869629, 'mass_covered_floor': 1.0, 'modes_covered_floor': 1.0, 'mode_tv_floor': 0.007866191864013671, 'eff_modes_ratio_floor': 0.9992376446723938, 'mode_spread_floor': 0.9982112646102905, 'buffer/frac_in_modes': 0.9980999827384949, 'buffer/mass_covered': 1.0, 'buffer/modes_covered': 1.0, 'buffer/mode_tv': 0.052831560373306274, 'buffer/eff_modes_ratio': 1.0357128381729126, 'buffer/mode_spread': 1.0225955247879028, 'buffer/mode_ratio/0': 0.8836209177970886, 'buffer/mode_ratio/1': 1.0980621576309204, 'buffer/mode_ratio/2': 0.9875523447990417, 'buffer/mode_ratio/3': 1.0222665071487427, 'buffer/mode_ratio/4': 0.8058590888977051, 'buffer/mode_ratio/5': 1.1591770648956299, 'buffer/mode_ratio/6': 1.1508198976516724, 'buffer/mode_ratio/7': 1.3805540800094604}
+{'time/epoch_s': 1.190776996780187, 'dart/kappa[0,0.1]/frac_t': 0.005859375, 'dart/kappa[0,0.1]/term_over_gradg': 0.2817965202944979, 'dart/kappa[0,0.1]/mean_omega': 0.3003197261688882, 'dart/kappa[0.1,0.7]/frac_t': 0.0728515625, 'dart/kappa[0.1,0.7]/term_over_gradg': 0.13220830460382887, 'dart/kappa[0.1,0.7]/mean_omega': 0.08930933330952504, 'dart/kappa[0.7,1]/frac_t': 0.9212890625, 'dart/kappa[0.7,1]/term_over_gradg': 0.00041350040771174194, 'dart/kappa[0.7,1]/mean_omega': 4.454048570458615e-05, 'dart/gamma': 1.75, 'dart/n_minima': 8.0, 'dart/hessian_dev_from_I': 1.301159180400191e-11, 'dart/nonfinite_frac': 0.0}
+[adjoint | ep=0401] loss=0.0938 t=1.24s
+[adjoint | ep=0402] loss=0.0947 t=1.25s
+[adjoint | ep=0403] loss=0.0942 t=1.25s
+[adjoint | ep=0404] loss=0.0971 t=1.86s
+[adjoint | ep=0405] loss=0.0931 t=1.22s
+[adjoint | ep=0406] loss=0.0924 t=1.23s
+[adjoint | ep=0407] loss=0.0927 t=1.24s
+[adjoint | ep=0408] loss=0.0948 t=1.26s
+[adjoint | ep=0409] loss=0.0932 t=1.22s
+[adjoint | ep=0410] loss=0.0944 t=1.22s
+[adjoint | ep=0411] loss=0.0932 t=1.23s
+[adjoint | ep=0412] loss=0.0919 t=1.24s
+[adjoint | ep=0413] loss=0.0942 t=1.26s
+[adjoint | ep=0414] loss=0.0924 t=1.23s
+[adjoint | ep=0415] loss=0.0925 t=1.24s
+[adjoint | ep=0416] loss=0.0924 t=1.26s
+[adjoint | ep=0417] loss=0.0927 t=1.24s
+[adjoint | ep=0418] loss=0.0938 t=1.22s
+[adjoint | ep=0419] loss=0.0949 t=1.24s
+[adjoint | ep=0420] loss=0.0955 t=1.23s
+[adjoint | ep=0421] loss=0.0933 t=1.23s
+[adjoint | ep=0422] loss=0.0950 t=1.27s
+[adjoint | ep=0423] loss=0.0946 t=1.22s
+[adjoint | ep=0424] loss=0.0940 t=1.24s
+[adjoint | ep=0425] loss=0.0940 t=1.24s
+[adjoint | ep=0426] loss=0.0932 t=1.21s
+[adjoint | ep=0427] loss=0.0950 t=1.21s
+[adjoint | ep=0428] loss=0.0962 t=1.23s
+[adjoint | ep=0429] loss=0.0967 t=1.84s
+[adjoint | ep=0430] loss=0.0962 t=1.24s
+[adjoint | ep=0431] loss=0.0947 t=1.23s
+[adjoint | ep=0432] loss=0.0942 t=1.23s
+[adjoint | ep=0433] loss=0.0942 t=1.24s
+[adjoint | ep=0434] loss=0.0978 t=1.26s
+[adjoint | ep=0435] loss=0.0938 t=1.22s
+[adjoint | ep=0436] loss=0.0951 t=1.23s
+[adjoint | ep=0437] loss=0.0967 t=1.23s
+[adjoint | ep=0438] loss=0.0940 t=1.22s
+[adjoint | ep=0439] loss=0.0949 t=1.22s
+[adjoint | ep=0440] loss=0.0951 t=1.24s
+[adjoint | ep=0441] loss=0.0956 t=1.25s
+[adjoint | ep=0442] loss=0.0948 t=1.25s
+[adjoint | ep=0443] loss=0.0921 t=1.23s
+[adjoint | ep=0444] loss=0.0955 t=1.23s
+[adjoint | ep=0445] loss=0.0940 t=1.25s
+[adjoint | ep=0446] loss=0.0926 t=1.26s
+[adjoint | ep=0447] loss=0.0941 t=1.25s
+[adjoint | ep=0448] loss=0.0957 t=1.26s
+[adjoint | ep=0449] loss=0.0954 t=1.25s
+[adjoint | ep=0450] loss=0.0953 t=1.25s
+Generated 2000 samples (total: 2000/10000)
+Generated 2000 samples (total: 4000/10000)
+Generated 2000 samples (total: 6000/10000)
+Generated 2000 samples (total: 8000/10000)
+Generated 2000 samples (total: 10000/10000)
+Computing energy W2...
+Computing mode metrics...
+Computing sample W2...
+Evaluated @epoch=450!
+{'energy_w2': 0.15067155053553088, 'sample_w2': 2.367224475282756, 'frac_in_modes': 0.9990999698638916, 'mass_covered': 1.0, 'modes_covered': 1.0, 'mode_tv': 0.05600005388259888, 'eff_modes_ratio': 1.0546574592590332, 'mode_spread': 1.026415228843689, 'mode_ratio/0': 0.8157519102096558, 'mode_ratio/1': 1.0824216604232788, 'mode_ratio/2': 0.9977794289588928, 'mode_ratio/3': 1.1244044303894043, 'mode_ratio/4': 1.1119128465652466, 'mode_ratio/5': 1.0374292135238647, 'mode_ratio/6': 1.0745751857757568, 'mode_ratio/7': 1.2911657094955444, 'frac_in_modes_floor': 0.9990799903869629, 'mass_covered_floor': 1.0, 'modes_covered_floor': 1.0, 'mode_tv_floor': 0.007866191864013671, 'eff_modes_ratio_floor': 0.9992376446723938, 'mode_spread_floor': 0.9982112646102905, 'buffer/frac_in_modes': 0.9993000030517578, 'buffer/mass_covered': 1.0, 'buffer/modes_covered': 1.0, 'buffer/mode_tv': 0.04806709289550781, 'buffer/eff_modes_ratio': 1.0627670288085938, 'buffer/mode_spread': 1.0176032781600952, 'buffer/mode_ratio/0': 0.8558111190795898, 'buffer/mode_ratio/1': 0.9908781051635742, 'buffer/mode_ratio/2': 1.004171371459961, 'buffer/mode_ratio/3': 1.2034502029418945, 'buffer/mode_ratio/4': 0.9687586426734924, 'buffer/mode_ratio/5': 1.0682947635650635, 'buffer/mode_ratio/6': 1.1532026529312134, 'buffer/mode_ratio/7': 1.4434571266174316}
+{'time/epoch_s': 1.249091876205057, 'dart/kappa[0,0.1]/frac_t': 0.008680555555555556, 'dart/kappa[0,0.1]/term_over_gradg': 0.35066868028405, 'dart/kappa[0,0.1]/mean_omega': 0.37387761216873344, 'dart/kappa[0.1,0.7]/frac_t': 0.0796875, 'dart/kappa[0.1,0.7]/term_over_gradg': 0.12481696757177155, 'dart/kappa[0.1,0.7]/mean_omega': 0.08637180045545809, 'dart/kappa[0.7,1]/frac_t': 0.9125, 'dart/kappa[0.7,1]/term_over_gradg': 0.0007017200787816971, 'dart/kappa[0.7,1]/mean_omega': 0.00014633325931738566, 'dart/gamma': 1.75, 'dart/n_minima': 8.0, 'dart/hessian_dev_from_I': 1.301159180400191e-11, 'dart/nonfinite_frac': 0.0}
+[adjoint | ep=0451] loss=0.0934 t=1.22s
+[adjoint | ep=0452] loss=0.0913 t=1.22s
+[adjoint | ep=0453] loss=0.0948 t=1.26s
+[adjoint | ep=0454] loss=0.0926 t=1.83s
+[adjoint | ep=0455] loss=0.0934 t=1.26s
+[adjoint | ep=0456] loss=0.0919 t=1.25s
+[adjoint | ep=0457] loss=0.0946 t=1.25s
+[adjoint | ep=0458] loss=0.0938 t=1.25s
+[adjoint | ep=0459] loss=0.0940 t=1.24s
+[adjoint | ep=0460] loss=0.0944 t=1.24s
+[adjoint | ep=0461] loss=0.0923 t=1.23s
+[adjoint | ep=0462] loss=0.0931 t=1.23s
+[adjoint | ep=0463] loss=0.0915 t=1.22s
+[adjoint | ep=0464] loss=0.0935 t=1.22s
+[adjoint | ep=0465] loss=0.0942 t=1.22s
+[adjoint | ep=0466] loss=0.0945 t=1.23s
+[adjoint | ep=0467] loss=0.0934 t=1.22s
+[adjoint | ep=0468] loss=0.0946 t=1.22s
+[adjoint | ep=0469] loss=0.0938 t=1.22s
+[adjoint | ep=0470] loss=0.0931 t=1.22s
+[adjoint | ep=0471] loss=0.0932 t=1.22s
+[adjoint | ep=0472] loss=0.0945 t=1.23s
+[adjoint | ep=0473] loss=0.0942 t=1.26s
+[adjoint | ep=0474] loss=0.0943 t=1.28s
+[adjoint | ep=0475] loss=0.0935 t=1.21s
+[adjoint | ep=0476] loss=0.0944 t=1.25s
+[adjoint | ep=0477] loss=0.0919 t=1.23s
+[adjoint | ep=0478] loss=0.0927 t=1.22s
+[adjoint | ep=0479] loss=0.0948 t=1.76s
+[adjoint | ep=0480] loss=0.0935 t=1.25s
+[adjoint | ep=0481] loss=0.0930 t=1.24s
+[adjoint | ep=0482] loss=0.0934 t=1.25s
+[adjoint | ep=0483] loss=0.0945 t=1.25s
+[adjoint | ep=0484] loss=0.0926 t=1.25s
+[adjoint | ep=0485] loss=0.0950 t=1.25s
+[adjoint | ep=0486] loss=0.0948 t=1.25s
+[adjoint | ep=0487] loss=0.0941 t=1.27s
+[adjoint | ep=0488] loss=0.0930 t=1.25s
+[adjoint | ep=0489] loss=0.0941 t=1.25s
+[adjoint | ep=0490] loss=0.0958 t=1.26s
+[adjoint | ep=0491] loss=0.0937 t=1.26s
+[adjoint | ep=0492] loss=0.0939 t=1.24s
+[adjoint | ep=0493] loss=0.0935 t=1.25s
+[adjoint | ep=0494] loss=0.0921 t=1.25s
+[adjoint | ep=0495] loss=0.0938 t=1.25s
+[adjoint | ep=0496] loss=0.0935 t=1.25s
+[adjoint | ep=0497] loss=0.0935 t=1.25s
+[adjoint | ep=0498] loss=0.0950 t=1.25s
+[adjoint | ep=0499] loss=0.0955 t=1.25s
+Saved samples_final.pt: buffer (10000, 8), model samples 10000
+Saved controller_final.pt
+[1;34mwandb[0m: 
+[1;34mwandb[0m: 🚀 View run [33mwf_d_d8_K8_s0[0m at: [34mhttps://forge.coreweave.com/wandb/CCDS_NTU/train_weightfree/runs/ytvuxc36[0m
+[1;34mwandb[0m: Find logs at: [1;35mwandb/run-20261123_032528-ytvuxc36/logs[0m

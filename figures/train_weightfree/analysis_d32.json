@@ -1,0 +1,217 @@
+{
+ "cell": "d32",
+ "median_dist_exact": 5.592715401729632,
+ "arms": {
+  "a": {
+   "evals": [
+    {
+     "epoch": 350,
+     "n": 10000,
+     "tv_vor": 0.043476000000000015,
+     "tv_basin": 0.04367599999999999,
+     "cov_vor": 8,
+     "cov_basin": 8,
+     "q1_ratio": 1.0110718905632534,
+     "frac_converged": 1.0
+    },
+    {
+     "epoch": 400,
+     "n": 10000,
+     "tv_vor": 0.04156300000000004,
+     "tv_basin": 0.042363000000000026,
+     "cov_vor": 8,
+     "cov_basin": 8,
+     "q1_ratio": 1.0145775509344652,
+     "frac_converged": 1.0
+    },
+    {
+     "epoch": 450,
+     "n": 10000,
+     "tv_vor": 0.03726349999999998,
+     "tv_basin": 0.03770450000000001,
+     "cov_vor": 8,
+     "cov_basin": 8,
+     "q1_ratio": 1.0150869842455472,
+     "frac_converged": 1.0
+    }
+   ],
+   "agg": {
+    "tv_vor": {
+     "mean": 0.04076750000000001,
+     "sd": 0.0031817297575375803
+    },
+    "tv_basin": {
+     "mean": 0.041247833333333345,
+     "sd": 0.0031380568164603574
+    },
+    "q1_ratio": {
+     "mean": 1.0135788085810888,
+     "sd": 0.0021859457988980596
+    },
+    "cov_vor": {
+     "mean": 8.0,
+     "sd": 0.0
+    },
+    "cov_basin": {
+     "mean": 8.0,
+     "sd": 0.0
+    }
+   },
+   "final": {
+    "tv_vor": 0.04674600000000001,
+    "tv_basin": 0.047126,
+    "cov_vor": 8
+   },
+   "tis_stats": null,
+   "dart_stats": null
+  },
+  "t": {
+   "evals": [
+    {
+     "epoch": 350,
+     "n": 10000,
+     "tv_vor": 0.03479950000000001,
+     "tv_basin": 0.036499500000000004,
+     "cov_vor": 8,
+     "cov_basin": 8,
+     "q1_ratio": 1.0139680537675524,
+     "frac_converged": 1.0
+    },
+    {
+     "epoch": 400,
+     "n": 10000,
+     "tv_vor": 0.03193450000000001,
+     "tv_basin": 0.03551450000000003,
+     "cov_vor": 8,
+     "cov_basin": 8,
+     "q1_ratio": 1.0145791473799135,
+     "frac_converged": 1.0
+    },
+    {
+     "epoch": 450,
+     "n": 10000,
+     "tv_vor": 0.03582150000000001,
+     "tv_basin": 0.04022150000000002,
+     "cov_vor": 8,
+     "cov_basin": 8,
+     "q1_ratio": 1.0147113349209549,
+     "frac_converged": 1.0
+    }
+   ],
+   "agg": {
+    "tv_vor": {
+     "mean": 0.034185166666666676,
+     "sd": 0.0020150052936241474
+    },
+    "tv_basin": {
+     "mean": 0.03741183333333335,
+     "sd": 0.002482584607487392
+    },
+    "q1_ratio": {
+     "mean": 1.0144195120228068,
+     "sd": 0.00039652150468763337
+    },
+    "cov_vor": {
+     "mean": 8.0,
+     "sd": 0.0
+    },
+    "cov_basin": {
+     "mean": 8.0,
+     "sd": 0.0
+    }
+   },
+   "final": {
+    "tv_vor": 0.04789049999999999,
+    "tv_basin": 0.04839049999999999,
+    "cov_vor": 8
+   },
+   "tis_stats": {
+    "time/epoch_s": 1.221354329958558,
+    "tis/ess_alpha": 0.8987491905341849,
+    "tis/ess_w": 0.6210178836494893,
+    "tis/logw_sd": 0.6421214746651087,
+    "tis/n_buffer": 10000.0
+   },
+   "dart_stats": null
+  },
+  "d": {
+   "evals": [
+    {
+     "epoch": 350,
+     "n": 10000,
+     "tv_vor": 0.04933499999999998,
+     "tv_basin": 0.047534999999999994,
+     "cov_vor": 8,
+     "cov_basin": 8,
+     "q1_ratio": 1.0105335285772912,
+     "frac_converged": 1.0
+    },
+    {
+     "epoch": 400,
+     "n": 10000,
+     "tv_vor": 0.043963,
+     "tv_basin": 0.04596300000000001,
+     "cov_vor": 8,
+     "cov_basin": 8,
+     "q1_ratio": 1.0153944760920681,
+     "frac_converged": 1.0
+    },
+    {
+     "epoch": 450,
+     "n": 10000,
+     "tv_vor": 0.0327875,
+     "tv_basin": 0.034228500000000016,
+     "cov_vor": 8,
+     "cov_basin": 8,
+     "q1_ratio": 1.0157992398646027,
+     "frac_converged": 1.0
+    }
+   ],
+   "agg": {
+    "tv_vor": {
+     "mean": 0.042028499999999996,
+     "sd": 0.008441661966105957
+    },
+    "tv_basin": {
+     "mean": 0.04257550000000001,
+     "sd": 0.007271320564381677
+    },
+    "q1_ratio": {
+     "mean": 1.0139090815113208,
+     "sd": 0.002930311696000191
+    },
+    "cov_vor": {
+     "mean": 8.0,
+     "sd": 0.0
+    },
+    "cov_basin": {
+     "mean": 8.0,
+     "sd": 0.0
+    }
+   },
+   "final": {
+    "tv_vor": 0.01452150000000001,
+    "tv_basin": 0.016102000000000043,
+    "cov_vor": 8
+   },
+   "tis_stats": null,
+   "dart_stats": {
+    "time/epoch_s": 1.1319414339959621,
+    "dart/kappa[0,0.1]/frac_t": 0.006727430555555556,
+    "dart/kappa[0,0.1]/term_over_gradg": 0.5989808272330082,
+    "dart/kappa[0,0.1]/mean_omega": 0.3738228639904211,
+    "dart/kappa[0.1,0.7]/frac_t": 0.0765625,
+    "dart/kappa[0.1,0.7]/term_over_gradg": 0.09791991565750092,
+    "dart/kappa[0.1,0.7]/mean_omega": 0.04260487493714287,
+    "dart/kappa[0.7,1]/frac_t": 0.9173828125,
+    "dart/kappa[0.7,1]/term_over_gradg": 6.857677797561065e-07,
+    "dart/kappa[0.7,1]/mean_omega": 9.647923084383422e-08,
+    "dart/gamma": 1.75,
+    "dart/n_minima": 8.0,
+    "dart/hessian_dev_from_I": 8.801848451867045e-06,
+    "dart/nonfinite_frac": 0.0
+   }
+  }
+ },
+ "time_s": 1.364102840423584
+}
