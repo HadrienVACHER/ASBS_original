@@ -1599,3 +1599,28 @@ R = 4 tirages de t par point est trop peu : le terme de division est grand devan
 - Sur des modes gaussiens, sans rétrécissement et avec une covariance bien estimée (commune), la dispersion de log u est de 0,4 à 0,6 nat dans tous les bassins.
 - Les masses de Gelfand–Dey divisent alors par 2 à 4,7 l'erreur de masse d'AS : TV 0,014–0,022 contre 0,038–0,044 ; 0,019 contre 0,089 au départ.
 - Avec l'estimateur de DW-4 à d/n ≈ 0,2, la division dégrade les masses d'un facteur 5.
+
+### A5, amendement daté (R = 100 tirages par point ; 1a84fc4 ; demandé par l'utilisateur)
+Le verdict d'origine (R = 4) est conservé plus haut. Refactor vérifié : à R = 4, il redonne exactement les chiffres d'origine. Chaque appel prend de 9 à 17 s. Fichiers : `figures/division_gmmdk/snap_*_R100_*.json`, `verdict_R100.json`. Les dispersions et les masses sont identiques à celles de la version d'origine.
+
+β (moyenne ± écart-type sur les 3 instantanés ; erreur-type bootstrap par instantané de 0,05 à 0,14) :
+| | principal | covariance commune | oracle | témoin positif | témoin négatif |
+|---|---|---|---|---|---|
+| β (règle) | 0,17 ± 0,06 | 0,43 ± 0,07 | 0,52 ± 0,08 | **0,64 ± 0,08 ✗** | **0,45 ± 0,12 ✗** |
+| κ ∈ [0 ; 0,1] | 0,44 | 0,78 | 0,90 | 0,98 | 0,95 |
+| κ ∈ [0,1 ; 0,7] | 0,36 | 0,82 | 0,97 | 1,07 | 0,99 |
+| κ ∈ [0,7 ; 1] (≈ la moitié de Σ\|c*\|²) | 0,01 | 0,12 | 0,18 | 0,23 | 0,02 |
+
+**Verdict amendé : A5 FAUSSE** (dispersion du gabarit principal ; β = 0,17). Les deux témoins échouent encore, donc **β reste non fiable**, cette fois pour deux raisons de conception, toutes deux de mon fait.
+
+1. **Témoin positif.** Il vaut environ 1 pour κ ≤ 0,7 : la théorie est vérifiée. Il s'effondre pour κ > 0,7.
+   - Là, le terme a des queues très lourdes : ν_{1|t} → 0 et les rapports N_k/C_k sont extrêmes. Sa moyenne Monte Carlo sous-estime l'espérance, quel que soit R.
+   - Le coefficient poolé sur t ~ U(0, 1) mélange donc une partie mesurable et une partie qui ne l'est pas. C'est la raison d'être du `kappa_max` du matcher de division.
+2. **Témoin négatif mal conçu.** Avec L_k = −log p̂^AS, le terme garde l'information de masse, qui passe par la division par π et non par L. Au premier ordre en log(q/π), on a E_q[term | x_t] ≈ c* quel que soit L. C'est le résultat « robustesse aux masses » déjà établi (`division_mass_perturb.py`), et le témoin donne bien ≈ 1 pour κ ≤ 0,7. Un vrai témoin négatif devrait supprimer la division par π, par exemple u = N_k/q au lieu de N_k/π.
+
+**Lecture descriptive, hors règle**, sur la plage où le témoin positif est juste (κ ≤ 0,7) :
+- le gabarit à covariance commune retrouve 0,78 à 0,82 de la correction exacte ;
+- l'oracle 0,90 à 0,97 ;
+- le gabarit principal 0,36 à 0,44, à cause du bruit d'estimation de ses covariances.
+
+Avec les masses de Gelfand–Dey (TV divisé par 2 à 4,7), cela va dans le sens de la lecture de l'utilisateur : sur des modes gaussiens sans contrainte de domination, avec des covariances bien estimées, la division corrige les masses et la moyenne de régression. **Mais ce n'est pas établi par la règle**, qui est fausse telle qu'écrite et amendée.

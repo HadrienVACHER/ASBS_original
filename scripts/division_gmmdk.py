@@ -43,29 +43,38 @@ def post_mean(xt, kap, v, wts):
 
 
 def beta_stats(x1, par, wq, seed):
-    """ projection coefficient of the division term on the exact correction c* = (M* - M^q~) / nu_{1|t}, R draws of t ~ U(0, 1) per x1; bootstrap SE over x1; by kappa band """
+    """ projection coefficient of the division term on the exact correction c* = (M* - M^q~) / nu_{1|t}, R draws of t ~ U(0, 1) per x1; bootstrap SE over x1; by kappa band.
+        Computed in chunks of x1 (memory); for R = 4 the random stream is the one of the original run (one chunk). """
     rg = np.random.default_rng(seed); n = len(x1)
-    X1 = np.repeat(x1, R, axis=0); t = rg.uniform(1e-6, 1 - 1e-6, len(X1))
-    nut = SMAX ** 2 * (1 - (SMAX / SMIN) ** (-2 * t)); kap = (nut / NU1)[:, None]; v = NU1 * kap * (1 - kap); nu1t = NU1 * (1 - kap)
-    xt = kap * X1 + np.sqrt(v) * rg.standard_normal(X1.shape)
-    cstar = (post_mean(xt, kap, v, w) - post_mean(xt, kap, v, wq)) / nu1t
-    term = np.empty_like(X1)
-    for lo in range(0, len(X1), 4000):
-        sl = slice(lo, lo + 4000)
-        term[sl] = division_term(torch.from_numpy(xt[sl]), torch.from_numpy(X1[sl]), torch.from_numpy(Emin(X1[sl])), torch.from_numpy(kap[sl]), torch.from_numpy(v[sl]),
-                                 torch.from_numpy(nu1t[sl]), par).numpy()
-    num = (term * cstar).sum(1); den = (cstar ** 2).sum(1)
-    out = dict(beta=float(num.sum() / den.sum()), finite=float(np.isfinite(term).all(1).mean()))
-    nn, dd = num.reshape(n, R).sum(1), den.reshape(n, R).sum(1); rb = np.random.default_rng(seed + 1)
+    CH = n if R == 4 else max(1, 25000 // R)
+    nn, dd = np.zeros(n), np.zeros(n); bands = ((0, 0.1), (0.1, 0.7), (0.7, 1.0001)); bn, bd, bc = np.zeros(3), np.zeros(3), np.zeros(3); fin = 0
+    for c0 in range(0, n, CH):
+        X1 = np.repeat(x1[c0:c0 + CH], R, axis=0); t = rg.uniform(1e-6, 1 - 1e-6, len(X1))
+        nut = SMAX ** 2 * (1 - (SMAX / SMIN) ** (-2 * t)); kap = (nut / NU1)[:, None]; v = NU1 * kap * (1 - kap); nu1t = NU1 * (1 - kap)
+        xt = kap * X1 + np.sqrt(v) * rg.standard_normal(X1.shape)
+        cstar = (post_mean(xt, kap, v, w) - post_mean(xt, kap, v, wq)) / nu1t
+        term = np.empty_like(X1)
+        for lo in range(0, len(X1), 4000):
+            sl = slice(lo, lo + 4000)
+            term[sl] = division_term(torch.from_numpy(xt[sl]), torch.from_numpy(X1[sl]), torch.from_numpy(Emin(X1[sl])), torch.from_numpy(kap[sl]), torch.from_numpy(v[sl]),
+                                     torch.from_numpy(nu1t[sl]), par).numpy()
+        num = (term * cstar).sum(1); den = (cstar ** 2).sum(1); fin += int(np.isfinite(term).all(1).sum())
+        m = len(X1) // R; nn[c0:c0 + m] = num.reshape(m, R).sum(1); dd[c0:c0 + m] = den.reshape(m, R).sum(1)
+        k1 = kap[:, 0]
+        for j, (a, b_) in enumerate(bands):
+            sel = (k1 >= a) & (k1 < b_); bn[j] += num[sel].sum(); bd[j] += den[sel].sum(); bc[j] += sel.sum()
+    out = dict(beta=float(nn.sum() / dd.sum()), finite=fin / (n * R), R=R)
+    rb = np.random.default_rng(seed + 1)
     bs = [nn[i].sum() / dd[i].sum() for i in (rb.integers(n, size=n) for _ in range(NBOOT))]; out["se"] = float(np.std(bs, ddof=1))
-    k1 = kap[:, 0]
-    out["by_kappa"] = {f"[{a};{b}]": dict(beta=float(num[(k1 >= a) & (k1 < b)].sum() / max(den[(k1 >= a) & (k1 < b)].sum(), 1e-300)), share_den=float(den[(k1 >= a) & (k1 < b)].sum() / den.sum()),
-                                          frac=float(((k1 >= a) & (k1 < b)).mean())) for a, b in ((0, 0.1), (0.1, 0.7), (0.7, 1.0001))}
+    out["by_kappa"] = {f"[{a};{b_}]": dict(beta=float(bn[j] / max(bd[j], 1e-300)), share_den=float(bd[j] / bd.sum()), frac=float(bc[j] / (n * R))) for j, (a, b_) in enumerate(bands)}
     return out
 
 
 cmd = sys.argv[1]
-if cmd == "snap":
+PART = None
+if cmd == "snapR":                                                                     # dated amendment of rules_division_gmmdk.md: R = 100, one part per call (main | pooled | oracle | controls)
+    R = 100; PART = sys.argv[3]
+if cmd in ("snap", "snapR"):
     E = sys.argv[2]; x = load(E); M = B.polish_minima(pi)
     b, fc, _ = B.basins(pi, x, M); ok = b >= 0
     pas = B.basin_props(b, K); wq = w * pas / ptrue; wq /= wq.sum()
@@ -91,24 +100,39 @@ if cmd == "snap":
         pgd = np.exp(logZ - logsumexp(logZ)); dp = ptrue - pas
         r["masses"] = dict(p_GD=pgd.tolist(), sum_Z=float(np.exp(logZ).sum()), tv_GD=L.tv(pgd, ptrue), tv_AS=L.tv(pas, ptrue), proj=float((pgd - pas) @ dp / (dp @ dp)))
         par = make_params(torch.from_numpy(mh), torch.from_numpy(Sh), torch.from_numpy(-logZ), shrink=1.0)
-        r["beta"] = beta_stats(x[ev], par, wq, seed=11)
-        if nm == "main":                                                               # negative control: same templates, AS masses (no mass information)
+        r["beta"] = beta_stats(x[ev], par, wq, seed=11) if PART in (None, nm) else None
+        if nm == "main" and PART in (None, "controls"):                                                               # negative control: same templates, AS masses (no mass information)
             parn = make_params(torch.from_numpy(mh), torch.from_numpy(Sh), torch.from_numpy(-np.log(pas)), shrink=1.0)
             res["negative_control"] = beta_stats(x[ev], parn, wq, seed=11)
         res["templates"][nm] = r
+        if r["beta"] is None:
+            continue
         print(f"snap {E} {nm}: SD log u eval " + " ".join(f"{z['sd_eval']:.2f}" for z in r["by_basin"]) + " | exact " + " ".join(f"{z['sd_exact']:.2f}" for z in r["by_basin"])
               + f" | noise ref " + " ".join(f"{z['sd_noise_ref']:.2f}" for z in r["by_basin"]) + f" | beta {r['beta']['beta']:.3f} ± {r['beta']['se']:.3f} | TV GD {r['masses']['tv_GD']:.4f} vs AS {r['masses']['tv_AS']:.4f} proj {r['masses']['proj']:.2f}", flush=True)
     # positive control: oracle parameters on exact draws of q~
+    if PART is not None and PART != "controls":
+        res["time_s"] = time.perf_counter() - T0; json.dump(res, open(OUT / f"snap_{E}_R100_{PART}.json", "w"), indent=1, default=float)
+        print(f"snapR {E} {PART}: ({res['time_s']:.1f} s)"); sys.exit()
     rg = np.random.default_rng(3); comp = rg.choice(K, size=5000, p=wq); xq = mu[comp] + rg.standard_normal((5000, D))
     paro = make_params(torch.from_numpy(mu), torch.from_numpy(np.array([np.eye(D)] * K)), torch.from_numpy(-np.log(w)), shrink=1.0)
     res["positive_control"] = beta_stats(xq, paro, wq, seed=11)
     res["time_s"] = time.perf_counter() - T0
-    json.dump(res, open(OUT / f"snap_{E}.json", "w"), indent=1, default=float)
+    json.dump(res, open(OUT / (f"snap_{E}.json" if PART is None else f"snap_{E}_R100_{PART}.json"), "w"), indent=1, default=float)
     print(f"snap {E}: positive control beta {res['positive_control']['beta']:.3f} ± {res['positive_control']['se']:.3f}; negative control {res['negative_control']['beta']:.3f} ± {res['negative_control']['se']:.3f}; "
           f"n_fit {nk.tolist()}; TV AS {res['tv_AS']:.4f} ({res['time_s']:.1f} s)")
 
-elif cmd == "verdict":
-    S = [json.load(open(OUT / f"snap_{e}.json")) for e in (350, 400, 450)]; V = {}
+elif cmd in ("verdict", "verdict_R100"):
+    if cmd == "verdict":
+        S = [json.load(open(OUT / f"snap_{e}.json")) for e in (350, 400, 450)]
+    else:                                                                              # merge the parts of the amended run (dispersions and masses are identical in every part)
+        S = []
+        for e in (350, 400, 450):
+            P = {pt: json.load(open(OUT / f"snap_{e}_R100_{pt}.json")) for pt in ("main", "pooled", "oracle", "controls")}
+            s_ = P["main"]
+            for nm in ("pooled", "oracle"):
+                s_["templates"][nm]["beta"] = P[nm]["templates"][nm]["beta"]
+            s_["positive_control"], s_["negative_control"] = P["controls"]["positive_control"], P["controls"]["negative_control"]; S.append(s_)
+    V = {}
     for nm in ("main", "pooled", "oracle"):
         sd = np.array([[z["sd_eval"] for z in s["templates"][nm]["by_basin"]] for s in S]); be = [s["templates"][nm]["beta"]["beta"] for s in S]
         V[nm] = dict(sd_eval_mean=sd.mean(0).tolist(), sd_eval_sd=sd.std(0, ddof=1).tolist(), dispersion_ok=bool((sd.mean(0) <= 1.0).all()), beta=[float(np.mean(be)), float(np.std(be, ddof=1))], beta_ok=bool(np.mean(be) >= 0.5))
@@ -119,4 +143,4 @@ elif cmd == "verdict":
     V["A5"] = V["main"]["both"]
     V["reading"] = ("l'échec sur DW-4 tenait à la seule contrainte de domination" if V["A5"] else
                     ("faux par la dispersion du gabarit principal, covariance commune vraie : échec attribué à l'estimation des covariances (d/n)" if (not V["main"]["dispersion_ok"] and V["pooled"]["both"]) else "A5 faux"))
-    json.dump(V, open(OUT / "verdict.json", "w"), indent=1, ensure_ascii=False); print(json.dumps(V, indent=1, ensure_ascii=False))
+    json.dump(V, open(OUT / ("verdict.json" if cmd == "verdict" else "verdict_R100.json"), "w"), indent=1, ensure_ascii=False); print(json.dumps(V, indent=1, ensure_ascii=False))
