@@ -1,0 +1,20 @@
+{
+ "cell": "k8d32",
+ "frozen_step": 0.44308227303632963,
+ "later": {
+  "50": {
+   "tuned": 0.40862800279050404,
+   "ratio_frozen_over_tuned": 1.0843169582371712
+  },
+  "250": {
+   "tuned": 0.44308227303632963,
+   "ratio_frozen_over_tuned": 1.0
+  },
+  "450": {
+   "tuned": 0.44308227303632963,
+   "ratio_frozen_over_tuned": 1.0
+  }
+ },
+ "ok": true,
+ "time_s": 0.31123729099999764
+}

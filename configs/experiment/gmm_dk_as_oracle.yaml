@@ -1,0 +1,9 @@
+# @package _global_
+
+# (d, K, Delta) study: EXACTLY the config of gmm_dk_as; only the matcher changes (adjoint_ve_oracle: buffer of exact i.i.d. draws of the target). rules_oracle_buffer.md.
+
+defaults:
+  - gmm_dk_as
+  - override /matcher@adjoint_matcher: adjoint_ve_oracle
+
+exp_name: gmm_dk_as_oracle_d${dim}_K${K}_D${delta}

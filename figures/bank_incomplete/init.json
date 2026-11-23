@@ -1,0 +1,382 @@
+{
+ "composition": {
+  "1": {
+   "n_minima": 8,
+   "near_found": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7
+   ],
+   "far_found": false,
+   "spurious": 0,
+   "frac_converged": 1.0,
+   "iterations": 11
+  },
+  "2": {
+   "n_minima": 8,
+   "near_found": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7
+   ],
+   "far_found": false,
+   "spurious": 0,
+   "frac_converged": 1.0,
+   "iterations": 11
+  },
+  "3": {
+   "n_minima": 8,
+   "near_found": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7
+   ],
+   "far_found": false,
+   "spurious": 0,
+   "frac_converged": 1.0,
+   "iterations": 11
+  },
+  "4": {
+   "n_minima": 8,
+   "near_found": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7
+   ],
+   "far_found": false,
+   "spurious": 0,
+   "frac_converged": 1.0,
+   "iterations": 11
+  },
+  "5": {
+   "n_minima": 8,
+   "near_found": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7
+   ],
+   "far_found": false,
+   "spurious": 0,
+   "frac_converged": 1.0,
+   "iterations": 11
+  },
+  "6": {
+   "n_minima": 8,
+   "near_found": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7
+   ],
+   "far_found": false,
+   "spurious": 0,
+   "frac_converged": 1.0,
+   "iterations": 12
+  },
+  "7": {
+   "n_minima": 8,
+   "near_found": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7
+   ],
+   "far_found": false,
+   "spurious": 0,
+   "frac_converged": 1.0,
+   "iterations": 11
+  },
+  "8": {
+   "n_minima": 8,
+   "near_found": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7
+   ],
+   "far_found": false,
+   "spurious": 0,
+   "frac_converged": 1.0,
+   "iterations": 11
+  },
+  "9": {
+   "n_minima": 8,
+   "near_found": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7
+   ],
+   "far_found": false,
+   "spurious": 0,
+   "frac_converged": 1.0,
+   "iterations": 10
+  },
+  "10": {
+   "n_minima": 8,
+   "near_found": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7
+   ],
+   "far_found": false,
+   "spurious": 0,
+   "frac_converged": 1.0,
+   "iterations": 11
+  },
+  "11": {
+   "n_minima": 8,
+   "near_found": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7
+   ],
+   "far_found": false,
+   "spurious": 0,
+   "frac_converged": 1.0,
+   "iterations": 10
+  },
+  "12": {
+   "n_minima": 8,
+   "near_found": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7
+   ],
+   "far_found": false,
+   "spurious": 0,
+   "frac_converged": 1.0,
+   "iterations": 11
+  },
+  "13": {
+   "n_minima": 8,
+   "near_found": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7
+   ],
+   "far_found": false,
+   "spurious": 0,
+   "frac_converged": 1.0,
+   "iterations": 12
+  },
+  "14": {
+   "n_minima": 8,
+   "near_found": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7
+   ],
+   "far_found": false,
+   "spurious": 0,
+   "frac_converged": 1.0,
+   "iterations": 11
+  },
+  "15": {
+   "n_minima": 8,
+   "near_found": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7
+   ],
+   "far_found": false,
+   "spurious": 0,
+   "frac_converged": 1.0,
+   "iterations": 11
+  },
+  "16": {
+   "n_minima": 8,
+   "near_found": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7
+   ],
+   "far_found": false,
+   "spurious": 0,
+   "frac_converged": 1.0,
+   "iterations": 11
+  },
+  "17": {
+   "n_minima": 8,
+   "near_found": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7
+   ],
+   "far_found": false,
+   "spurious": 0,
+   "frac_converged": 1.0,
+   "iterations": 11
+  },
+  "18": {
+   "n_minima": 8,
+   "near_found": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7
+   ],
+   "far_found": false,
+   "spurious": 0,
+   "frac_converged": 1.0,
+   "iterations": 11
+  },
+  "19": {
+   "n_minima": 8,
+   "near_found": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7
+   ],
+   "far_found": false,
+   "spurious": 0,
+   "frac_converged": 1.0,
+   "iterations": 12
+  },
+  "20": {
+   "n_minima": 8,
+   "near_found": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7
+   ],
+   "far_found": false,
+   "spurious": 0,
+   "frac_converged": 1.0,
+   "iterations": 10
+  }
+ },
+ "kept": [
+  1,
+  2,
+  3,
+  4,
+  5,
+  6,
+  7,
+  8,
+  9,
+  10,
+  11,
+  12,
+  13,
+  14,
+  15,
+  16,
+  17,
+  18,
+  19,
+  20
+ ],
+ "excluded": [],
+ "n_excluded": 0,
+ "p": 1.0,
+ "floor_5120": 0.014136031063437051,
+ "w": [
+  0.2869499878228641,
+  0.20651379194025204,
+  0.14862502672872518,
+  0.10696329645978266,
+  0.07697995497088854,
+  0.05540137154274455,
+  0.039871570690748676,
+  0.02869499984399415,
+  0.05
+ ],
+ "time_s": 0.36539808299858123
+}

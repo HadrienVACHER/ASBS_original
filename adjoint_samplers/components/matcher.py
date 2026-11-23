@@ -1984,8 +1984,9 @@ class AdjointVEDartBankMatcher(AdjointVEMatcher):
         Bank: at the first call, converged quench (scripts/basin_lib.quench) of n_bank_starts draws of the base law N(0, nu_1 I) (seed bank_seed), distinct minima merged within basin_lib.MERGE;
         at every call, the NEW raw end points are quenched too and new distinct minima are added (at most max_bank). Target: mixture targets with energy.dist.means / .weights
         (GMM-dk: unit Gaussians; MoS / MoS-dk: products of Student t, nu and s2 from the distribution). Darting runs on CPU in float64 (numpy). Cost (energy and gradient evaluations) is counted. """
-    def __init__(self, sweeps: int = 10, n_bank_starts: int = 1000, bank_seed: int = 0, max_bank: int = 64, **kwargs):
+    def __init__(self, sweeps: int = 10, n_bank_starts: int = 1000, bank_seed: int = 0, max_bank: int = 64, freeze_step: bool = False, **kwargs):
         super().__init__(**kwargs)
+        self.freeze_step, self._hs = bool(freeze_step), None   # freeze_step (rules_mosw_affine_freeze.md): tune the MALA step on the first batch only, then reuse it (default False: tuned on every batch, as in the ed2617a runs)
         import sys as _sys
         from pathlib import Path as _P
         _sys.path.insert(0, str(_P(__file__).resolve().parents[2] / "scripts"))
@@ -2024,7 +2025,9 @@ class AdjointVEDartBankMatcher(AdjointVEMatcher):
             self._init_bank()
         X = x1.detach().double().cpu().numpy()
         Y, conv, its = self._B.quench(self.pi, X); new = self._add_minima(Y, conv); self.cost["quench"] += int(len(X) * (its + 1))
-        dr = self._L.darting(self.pi, X, self.mu, np.full(self.pi.K, 1.0 / self.pi.K), SW=(self.sweeps,), seed=1000 + self._pop, keep_final=True, minima=self.bank)
+        dr = self._L.darting(self.pi, X, self.mu, np.full(self.pi.K, 1.0 / self.pi.K), SW=(self.sweeps,), seed=1000 + self._pop, keep_final=True, minima=self.bank, mala_step=self._hs)
+        if self.freeze_step and self._hs is None and dr.get("mala_step"):
+            self._hs = float(dr["mala_step"])
         if dr.get("by_S"):
             v = dr["by_S"][self.sweeps]; Xn = v.pop("X_final"); self.cost["dart"] += int(v["cost"])
             x1 = torch.as_tensor(Xn, dtype=x1.dtype, device=x1.device)
@@ -2042,3 +2045,18 @@ class AdjointVEDartBankMatcher(AdjointVEMatcher):
     def pop_stats(self):
         out, self._stats = self._stats, {}
         return out
+
+
+class AdjointVEOracleMatcher(AdjointVEMatcher):
+    """ ORACLE control (rules_oracle_buffer.md): plain AS regression, but the end points entering the buffer are i.i.d. EXACT draws of the target (energy.dist.sample), not SDE end points; the adjoint
+        (energy gradient) is computed at the exact points as for any arm. Not a method: it bounds what a perfect buffer can give in the same architecture, optimiser and budget. """
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        assert hasattr(self.grad_term_cost.energy, "dist") and hasattr(self.grad_term_cost.energy.dist, "sample"), "target with exact sampling required"
+
+    def populate_buffer(self, x0, timesteps, is_asbs_init_stage):
+        with torch.no_grad():
+            x1 = self.grad_term_cost.energy.dist.sample((x0.shape[0],)).to(x0.device, x0.dtype)
+        adjoint1 = self._compute_adjoint1(x1, is_asbs_init_stage).clone()
+        self._check_buffer_sample_shape(x0, x1, adjoint1)
+        self.buffer.add({"x0": x0.to("cpu"), "x1": x1.to("cpu"), "adjoint1": adjoint1.to("cpu")})

@@ -36,4 +36,15 @@ ok &= float((x1 - raw).abs().max()) > 1.0; print("T2 max |stored - raw|", float(
 ok &= float((a1 - tc(x1)).abs().max()) < 1e-5; print("T3 max |adjoint1 - grad at stored points|", float((a1 - tc(x1)).abs().max()))
 c0 = sum(m.cost.values()); ok &= m.cost["dart"] > 0 and m.cost["bank_init"] > 0 and c0 > 0; print("T4 cost", m.cost)
 cells = (-2 * x1.double().numpy() @ mu.T + (mu ** 2).sum(1)[None, :]).argmin(1); cov = int((np.bincount(cells, minlength=8) > 0).sum()); ok &= cov >= 6; print("T5 modes visited after darting from one mode:", cov, "of 8")
+# T6 freeze_step: the step is tuned on the first batch only and reused (same value, cheaper later batches); default False tunes on every batch
+mf = AdjointVEDartBankMatcher(sweeps=10, n_bank_starts=400, freeze_step=True, sde=sde, buffer=BatchBuffer(2000), grad_term_cost=tc, grad_state_cost=ZeroGradStateCost(), resample_size=256, duplicates=1)
+costs = []
+for _ in range(2):
+    mm.sdeint = lambda sde_, x0_, ts_, only_boundary=True: (x0_, raw)
+    try:
+        mf.populate_buffer(torch.zeros(256, D), torch.linspace(0, 1, 21), False)
+    finally:
+        mm.sdeint = real
+    costs.append(mf._stats["sbank/cost_dart_batch"])
+ok &= mf._hs is not None and costs[1] < costs[0] - 30000 and m._hs is None; print("T6 frozen step", mf._hs, "costs first / second batch", costs, "default tunes every batch:", m._hs is None)
 print("ALL PASS" if ok else "SOME FAIL"); sys.exit(0 if ok else 1)

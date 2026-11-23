@@ -1,0 +1,126 @@
+{
+ "eps": 0.0,
+ "seeds": {
+  "1": {
+   "r_found": null,
+   "added": [],
+   "spurious_added": 0,
+   "bank_final": 8
+  },
+  "2": {
+   "r_found": null,
+   "added": [],
+   "spurious_added": 0,
+   "bank_final": 8
+  },
+  "3": {
+   "r_found": null,
+   "added": [],
+   "spurious_added": 0,
+   "bank_final": 8
+  },
+  "4": {
+   "r_found": null,
+   "added": [],
+   "spurious_added": 0,
+   "bank_final": 8
+  },
+  "5": {
+   "r_found": null,
+   "added": [],
+   "spurious_added": 0,
+   "bank_final": 8
+  },
+  "6": {
+   "r_found": null,
+   "added": [],
+   "spurious_added": 0,
+   "bank_final": 8
+  },
+  "7": {
+   "r_found": null,
+   "added": [],
+   "spurious_added": 0,
+   "bank_final": 8
+  },
+  "8": {
+   "r_found": null,
+   "added": [],
+   "spurious_added": 0,
+   "bank_final": 8
+  },
+  "9": {
+   "r_found": null,
+   "added": [],
+   "spurious_added": 0,
+   "bank_final": 8
+  },
+  "10": {
+   "r_found": null,
+   "added": [],
+   "spurious_added": 0,
+   "bank_final": 8
+  },
+  "11": {
+   "r_found": null,
+   "added": [],
+   "spurious_added": 0,
+   "bank_final": 8
+  },
+  "12": {
+   "r_found": null,
+   "added": [],
+   "spurious_added": 0,
+   "bank_final": 8
+  },
+  "13": {
+   "r_found": null,
+   "added": [],
+   "spurious_added": 0,
+   "bank_final": 8
+  },
+  "14": {
+   "r_found": null,
+   "added": [],
+   "spurious_added": 0,
+   "bank_final": 8
+  },
+  "15": {
+   "r_found": null,
+   "added": [],
+   "spurious_added": 0,
+   "bank_final": 8
+  },
+  "16": {
+   "r_found": null,
+   "added": [],
+   "spurious_added": 0,
+   "bank_final": 8
+  },
+  "17": {
+   "r_found": null,
+   "added": [],
+   "spurious_added": 0,
+   "bank_final": 8
+  },
+  "18": {
+   "r_found": null,
+   "added": [],
+   "spurious_added": 0,
+   "bank_final": 8
+  },
+  "19": {
+   "r_found": null,
+   "added": [],
+   "spurious_added": 0,
+   "bank_final": 8
+  },
+  "20": {
+   "r_found": null,
+   "added": [],
+   "spurious_added": 0,
+   "bank_final": 8
+  }
+ },
+ "time_s": 4.470272750000731
+}

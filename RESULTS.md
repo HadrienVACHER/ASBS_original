@@ -1722,3 +1722,76 @@ Lecture, **descriptive** (un seul état final, une graine) :
 Le total par lot vaut 107 500 / 107 400 / 110 100, soit **210 / 210 / 215 fois** les 512 gradients d'AS par époque.
 - **Le facteur 210 se compose de** : environ 105 pour les pas MALA, environ 85 pour le réglage du pas, environ 16 pour les sauts, environ 11 pour la trempe, environ 4 pour le reste.
 - **Le réglage du pas est refait à chaque lot alors qu'il est stable d'un lot à l'autre** : le supprimer (pas réglé une fois, puis fixé) ramènerait le facteur à environ 125, **sans changer ce qui est calculé** ; ce n'est pas un test, c'est une remarque sur le code, non mise en œuvre. Le reste (pas MALA, sauts) dépend de S : le facteur est proportionnel à S pour ces deux parts.
+
+## Jouet à banque incomplète ; MoS-w post hoc (translation, affine, S) ; pas MALA figé ; oracle préparé (2026-11-23)
+
+Règles écrites et commitées avant tout calcul : `rules_bank_incomplete.md`, `rules_mosw_affine_freeze.md`, `rules_oracle_buffer.md` (bfd23db). CPU uniquement, aucune location ; chaque exécution < 1 min (jouet : 4,5 à 12 s par appel). `dart_lib.darting` a deux options neuves (`force_translation`, `mala_step`) dont le comportement par défaut a été vérifié identique au résultat commité de A3.
+
+### Jouet : mode lointain de forme différente absent de la banque initiale
+Cible : 8 modes de GMM-dk (8, 8, 8) + un mode à R = 40, covariance diag(4,4,4,4 ; 0,5,0,5,0,5,0,5), poids 0,05. Sampler synthétique **fixe**, 20 graines, 40 rafraîchissements de 512 points, S = 10. Fichiers : `scripts/toy_bank_incomplete.py`, `figures/bank_incomplete/`.
+
+**Statut déclaré d'avance : vérification de plomberie et du darting entre formes différentes, pas preuve d'enrichissement** (aucune boucle d'apprentissage).
+
+**Banque initiale (rapportée avant tout)** : pour chacune des 20 graines, **8 minima, les 8 proches, aucun spurieux, mode lointain absent**. **Aucune graine exclue** (20 sur 20 retenues). p (la trempe d'un point du mode lointain converge à son minimum) = 1,000 ; plancher de TV par bassin à n = 5120 : 0,0141.
+
+**Découverte par enrichissement** (indépendante du bras ; fraction des graines trouvées en 40 rafraîchissements, médiane de r_found, écart maximal entre la courbe et 1 − exp(−512 r ε p)) :
+| ε | trouvé | médiane de r_found | écart max à la prédiction |
+|---|---|---|---|
+| 0 | 0/20 | — | — |
+| 10⁻⁴ | 16/20 (prédit 0,87) | 12 | 0,096 |
+| 3·10⁻⁴ | 20/20 | 7,5 | 0,186 |
+| 10⁻³ | 20/20 | 2 | 0,054 |
+| 3·10⁻³ | 20/20 | 1 | 0,135 |
+| 10⁻² | 20/20 | 1 | 0,006 |
+(Les écarts de 0,13 à 0,19 sont compatibles avec le bruit binomial de 20 graines, écart-type jusqu'à 0,11.)
+
+**Après darting** (fenêtre finale, 5120 points regroupés ; médiane sur les 20 graines ; TV par bassin, plancher 0,0141) :
+| ε | translation : masse lointaine / TV bassin | affine : masse lointaine / TV bassin |
+|---|---|---|
+| 0 | 0 / **0,0522** | 0 / **0,0522** |
+| 10⁻⁴ | 0,0487 / 0,0166 | 0,0475 / 0,0152 |
+| 3·10⁻⁴ | 0,0478 / 0,0139 | 0,0493 / 0,0138 |
+| 10⁻³ | 0,0486 / 0,0127 | 0,0483 / 0,0143 |
+| 3·10⁻³ | 0,0490 / 0,0140 | 0,0492 / 0,0143 |
+| 10⁻² | 0,0489 / 0,0131 | 0,0489 / 0,0150 |
+Acceptation des sauts : 0,53 (translation), 0,58 (affine).
+
+### Verdicts tels qu'écrits
+- **B1 VRAIE pour les deux bras** : découverte à r ≤ 5 dans 20/20 graines ; masse par bassin du mode lointain après 10 rafraîchissements post-découverte : **translation 0,0456, affine 0,0504** (dans [0,04 ; 0,06] pour 20/20 graines dans les deux cas).
+- **B2 VRAIE** : jamais trouvé en 40 rafraîchissements (0/20) et TV par bassin 0,0522 ≥ 0,04 : la masse d'un mode absent ne se transfère pas.
+- **B4 VRAIE** : 0 minimum spurieux, banque ≤ 9 ; et à ε = 10⁻², l'écart de la TV restreinte aux 8 modes proches avec la banque courante contre la banque à 8 minima est de −0,0013 (translation) et +0,0010 (affine) en médiane, au plus 0,009 pour une graine.
+- **B3** : descriptif (tableau ci-dessus).
+
+### Prédictions écrites
+Découverte 90 % ✓ ; masse dans la bande : affine 65 % ✓, **translation 25 % ✗** (elle y est : 0,0456) ; B1 affine 60 % ✓, **B1 translation 25 % ✗** ; B2 95 % ✓ ; B4 80 % ✓ ; courbe à moins de 0,15 de la prédiction (80 %) ✗ (0,186 à ε = 3·10⁻⁴, bruit binomial).
+
+### Lecture
+- L'enrichissement trouve un mode lointain dès que le sampler lui donne une masse de l'ordre de 10⁻⁴ (80 % en 40 rafraîchissements), à la vitesse 1 − exp(−512 r ε p), et rien à ε = 0. C'est la limite du support (théorème C) : **la banque incomplète est un problème de support du sampler, pas du darting.**
+- **Les deux bras transfèrent la masse correcte vers un mode de forme très différente** (covariances ×4 et ×0,5), **y compris la translation** : à ce degré d'anisotropie et à S = 10, le jacobien n'est pas nécessaire. Le jouet ne discrimine donc pas les deux bras. Il ne dit pas qu'ils sont équivalents dans des formes plus extrêmes ou en d plus grand.
+- **Limites** : plomberie seulement (sampler fixe, formes connues, une distance, un poids, S = 10) ; la dynamique réelle où la correction modifie les rafraîchissements suivants n'est pas testée.
+
+### MoS-w post hoc : forme du buffer corrigé (règle M1)
+Points bruts de (a) à l'instantané de l'époque 250 (5000 premiers), banque existante (10 minima), un seul appel de 9 s par bras (`scripts/mosw_affine_diag.py`, `figures/mosw_affine/`).
+
+**Les deux bras sont identiques** : l'écart entre les Hessiennes de la banque est de 6·10⁻¹⁰ < 10⁻⁶, `dart_lib` prend alors la translation dans les deux cas (la règle l'avait prévu). Les chiffres sont donc ceux d'un seul bras :
+| | Q1 | TV bassin | TV Voronoï | couverture | acceptation des sauts |
+|---|---|---|---|---|---|
+| brut | 3,25 | 0,241 | — | — | — |
+| S = 10 | 2,28 | 0,0224 | 0,0321 | 10/10 | 0,41 |
+| **S = 50** | **1,137** | **0,0190** | 0,0210 | 10/10 | 0,46 |
+| S = 200 | 1,011 | 0,0129 | 0,0150 | 10/10 | 0,50 |
+- **M1 VRAIE** (Q1 ≤ 1,5 et TV bassin ≤ 0,02 à S = 50 et à S = 200, pas à S = 10). Plus petit S : **50**. La TV de S = 50 est à 0,019, très près du seuil (le plancher à n = 5000 est d'environ 0,017) ; S = 200 est franchement sous.
+- Précédent annoncé : l'étape A4 donnait déjà Q1 = 1,2 à S = 40 sur ce même instantané. Prédiction (M1 vraie, 90 %) ✓ ; bras identiques (60 %) ✓.
+- **Lecture** : à partir d'un échantillon à Q1 3,25, la forme se corrige à S = 50 (cinq fois plus de pas MALA qu'à S = 10) ; S = 10, utilisé dans l'auto-entraînement, ne suffit pas. **Hypothèse non testée** : dans l'auto-entraînement, le sampler s'est éloigné (Q1 5,2) et S = 10 n'a ramené le buffer qu'à 4,26 ; la correction de la forme y demanderait S de l'ordre de 50 à un coût proportionnel (la part MALA du coût est proportionnelle à S).
+
+### Pas MALA figé (règle F1)
+Pas réglé sur le premier lot du fichier de départ, comparé au pas réglé sur 3 autres lots de 500 points des échantillons du run (s) aux époques 50, 250, 450 :
+| cellule | pas figé | rapports pas figé / pas réglé |
+|---|---|---|
+| (32, 8, 8) × 0,5 | 0,443 | 1,084 / 1,000 / 1,000 |
+| MoS-w d = 10 | 0,781 | **0,851 / 0,851 / 0,851** |
+| (128, 8, 6) × 0,75 | 0,296 | 1,000 / 1,000 / 1,000 |
+**F1 FAUSSE** (MoS-w hors de [0,9 ; 1,1] ; la résolution de la dichotomie est d'environ 9 % par pas, et l'écart est de 2 pas). **Conformément à la règle, le réglage à chaque lot est conservé** (`freeze_step: false`) ; l'option est implémentée (`AdjointVEDartBankMatcher(freeze_step=True)`, test T6), désactivée par défaut et par la configuration, et elle serait valable dans les deux autres cellules prises une à une (cet usage par cellule n'est pas autorisé par la règle telle qu'écrite).
+
+### Contrôle par buffer oracle à (128, 8, 6) × 0,75 : préparé, non lancé
+`rules_oracle_buffer.md` (règles O1 : TV de Voronoï ≤ 0,098, O1b : TV par bassin ≤ 0,053, O2 descriptif), `AdjointVEOracleMatcher`, configurations `adjoint_ve_oracle` et `gmm_dk_as_oracle`, `scripts/vast_oracle_remote.sh`. Essai local de 3 époques réussi (0,38 s par époque sur le Mac, buffer initial de 10⁴ tirages exacts, tirages exacts vérifiés). **Coût estimé : central 0,03 $ (15 à 20 min), pessimiste 0,06 $ (30 min), plafond proposé 0,10 $** ; aucune location sans décision de l'utilisateur.

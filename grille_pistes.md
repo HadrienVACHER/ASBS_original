@@ -223,6 +223,8 @@ Détails dans RESULTS.md.
   - **D, (32, 8, 8) × 0,5** : S1 vrai (8/8 sur les 4 jeux, TV 0,063 contre 0,662 pour AS).
   - **B, (128, 8, 6) × 0,75** : S3 faux tel qu'écrit (TV de Voronoï 0,119 contre le seuil 0,098), mais TV par bassin 0,037.
   - **I, MoS-w d = 10 depuis l'époque 250** : 10/10 bassins, TV par bassin 0,070, mais Q1 4,8 (S2 et S4 faux).
+  - **Banque incomplète, jouet CPU** (`rules_bank_incomplete.md`) : mode lointain de forme différente trouvé dès ε ≈ 10⁻⁴ (80 % en 40 rafraîchissements), jamais à ε = 0 (support) ; translation et affine transfèrent la bonne masse ; plomberie seulement (sampler fixe).
+  - **Forme du buffer** : MoS-w post hoc, Q1 ≤ 1,5 et TV bassin ≤ 0,02 à S = 50 (M1 vraie), pas à S = 10 ; translation et affine identiques (Hessiennes égales).
   - **Non exploré** : S ; la banque enrichie (aucun minimum ajouté en cours d'entraînement, la banque de départ était complète) ; d'autres graines ; le coût (210 fois les évaluations d'AS par mise à jour).
 - **C, N** : MoS-w d = 10 ; actifs locaux ; CPU.
 - **E, N** : les minima de ManyWell sont donnés par la structure ; pas de contrôleur local (GPU ≈ 0,07 $).
