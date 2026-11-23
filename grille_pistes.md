@@ -36,7 +36,7 @@ Théorèmes cités :
 |---|---|---|---|---|---|---|---|---|---|
 | 1. AS seul | T (référence) | T (référence) | T (référence) | T (référence) | T (référence) | T (référence) | T (référence) | T (R) | T (référence) |
 | 2. IS de chemin post hoc | T (R) | T (C) | T (C) | X (Supp. + Th. C) | N | N | T (C) | — | T (C) ✗ (A4) |
-| 3. AS + IS tempéré | T (C) ✓ (d8 ; d32 ≈) + T₁D | T (C) ✓ meilleur bras | N | X (Th. C ; ESS 10⁻²⁵ mesuré) | N | N | N | T₁D (P_g vraie) | N |
+| 3. AS + IS tempéré | T (C) ✓ (d8 ; d32 ≈) + T₁D | T (C) ✓ meilleur bras | N | X (Th. C ; ESS 10⁻²⁵ mesuré) ; à (32, 8, 8) × 0,5 : 5 modes sur 8, les 3 absents restent absents | N | N | N | T₁D (P_g vraie) | T (C) ✗ (MoS-w d = 10 : effondrement, Q1 × 84) |
 | 4. AS + rééchantillonnage IS du buffer | N | N | N | X (Th. C ; limite déclarée de SSS) | N | N | N | N (prédit : α = 1 de la ligne 3) | N |
 | 5. Barker réflexions / orbites | — | — | — | N | T (C) ✗ | T (succès, 3 graines × 2 d) | T (C) ✗ | — | N |
 | 6. Darting post hoc | T (R) | T (C) ✓ | T (C) ✗ | X (Th. C) | N | N | N | — | T (C) partiel (A4) |
@@ -47,10 +47,10 @@ Théorèmes cités :
 | 11. VC de rapport, témoin de Rayleigh | N | N | N | N | N | N | N | N | N |
 | 12. Newton-Stein | T (C) | T (C) | T (C) | T (C) + X (Th. C) | X (Th. C) | X (Th. 3.8 FM) | N | T (R) ✓ | T (C) |
 | 13. Amortissement η fixé | T (C) | T (C) | T (C) | T (C) | N | X (Th. 3.8 FM) | N | T (R) | T (C) |
-| 14. Banque de minima + darting | — | — | T (C) partiel (A4, d = 50) | T (C) ✓ (A3) | N | — | N | — | T (C) ✓ (A4, d = 10) |
+| 14. Banque de minima + darting | — | T (C) ✗ à l'entraînement (S3 faux ; TV par bassin 0,037) | T (C) partiel (A4, d = 50) | T (C) ✓ (A3 ; S1 vrai à l'entraînement) | N | — | N | — | T (C) ✓ post hoc (A4, d = 10) ; à l'entraînement masses ✓, Q1 ✗ (S2, S4 faux) |
 | 15. MALA seul post hoc (témoin) | T (C) | T (C) | T (C) | X (Th. C) | N | N | N | — | T (C) ✗ (A4) |
 
-**Décompte (135 cases ; mis à jour le 2026-11-23 après A3, A4 et A5)** : **52 testées** (dont 4 en quadrature 1D seulement), **11 exclues par un théorème** (en comptant comme exclue la case D de Newton-Stein, aussi testée), **55 non testées**, **17 sans objet**. Après les étapes A et B : 45 / 11 / 62 / 17. Version initiale : 43 / 11 / 64 / 17 (6c1b8b3).
+**Décompte (135 cases ; mis à jour le 2026-11-23 après le lot d'auto-entraînement)** : **54 testées** (dont 4 en quadrature 1D seulement), **11 exclues par un théorème** (en comptant comme exclue la case D de Newton-Stein, aussi testée), **54 non testées**, **16 sans objet**. Après A3, A4 et A5 : 52 / 11 / 55 / 17. Après les étapes A et B : 45 / 11 / 62 / 17. Version initiale : 43 / 11 / 64 / 17 (6c1b8b3).
 
 *Mise à jour A3–A5 (2026-11-23)* :
 - 14-D (`rules_bank_darting_dk.md`) : A3 vraie ;
@@ -216,7 +216,11 @@ Détails dans RESULTS.md.
   - **Prédiction** : Th. C ne s'applique pas, car les requêtes sont globales depuis la base. Sur (32, 8, 8), la trempe depuis N(0, σ_max² I) devrait trouver les 8 minima avec environ 1000 tirages (bassins de mesures comparables sous la base). Le darting entre minima connus transfère ensuite la masse vers les modes absents, au rythme de π(y)/π(x).
   - **Actifs** : contrôleurs (32, 8, 8) × 0,5 à × 2 locaux (`results/gmm_dk_window/w1`, `results/gmm_dk_sweep`).
   - **Coût** : CPU < 1 min (petite modification : passer des minima externes à `dart_lib.darting`).
-- **I, N** : banque pendant l'entraînement pour empêcher la perte de modes ; code (minima externes dans `AdjointVEGMMDartingMatcher`), GPU ≈ 0,05 $.
+- **À l'entraînement, T (C)** (`rules_selftrain_dartbank.md`, b15cf8a ; résultats dans RESULTS.md) : bras (s) = buffer corrigé par banque + darting (S = 10), 500 époques, graine 0.
+  - **D, (32, 8, 8) × 0,5** : S1 vrai (8/8 sur les 4 jeux, TV 0,063 contre 0,662 pour AS).
+  - **B, (128, 8, 6) × 0,75** : S3 faux tel qu'écrit (TV de Voronoï 0,119 contre le seuil 0,098), mais TV par bassin 0,037.
+  - **I, MoS-w d = 10 depuis l'époque 250** : 10/10 bassins, TV par bassin 0,070, mais Q1 4,8 (S2 et S4 faux).
+  - **Non exploré** : S ; la banque enrichie (aucun minimum ajouté en cours d'entraînement, la banque de départ était complète) ; d'autres graines ; le coût (210 fois les évaluations d'AS par mise à jour).
 - **C, N** : MoS-w d = 10 ; actifs locaux ; CPU.
 - **E, N** : les minima de ManyWell sont donnés par la structure ; pas de contrôleur local (GPU ≈ 0,07 $).
 - **G, N** : les 5 minima de DW-4 sont connus ; CPU (ed8bb67).

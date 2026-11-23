@@ -1624,3 +1624,68 @@ Le verdict d'origine (R = 4) est conservé plus haut. Refactor vérifié : à R 
 - le gabarit principal 0,36 à 0,44, à cause du bruit d'estimation de ses covariances.
 
 Avec les masses de Gelfand–Dey (TV divisé par 2 à 4,7), cela va dans le sens de la lecture de l'utilisateur : sur des modes gaussiens sans contrainte de domination, avec des covariances bien estimées, la division corrige les masses et la moyenne de régression. **Mais ce n'est pas établi par la règle**, qui est fausse telle qu'écrite et amendée.
+
+## Auto-entraînement sur un buffer corrigé par banque de minima + darting, sans poids (2026-11-23)
+
+Règle écrite et commitée avant la location : `rules_selftrain_dartbank.md` (b15cf8a). Code :
+- `AdjointVEDartBankMatcher` (tests `tests/test_dartbank_matcher.py` T1–T5 réussis) ;
+- journalisation de l'ESS du matcher (t) à chaque époque ;
+- `scripts/vast_selftrain_remote.sh` (instance) ; `scripts/selftrain_analyse.py` (analyse locale).
+
+Résultats : `figures/selftrain_dartbank/` (analysis_*.json, verdict.json ; journaux, configurations et contrôleurs des époques 100 à 500 et finaux des 7 runs). Les échantillons restent hors dépôt (`results/selftrain_runs/`).
+
+**Coût : au plus 0,045 $** (RTX 3070, offre 60928618, instance 62136691, tarif réel 0,1017 $/h, 26,4 min depuis la création, dont 9,8 min de chargement de l'instance ; plafond 0,15 $ ; estimation 0,05 à 0,08 $). Instance détruite dès le rapatriement, 0 restante. Aucun arrêt déclenché, aucun NaN. 7 runs en une seule vague (6 en parallèle, le septième dès qu'un emplacement s'est libéré).
+
+Le bras (s) corrige le buffer à chaque époque (S = 10 balayages, banque initiale par 1000 trempes depuis la loi de base, points déplacés à la place des points bruts, gradient recalculé). **La banque de départ était complète** (8 minima sur 8 en d = 32 et 128, 10 sur 10 en MoS-w) et **aucun minimum n'a été ajouté** pendant l'entraînement : l'enrichissement n'a pas été éprouvé.
+
+**Coût de calcul** (code et journaux) :
+| | (a) AS | (t) IS tempéré | (s) banque + darting |
+|---|---|---|---|
+| évaluations par mise à jour de gradient | 5,12 | 5,12 gradients + 5,12 énergies | **1 073 à 1 101** (rapport ≈ 210 à (a)) |
+| total par run (500 époques + 20 lots initiaux) | — | — | 5,6·10⁷ (initialisation de la banque 1,2–1,3·10⁴, trempes 3 %, darting 97 %) |
+| secondes par époque (6 runs en parallèle) | 0,86–0,93 | 1,16 | 1,11 (d = 32), 1,30 (MoS-w), 1,34 (d = 128) |
+**Aucune affirmation à coût égal n'est faite** : (s) coûte environ 210 fois plus d'évaluations par mise à jour.
+
+### TV brut sans poids du sampler appris
+Moyenne ± écart-type sur les évaluations des époques 350, 400 et 450 ; Voronoï / bassin ; couverture par Voronoï (ou par bassin pour MoS-w) sur les 4 jeux (3 évaluations, puis fin de run) ; Q1 (rapport de distance à π, moyenne des 3 évaluations).
+| cellule | bras | TV Voronoï | TV bassin | couverture (350, 400, 450, fin) | Q1 |
+|---|---|---|---|---|---|
+| (32, 8, 8) × 0,5 | (a) | 0,662 ± 0,002 | 0,662 | 1, 1, 1, 1 / 8 | 1,014 |
+| | (t) | 0,136 ± 0,009 | 0,136 | 5, 5, 5, 5 / 8 | 1,014 |
+| | **(s)** | **0,063 ± 0,022** | 0,063 | **8, 8, 8, 8 / 8** | 1,017 |
+| MoS-w d = 10 | (a) | 0,376 ± 0,028 | 0,406 | bassins 4, 4, 4, 4 / 10 | 1,96 |
+| | (t) | 0,867 ± 0,059 | 0,520 | bassins 6, 8, 8, 7 / 10 | **84** |
+| | **(s)** | 0,122 ± 0,007 | **0,070 ± 0,030** | **bassins 10, 10, 10, 10 / 10** | **4,81** |
+| (128, 8, 6) × 0,75 | (a), étape B | 0,196 ± 0,009 | 0,106 | 8 | 1,046 |
+| | (t), étape B | 0,113 ± 0,007 | 0,080 | 8 | 1,057 |
+| | **(s)** | **0,119 ± 0,007** | **0,037 ± 0,006** | 8, 8, 8, 8 / 8 | 1,050 |
+TV de fin de run (10⁴ échantillons) de (s) : 0,045 (d = 32), 0,094 (MoS-w, Voronoï ; par bassin 0,039), 0,121 (d = 128 ; par bassin 0,047).
+
+### Verdicts tels qu'écrits
+- **S1 VRAI** : couverture 8/8 sur les 4 jeux, TV 0,063 ≤ 0,5 × 0,662 = 0,331 (rapport 0,095).
+- **S2 FAUX** : 10 bassins sur 10 sur les 4 jeux, mais **Q1 faux** (rapport 4,7 à 5,2 pour un seuil de 1,5), sur les 4 jeux comme sur le jeu final seul.
+- **S3 FAUX** : TV de Voronoï 0,119 > 0,098 (= 0,5 × 0,196) et > 0,113 ((t), d'un cheveu).
+- **S4 FAUX** : Q1 de (s) 1,017 / 1,050 contre (a) 1,014 / 1,046 en d = 32 et 128 (vrai), mais **4,81 contre 1,96 en MoS-w** (faux).
+- **Lecture fixée d'avance** : S1 et S3 ne sont pas tous deux vrais, donc **la contribution « l'auto-entraînement sans poids donne un sampler aux bonnes masses là où les méthodes à poids échouent » n'est pas établie** par la règle.
+
+### Prédictions écrites
+S1 vraie (55 %) ✓ ; S2 vraie (15 %) : fausse, ✓ ; S3 vraie (35 %) ✗ ; S4 vraie (80 %) ✗ ; S1 et S3 ensemble (20 %) ✗.
+
+### Faits descriptifs (sans changer les verdicts)
+1. **Modes manquants ((32, 8, 8) × 0,5) : seule la correction du buffer crée les modes absents.**
+   - Au départ, la masse (Voronoï) vaut 0,972 sur le mode 0, 0,004 à 0,013 sur les modes 1 à 4, et **exactement 0 sur les modes 5, 6, 7**.
+   - À la fin : (a) reste à 0,956 sur le mode 0 (1/8). (t) retrouve les masses des 5 modes présents (0,365 / 0,263 / 0,179 / 0,112 / 0,081 ; TV 0,136) mais **les 3 modes absents restent à 0** : c'est exactement le support de la ligne 2 et le théorème C. **(s) a les 8 modes**, avec des masses de 0,319 / 0,188 / 0,156 / 0,124 / 0,092 / 0,049 / 0,037 / 0,036 (vérité 0,302 / 0,217 / 0,157 / 0,113 / 0,081 / 0,058 / 0,042 / 0,030).
+   - L'écart-type du TV de (s) entre évaluations est grand pour la moyenne (0,075 / 0,038 / 0,075), le seuil étant très au-dessus.
+2. **MoS-w d = 10 : les masses sont corrigées, pas les formes.** (s) atteint 10/10 bassins et TV par bassin 0,070 (0,039 en fin de run) contre 4/10 et 0,406 pour (a), mais ses échantillons sont à 4,8 fois la distance de π aux minima (1,96 pour (a)). C'est la limite que la lecture post hoc (A4) laissait attendre : la banque règle les modes, pas la forme.
+3. **L'IS tempéré s'effondre en MoS-w depuis l'époque 250** : Q1 de 56 à 102, TV de Voronoï 0,87, alors que le TV par bassin est de 0,41 à 0,59. L'ESS journalisé à chaque époque est de 3,8·10⁻³ au départ puis de 1,8·10⁻⁴ en médiane (min 10⁻⁴) pour W^0,5, et de 1,1·10⁻⁴ pour W : les poids ne portent presque plus que quelques trajectoires. À (32, 8, 8), l'ESS de W^0,5 monte de 0,48 à 0,85 en médiane.
+4. **d = 128 : S3 est faux dans la métrique écrite, mais le TV par bassin de (s) est le meilleur.**
+   - Par Voronoï, (s) 0,119 contre (t) 0,113 et (a) 0,196. Par bassin, **(s) 0,037 contre (t) 0,080 et (a) 0,106** : (s) serait au plus la moitié de (t) et le tiers de (a).
+   - L'écart entre les deux métriques à d = 128 vient de la largeur des échantillons (Q1 1,05 pour les trois bras, la masse par Voronoï étant sensible au rayon), pas des masses. **La règle de S3 est en Voronoï ; cette lecture par bassin est rapportée, pas substituée.**
+5. **Le gain à d = 128 est net par bassin et nul par Voronoï**, ce qui ne suffit pas à conclure : une seule graine, une seule valeur de S et (a), (t) viennent d'un autre lot (étape B).
+
+Réserves :
+- une graine d'entraînement, des reprises de 500 époques, S = 10 ;
+- l'écart entre évaluations est de 0,02 sur le TV en d = 32 ;
+- (a) et (t) à d = 128 viennent de l'étape B ;
+- le coût en évaluations est environ 210 fois celui d'AS ;
+- la banque n'a pas eu à s'enrichir : le cas où la trempe depuis la loi de base ne trouve pas tous les minima n'est pas testé.
