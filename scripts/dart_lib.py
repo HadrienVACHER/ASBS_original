@@ -68,13 +68,15 @@ def is_stats(lw, c, K, ptrue):
                 logz=float(logsumexp(lw) - math.log(n)), logz_se=float(wn.std() / math.sqrt(n)), p_hat=props(c, K, w).tolist())
 
 
-def darting(pi, X, mu, ptrue, discover=500, SW=(1, 5, 10), seed=99, keep_final=False, minima=None):
+def darting(pi, X, mu, ptrue, discover=500, SW=(1, 5, 10), seed=99, keep_final=False, minima=None, force_translation=False, mala_step=None):
     """ protocol of the phase 0 (500 discovery samples, quench, Hessians by finite differences, 1 jump + 5 MALA steps per sweep, MALA step tuned once for 0.6): returns a dict (None-safe) with TV, acceptances and cost per S.
-        minima (optional, rules_bank_darting_dk.md): an EXTERNAL bank of minima [m, d] used instead of the discovery on X (its search cost is counted by the caller). """
+        minima (optional, rules_bank_darting_dk.md): an EXTERNAL bank of minima [m, d] used instead of the discovery on X (its search cost is counted by the caller).
+        force_translation (optional, rules_bank_incomplete.md): jump x -> x - m_a + m_b even if the Hessians differ (valid, Jacobian 1, but ignores the shapes); default False = the Hessian map when they differ.
+        mala_step (optional, rules_mosw_affine_freeze.md): a given MALA step, no tuning on the batch (the tuning cost is then not counted). """
     K, d, n = pi.K, pi.d, len(X)
     cost = dict(E=0, G=0); res = {}
     if minima is not None:
-        return _darting_from_minima(pi, X, mu, ptrue, np.asarray(minima, float), SW, seed, keep_final, cost, res)
+        return _darting_from_minima(pi, X, mu, ptrue, np.asarray(minima, float), SW, seed, keep_final, cost, res, force_translation, mala_step)
     y = X[:discover].copy()
     for it in range(4000):
         _, g = pi.logp_grad(y); cost["G"] += len(y); y = y + 0.7 * g
@@ -86,10 +88,10 @@ def darting(pi, X, mu, ptrue, discover=500, SW=(1, 5, 10), seed=99, keep_final=F
             if dist[i] < 0.5: cnt[i] += 1; continue
         mins.append(p.copy()); cnt.append(1)
     M = np.array([m for m, c in zip(mins, cnt) if c >= 5])
-    return _darting_from_minima(pi, X, mu, ptrue, M, SW, seed, keep_final, cost, res)
+    return _darting_from_minima(pi, X, mu, ptrue, M, SW, seed, keep_final, cost, res, force_translation, mala_step)
 
 
-def _darting_from_minima(pi, X, mu, ptrue, M, SW, seed, keep_final, cost, res):
+def _darting_from_minima(pi, X, mu, ptrue, M, SW, seed, keep_final, cost, res, force_translation=False, mala_step=None):
     K, d, n = pi.K, pi.d, len(X)
     res["minima_found"] = int(len(M))
     if len(M) < 2:
@@ -102,7 +104,7 @@ def _darting_from_minima(pi, X, mu, ptrue, M, SW, seed, keep_final, cost, res):
         _, gp = pi.logp_grad(m[None, :] + E); _, gm = pi.logp_grad(m[None, :] - E); cost["G"] += 2 * d
         H = -(gp - gm).T / (2 * h); Hs.append(0.5 * (H + H.T))
     Hs = np.array(Hs); Mk = len(M)
-    translation = float(np.abs(Hs - Hs[0][None]).max()) < 1e-6
+    translation = bool(force_translation) or float(np.abs(Hs - Hs[0][None]).max()) < 1e-6
     res["map"] = "translation" if translation else "general Hessian map"; res["hessian_spread"] = float(np.abs(Hs - Hs[0][None]).max())
     if not translation:
         assert Mk * Mk * d * d * 8 < 6e8
@@ -119,14 +121,18 @@ def _darting_from_minima(pi, X, mu, ptrue, M, SW, seed, keep_final, cost, res):
         acc = np.log(rg.random(len(Xc))) < a
         return np.where(acc[:, None], Xp, Xc), np.where(acc, lpp, lp), np.where(acc[:, None], gp, g), acc
 
-    pil = X[:500].copy(); lp0, g0 = pi.logp_grad(pil); cost["E"] += 500; cost["G"] += 500
-    lo, hi, rt = math.log(1e-8), math.log(10.0), np.random.default_rng(5)
-    for _ in range(8):
-        mid = 0.5 * (lo + hi); Xc, lp, g = pil.copy(), lp0.copy(), g0.copy(); accs = []
-        for _s in range(5):
-            Xc, lp, g, a_ = mala(Xc, lp, g, math.exp(mid), rt); accs.append(a_.mean()); cost["E"] += 500; cost["G"] += 500
-        lo, hi = (mid, hi) if np.mean(accs) > 0.6 else (lo, mid)
-    hs = math.exp(0.5 * (lo + hi)); res["mala_step"] = hs
+    if mala_step is None:
+        pil = X[:500].copy(); lp0, g0 = pi.logp_grad(pil); cost["E"] += 500; cost["G"] += 500
+        lo, hi, rt = math.log(1e-8), math.log(10.0), np.random.default_rng(5)
+        for _ in range(8):
+            mid = 0.5 * (lo + hi); Xc, lp, g = pil.copy(), lp0.copy(), g0.copy(); accs = []
+            for _s in range(5):
+                Xc, lp, g, a_ = mala(Xc, lp, g, math.exp(mid), rt); accs.append(a_.mean()); cost["E"] += 500; cost["G"] += 500
+            lo, hi = (mid, hi) if np.mean(accs) > 0.6 else (lo, mid)
+        hs = math.exp(0.5 * (lo + hi))
+    else:
+        hs = float(mala_step)
+    res["mala_step"] = hs
     rd = np.random.default_rng(seed)
     Xc = X.copy(); lp, g = pi.logp_grad(Xc); cost["E"] += n; cost["G"] += n
     res["cost_pre_sweeps"] = cost["E"] + cost["G"]
