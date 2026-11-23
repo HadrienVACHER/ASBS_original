@@ -13,7 +13,9 @@ from adjoint_samplers.utils import girsanov, train_utils
 T0 = time.time()
 CELLS = {"d8": dict(cfg="results/gmm_dk_sweep/gmmdk_d8_K8_D8_s0_sx0.5/config.yaml", ckpt="results/gmm_dk_cont/gmmdk_d8_K8_D8_s0_sx0.5/controller_start.pt", sigma=None),
          "d32": dict(cfg="results/gmm_dk_sweep/gmmdk_d32_K8_D6_s0_sx0.5/config.yaml", ckpt="results/gmm_dk_cont/gmmdk_d32_K8_D6_s0_sx0.5/controller_start.pt", sigma=None),
-         "d128": dict(cfg="figures/gmmdk_step4/configs/gmmdk4_d128_sx0.5.config.yaml", ckpt="figures/gmmdk_step4/controllers/gmmdk4_d128_sx0.75_ep1500.pt", sigma=1.602001)}
+         "d128": dict(cfg="figures/gmmdk_step4/configs/gmmdk4_d128_sx0.5.config.yaml", ckpt="figures/gmmdk_step4/controllers/gmmdk4_d128_sx0.75_ep1500.pt", sigma=1.602001),
+         # rules_selftrain_dartbank.md: (32, 8, 8) x 0.5 (final of the window run, 1500 epochs; modes missing)
+         "k8d32": dict(cfg="results/gmm_dk_window/w1/gmmdk_d32_K8_D8_s0_sx0.5/config.yaml", ckpt="results/gmm_dk_window/w1/gmmdk_d32_K8_D8_s0_sx0.5/controller_final.pt", sigma=None)}
 c = sys.argv[1]; C = CELLS[c]
 cfg = OmegaConf.load(ROOT / C["cfg"])
 if C["sigma"]:

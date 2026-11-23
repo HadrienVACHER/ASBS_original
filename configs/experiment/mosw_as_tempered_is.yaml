@@ -1,0 +1,9 @@
+# @package _global_
+
+# MoS-w: EXACTLY the config of mosw_as; only the matcher changes (adjoint_ve_tempered_is, alpha 0.5). rules_selftrain_dartbank.md.
+
+defaults:
+  - mosw_as
+  - override /matcher@adjoint_matcher: adjoint_ve_tempered_is
+
+exp_name: mosw_as_tempered_is_d${dim}

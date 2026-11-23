@@ -1,0 +1,9 @@
+# @package _global_
+
+# MoS-w: EXACTLY the config of mosw_as; only the matcher changes (adjoint_ve_dartbank). rules_selftrain_dartbank.md.
+
+defaults:
+  - mosw_as
+  - override /matcher@adjoint_matcher: adjoint_ve_dartbank
+
+exp_name: mosw_as_dartbank_d${dim}

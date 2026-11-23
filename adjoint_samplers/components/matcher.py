@@ -1,6 +1,7 @@
 # Copyright (c) Meta Platforms, Inc. and affiliates.
 
 import math
+import numpy as np
 import warnings
 from collections import defaultdict
 
@@ -1970,6 +1971,73 @@ class AdjointVETemperedISMatcher(AdjointVEMatcher):
         lw = data["logw"].to(device).reshape(-1).double()
         self.sample_weight = torch.exp(self.alpha * lw - self._lognorm).to(target.dtype)
         return (t, xt), target
+
+    def pop_stats(self):
+        out, self._stats = self._stats, {}
+        return out
+
+
+class AdjointVEDartBankMatcher(AdjointVEMatcher):
+    """ Self-training on a buffer corrected WITHOUT weights (rules_selftrain_dartbank.md, arm (s)): every batch of new end points X1 (fresh SDE samples, and the initial buffer, which train.py
+        feeds through populate_buffer) goes through S sweeps of darting (scripts/dart_lib.py protocol: Barker jump between bank minima + 5 MALA steps per sweep, MALA step tuned on the batch)
+        using a BANK of minima; the moved points REPLACE the raw ones in the buffer, with adjoint1 (energy gradient) recomputed at the moved points. The regression itself is plain AS.
+        Bank: at the first call, converged quench (scripts/basin_lib.quench) of n_bank_starts draws of the base law N(0, nu_1 I) (seed bank_seed), distinct minima merged within basin_lib.MERGE;
+        at every call, the NEW raw end points are quenched too and new distinct minima are added (at most max_bank). Target: mixture targets with energy.dist.means / .weights
+        (GMM-dk: unit Gaussians; MoS / MoS-dk: products of Student t, nu and s2 from the distribution). Darting runs on CPU in float64 (numpy). Cost (energy and gradient evaluations) is counted. """
+    def __init__(self, sweeps: int = 10, n_bank_starts: int = 1000, bank_seed: int = 0, max_bank: int = 64, **kwargs):
+        super().__init__(**kwargs)
+        import sys as _sys
+        from pathlib import Path as _P
+        _sys.path.insert(0, str(_P(__file__).resolve().parents[2] / "scripts"))
+        import dart_lib as _L, basin_lib as _B
+        self._L, self._B = _L, _B
+        self.sweeps, self.n_bank_starts, self.bank_seed, self.max_bank = int(sweeps), int(n_bank_starts), int(bank_seed), int(max_bank)
+        dist = self.grad_term_cost.energy.dist
+        mu = dist.means.detach().double().cpu().numpy(); w = dist.weights.detach().double().cpu().numpy(); w = w / w.sum()
+        if "MoS" in type(dist).__name__:
+            self.pi = _L.Mix("S", mu, w, 1.0, nu=float(getattr(dist, "nu", 2.0)), s2=float(getattr(dist, "s2", 1.0)))
+        else:
+            self.pi = _L.Mix("G", mu, w, 1.0)
+        self.mu = mu; self.bank = None; self._pop = 0
+        self.cost = dict(bank_init=0, quench=0, dart=0); self._stats = {}
+
+    def _add_minima(self, Y, conv):
+        added = 0
+        for y in Y[conv]:
+            if len(self.bank) >= self.max_bank:
+                break
+            if np.linalg.norm(self.bank - y, axis=1).min() >= self._B.MERGE:
+                self.bank = np.vstack([self.bank, y]); added += 1
+        return added
+
+    def _init_bank(self):
+        ref = self.sde.ref_sde; nu1 = float(ref.sigma_max) ** 2 - float(ref.sigma_min) ** 2; d = self.mu.shape[1]
+        X0 = np.random.default_rng(self.bank_seed).standard_normal((self.n_bank_starts, d)) * math.sqrt(nu1)
+        Y, conv, its = self._B.quench(self.pi, X0)
+        self.bank = Y[np.argmax(conv)][None, :].copy(); self._add_minima(Y, conv)
+        self.cost["bank_init"] += int(self.n_bank_starts * (its + 1))
+        print(f"[dartbank] bank init: {len(self.bank)} minima from {self.n_bank_starts} starts (converged {conv.mean():.3f}, {its} iterations)", flush=True)
+
+    def populate_buffer(self, x0, timesteps, is_asbs_init_stage):
+        (x0, x1) = sdeint(self.sde, x0, timesteps, only_boundary=True)
+        if self.bank is None:
+            self._init_bank()
+        X = x1.detach().double().cpu().numpy()
+        Y, conv, its = self._B.quench(self.pi, X); new = self._add_minima(Y, conv); self.cost["quench"] += int(len(X) * (its + 1))
+        dr = self._L.darting(self.pi, X, self.mu, np.full(self.pi.K, 1.0 / self.pi.K), SW=(self.sweeps,), seed=1000 + self._pop, keep_final=True, minima=self.bank)
+        if dr.get("by_S"):
+            v = dr["by_S"][self.sweeps]; Xn = v.pop("X_final"); self.cost["dart"] += int(v["cost"])
+            x1 = torch.as_tensor(Xn, dtype=x1.dtype, device=x1.device)
+            self._stats = {"sbank/n_bank": float(len(self.bank)), "sbank/new_minima": float(new), "sbank/jump_acc": float(v["jump_acc"]), "sbank/mala_acc": float(v["mala_acc"]),
+                           "sbank/cost_dart_batch": float(v["cost"]), "sbank/cost_cum": float(sum(self.cost.values())), "sbank/batch": float(len(X))}
+        else:
+            self._stats = {"sbank/n_bank": float(len(self.bank)), "sbank/error": 1.0}
+        print(f"[dartbank] pop {self._pop} n {len(X)} bank {len(self.bank)} (+{new}) " + (f"jump acc {self._stats['sbank/jump_acc']:.2f} mala acc {self._stats['sbank/mala_acc']:.2f} cost {self._stats['sbank/cost_dart_batch']:.0f}"
+              if "sbank/jump_acc" in self._stats else f"darting skipped: {dr.get('error')}") + f" | cum cost {sum(self.cost.values()):.3e} {self.cost}", flush=True)
+        self._pop += 1
+        adjoint1 = self._compute_adjoint1(x1, is_asbs_init_stage).clone()                # energy gradient recomputed at the MOVED points
+        self._check_buffer_sample_shape(x0, x1, adjoint1)
+        self.buffer.add({"x0": x0.to("cpu"), "x1": x1.to("cpu"), "adjoint1": adjoint1.to("cpu")})
 
     def pop_stats(self):
         out, self._stats = self._stats, {}
