@@ -1828,3 +1828,27 @@ Moyennes sur les évaluations des époques 350, 400, 450 (écart-type entre éva
 - **Mémorisation (descriptif, non requise : buffer rafraîchi de 512 tirages neufs par époque)** : distance médiane au plus proche voisin dans le buffer final contre dans 10⁴ tirages exacts neufs : o-AS 13,33 / 13,33 ; o-DSM 13,64 / 13,66 ; pas de signe de mémorisation.
 - **Temps par époque** (2 runs en parallèle) : o-AS 0,72 s, o-DSM 0,83 s. Mes prédictions : O1 vraie 40 % (fausse), O1b vraie 65 % (vraie), O2 vraie 35 % (fausse en Voronoï, vraie par bassin), DSM meilleur 35 % (écart non établi).
 - **Limites** : une graine ; départ AS commun (le DSM repart d'un contrôleur AS) ; pondération DSM standard seule ; 500 époques.
+
+## Test « AS corrige les formes d'un buffer aux bonnes masses » à (128, 8, 6) × 0,75 (2026-11-24, `rules_shape_correction.md`, règles commitées en 891328b avant la location)
+Écrit pour : Hadrien. Résultats : `figures/shape_correction/analysis_runs.json` (+ `calibration.json`) ; échantillons et contrôleurs dans `results/selftrain_runs/sd_{V,M}_{as,dsm}_d128` (hors dépôt). 4 runs en parallèle, une graine, 500 époques, départ de l'étape B. RTX 3070 (0,1017 $/h), création → destruction 10,9 min, **coût ≤ 0,018 $** (plafond 0,10 $), instance détruite après rapatriement (0 restante).
+
+Moyennes des évaluations des époques 350, 400, 450 (écart entre évaluations) ; plancher = apprenant sur buffer exact (oracle).
+
+| buffer / apprenant | ρ_V | ρ_M | TV par bassin | TV de Voronoï | Q1 |
+|---|---|---|---|---|---|
+| plancher o-AS | 1,078 (0,003) | −0,165 (0,068) | 0,047 | 0,118 | 1,048 |
+| plancher o-DSM | 1,162 (0,005) | −0,131 (0,036) | 0,043 | 0,113 | 1,088 |
+| (V) AS | **0,978** (0,004) | −0,148 (0,074) | **0,0480** (0,0033) | 0,124 | 0,999 |
+| (V) DSM | **1,596** (0,004) | −0,058 (0,097) | **0,0574** (0,0195) | 0,072 | 1,271 |
+| (M) AS | 1,081 (0,004) | **−0,106** (0,045) | **0,0419** (0,0037) | 0,109 | 1,049 |
+| (M) DSM | 1,163 (0,005) | **0,298** (0,037) | **0,0457** (0,0041) | 0,113 | 1,089 |
+
+- **P1 (buffer V) : VRAIE** : ρ_V(AS) = 0,978 ∈ [0,80 ; 1,10] et ρ_V(DSM) = 1,596 ≥ 1,30.
+- **P2 (buffer M) : FAUSSE**, par la partie DSM : ρ_M(AS) = −0,106 ≤ 0,5 (vraie), ρ_M(DSM) = 0,298 < 0,8 (fausse).
+- **P3 : FAUSSE** : une valeur sur quatre dépasse 0,053 : (V) DSM 0,0574 (évaluations 0,0543 / 0,0782 / 0,0396, écart 0,0195) ; les trois autres passent (0,048, 0,042, 0,046).
+- **Lecture fixée d'avance appliquée telle qu'écrite** : P1 vraie et P2 fausse = « seule la largeur est corrigée ». **Réserve de lecture** (mes chiffres, pas la règle) :
+  - **Largeur** : par rapport aux planchers, AS fait −0,100 (0,978 − 1,078) et DSM +0,434 (1,596 − 1,162), soit ce que prédit la population (0,90 − 1 = −0,10 ; 1,44 − 1 = +0,44) à 0,01 près : **la prédiction de population survit à l'apprentissage pour la largeur**. DSM recopie la largeur du buffer, AS ne la recopie pas et la rapproche de la valeur exacte.
+  - **Décalage de la moyenne** : AS reste au plancher (−0,106 contre −0,165 ; la prédiction −0,54 n'est **pas** retrouvée : écart de +0,06 au plancher au lieu de −0,54 ; la partie AS de P2 est satisfaite par un apprenant qui **ignore** le décalage, comme annoncé dans les règles) ; DSM suit le décalage **en partie seulement** (+0,43 au-dessus du plancher au lieu de +1). Aucun des deux ne vérifie sa prédiction sur la moyenne : **l'effet correcteur d'AS sur la moyenne (A_m = −0,54) n'est pas observé**, et la correction de forme d'AS n'est établie que pour la largeur.
+- **Masses** : les trois cas sous 0,053 ; le DSM sur buffer V (largeur 1,44 recopiée, Q1 1,27) est le seul au-dessus, avec une forte dispersion entre évaluations.
+- **Mes prédictions** : P1 vraie 40 % (vraie) ; P2 vraie 45 % (fausse) ; P3 vraie 55 % (fausse).
+- **Limites** : une graine ; 500 époques depuis un départ entraîné par AS ; masses exactes ; un seul décalage (0,3) ; modes pondérés de façon égale.
