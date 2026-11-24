@@ -92,6 +92,17 @@ if __name__ == "__main__":
         for s in range(s0, s1 + 1):
             t = time.perf_counter(); r = run_smc(s); res.append(r); print(s, {k: (round(v, 3) if isinstance(v, float) else v) for k, v in r.items() if k not in ("dart", "bank_has")}, "%.1fs" % (time.perf_counter() - t), flush=True)
         json.dump(res, open(OUT / f"smc_{s0}_{s1}.json", "w"), indent=1)
+    elif c == "smcN":                                                                                  # E7 (amendment 2026-11-24): SMC alone with N particles, seeds S0..S1
+        N_, s0, s1 = int(sys.argv[2]), int(sys.argv[3]), int(sys.argv[4]); res = []
+        for s in range(s0, s1 + 1):
+            X, steps, cost = smc(s, N=N_); n2 = int((vor2(X) == 1).sum()); res.append(dict(seed=s, N=N_, smc_steps=steps, smc_cost=cost, count2=n2, p2=n2 / N_, tv=abs(n2 / N_ - 0.5), collapsed=bool(min(n2, N_ - n2) <= 0.01 * N_)))
+        json.dump(res, open(OUT / f"smcN{N_}_{s0}_{s1}.json", "w"), indent=1); print(N_, s0, s1, "collapsed", sum(r["collapsed"] for r in res), "/", len(res))
+    elif c == "verdictE7":
+        import glob; V = {}
+        for N_ in (3250, 2300):
+            r = [x for f in sorted(glob.glob(str(OUT / f"smcN{N_}_*.json"))) for x in json.load(open(f))]
+            V[N_] = dict(n=len(r), frac_collapsed=float(np.mean([x["collapsed"] for x in r])), med_tv=float(np.median([x["tv"] for x in r])), med_cost=float(np.median([x["smc_cost"] for x in r])), med_steps=float(np.median([x["smc_steps"] for x in r])), n_count2_gt_1pct=int(sum(x["count2"] > 0.01 * N_ for x in r)))
+        V["E7"] = bool(all(V[N_]["n"] == 100 and V[N_]["frac_collapsed"] >= 0.90 for N_ in (3250, 2300))); json.dump(V, open(OUT / "verdict_E7.json", "w"), indent=1); print(json.dumps(V, indent=1))
     elif c == "verdict":
         import glob
         dd = [r for f in sorted(glob.glob(str(OUT / "disc_*.json"))) for r in json.load(open(f))]; ss = [r for f in sorted(glob.glob(str(OUT / "smc_*.json"))) for r in json.load(open(f))]

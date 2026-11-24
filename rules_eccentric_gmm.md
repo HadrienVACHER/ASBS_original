@@ -39,3 +39,12 @@ Masse p₂ du mode excentré = fraction des particules plus proches de la moyenn
 
 ## Exécution
 `scripts/toy_eccentric.py` (`disc S0 S1`, `smc S0 S1`, `verdict`). Résultats : `figures/eccentric_gmm/`. Section dans RESULTS.md.
+
+## Amendement daté 2026-11-24 : E7, SMC à coût égal (demande de l'utilisateur, commité avant exécution ; rien de ce qui précède n'est modifié)
+- **Question** : le SMC reste-t-il effondré quand on lui donne le budget de SMC + banque + darting, réparti en plus de particules ?
+- **Budgets** (évaluations d'énergie et de gradient, convention de `dart_lib`, médianes de l'exécution précédente : SMC 8,0·10⁴, banque 2,2·10⁴, darting 1,58·10⁵) : SMC + banque + darting = 2,6·10⁵, soit **3,25 × le SMC à N = 1000**. Le « ≈ 2,3 × » de la demande est le rapport de (banque + darting) au SMC seul ; **à coût total égal il faut N ≈ 3250**. Les deux valeurs sont exécutées : **N = 3250 (coût total égal)** et **N = 2300 (valeur de la demande)**. Le coût du SMC croît linéairement en N (nombre de pas de température inchangé en première approximation) ; les coûts médians mesurés sont rapportés.
+- **Mesures** : mêmes que pour le SMC à N = 1000 (même code, graines 1 à 100, 100 graines par N) ; run « effondré » si min(effectif du mode 1, effectif du mode 2) ≤ 1 % de N ; TV par bassin = |p₂ − 0,5| ; fraction de runs effondrés et TV médiane ; coût médian.
+- **E7** : **le SMC à coût égal (N = 3250) reste effondré dans au moins 90 % des runs** ; la même fraction est rapportée pour N = 2300 (E7 est dite vraie seulement si elle l'est pour les deux N ; sinon on dit pour lequel).
+- **Lecture** : E7 vraie = la perte du mode par le SMC ne vient pas d'un manque de particules à ce budget ; E7 fausse = un budget égal suffit à ce SMC pour garder le mode dans plus de 10 % des runs.
+- **Remarque à lire avec E7** : l'échec de l'IS est celui du Th. C ; la comparaison porte sur le mécanisme de découverte (trempe depuis ρ contre tempering), pas sur la correction de masse.
+- **Prédiction (sans effet)** : E7 vraie 80 % (la masse intermédiaire du mode excentré, de l'ordre de 10⁻⁴ à β ≈ 0,2, rend improbable un gain avec un facteur 3 en N).
