@@ -1870,3 +1870,17 @@ Moyennes des évaluations des époques 350, 400, 450 (écart entre évaluations)
 - **Masses** : TV par bassin 0,0405 (AS) et 0,0573 (DSM, dispersion entre évaluations 0,022).
 - **Mes prédictions** : T vraie 45 % sur (ii) (fausse) ; test non concluant 45 % (réalisé).
 - **Limites** : une graine ; un seul décalage ; départ (i) non lancé ; le DSM n'a pas convergé (pondération standard, 500 époques) : le défaut peut venir de l'apprenant DSM et non du principe.
+
+**Amendement daté 2026-11-24 : deux vérifications CPU, descriptives, sans règle de verdict (après le complément « correction de forme »)** — Écrit pour : Hadrien. Aucun GPU ; le verdict T faux / test non concluant ci-dessus est conservé.
+1. **Mesure correcte.** Le calcul de `gmm_dk.shape_measures` (celui de `shape_analyse.py`) appliqué à 10⁴ tirages : 
+
+| tirages | ρ_M | ρ_V |
+|---|---|---|
+| (a) buffer (M'), δ = 1,0 | 0,974 | 1,001 |
+| (b) buffer (M), δ = 0,3 | 0,995 | 1,001 |
+| (c) cible exacte | −0,016 (−0,054 à δ = 0,3) | 0,999 |
+
+   - **Directions garanties par construction** : le buffer (`_ShapedDraw`) et la mesure appellent la même fonction `gmm_dk.shape_directions(d, K, 2027)` (écart 1·10⁻⁸, conversion float32) ; le buffer prend `means` et `weights` de la distribution cible, vérifiés égaux à `gmm_dk.means` et `gmm_dk.weights` (même ordre des modes) ; la mesure affecte chaque échantillon au mode de moyenne vraie la plus proche, avec ces mêmes moyennes.
+   - **Contre-épreuve** : mesure du buffer (M') avec la graine 2028 : ρ_M = 0,011 (la mesure détecte un désaccord de direction).
+   - Les logs des vrais runs montrent `shift 1.0` (M', AS et DSM) et `shift 0.3` (M) ; l'analyse `runs2` normalise par δ = 1,0.
+2. **Code DSM correct sur l'analogue réduit** (d = 8, 4 modes, Δ = 8, réseau 64 canaux, buffer décalé de δ = 1,0, masses exactes, même matcher, même pondération, même SDE ; départ réinitialisé, graine 0, CPU) : ρ_M = **0,856** à 60 époques (ρ_V 2,00), **0,894** à 200 époques (ρ_V 1,27) ; mode de plus faible poids le moins convergé (0,60 puis 0,72). Le défaut de d = 128 (ρ_M(DSM) = 0,363 à δ = 1) ne vient donc pas d'une erreur de cible, de pondération ou d'échantillonnage. **Cause probable : DSM non convergé en 500 époques à d = 128 (hypothèse, non mesurée).** Limites : une graine, d = 8 loin de d = 128.
