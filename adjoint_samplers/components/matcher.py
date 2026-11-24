@@ -2054,9 +2054,12 @@ class AdjointVEOracleMatcher(AdjointVEMatcher):
         super().__init__(**kwargs)
         assert hasattr(self.grad_term_cost.energy, "dist") and hasattr(self.grad_term_cost.energy.dist, "sample"), "target with exact sampling required"
 
+    def _draw(self, x0):
+        return self.grad_term_cost.energy.dist.sample((x0.shape[0],)).to(x0.device, x0.dtype)
+
     def populate_buffer(self, x0, timesteps, is_asbs_init_stage):
         with torch.no_grad():
-            x1 = self.grad_term_cost.energy.dist.sample((x0.shape[0],)).to(x0.device, x0.dtype)
+            x1 = self._draw(x0)
         adjoint1 = self._compute_adjoint1(x1, is_asbs_init_stage).clone()
         self._check_buffer_sample_shape(x0, x1, adjoint1)
         self.buffer.add({"x0": x0.to("cpu"), "x1": x1.to("cpu"), "adjoint1": adjoint1.to("cpu")})
@@ -2070,7 +2073,7 @@ class AdjointVEOracleDSMMatcher(AdjointVEOracleMatcher):
         so the weighted regression sw * (u - u_cond)^2 with sw = V r (1 - r) = Var(x_t | x1) is the standard DSM objective (weight lambda(t) = Var), bounded at both ends. """
     def populate_buffer(self, x0, timesteps, is_asbs_init_stage):
         with torch.no_grad():
-            x1 = self.grad_term_cost.energy.dist.sample((x0.shape[0],)).to(x0.device, x0.dtype)
+            x1 = self._draw(x0)
         adjoint1 = torch.zeros_like(x1)                                            # unused by DSM (kept so that the buffer layout is the usual one)
         self._check_buffer_sample_shape(x0, x1, adjoint1)
         self.buffer.add({"x0": x0.to("cpu"), "x1": x1.to("cpu"), "adjoint1": adjoint1.to("cpu")})
@@ -2084,4 +2087,35 @@ class AdjointVEOracleDSMMatcher(AdjointVEOracleMatcher):
         target = (x1 - xt) / (V * (1.0 - r))
         self.sample_weight = (V * r * (1.0 - r)).reshape(-1).to(target.dtype)
         return (t, xt), target
+
+
+class _ShapedDraw:
+    """ rules_shape_correction.md: synthetic buffer with the EXACT mass of the target but a wrong shape, fresh i.i.d. draws at every call. Mixture of the target's components (dist.means, dist.weights,
+        unit covariance), component chosen with the exact weights:
+          mode 'V': covariance var_factor x I, exact means;
+          mode 'M': covariance I, mean shifted by shift x u_k (u_k = fixed unit direction of the mode k, gmm_dk.shape_directions(d, K, seed)). """
+    def __init__(self, mode="V", var_factor=1.44, shift=0.3, shape_seed=2027, **kwargs):
+        super().__init__(**kwargs)
+        assert mode in ("V", "M"); self.mode, self.var_factor, self.shift, self.shape_seed = mode, float(var_factor), float(shift), int(shape_seed)
+        dist = self.grad_term_cost.energy.dist; self._means, self._weights = dist.means.clone(), dist.weights.clone()
+        import sys, pathlib; sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[2]))
+        import gmm_dk
+        print(f"[shape] buffer mode {self.mode} var_factor {self.var_factor} shift {self.shift} seed {self.shape_seed}", flush=True)
+        K, d = self._means.shape; self._u = torch.from_numpy(gmm_dk.shape_directions(d, K, self.shape_seed)).to(self._means.dtype)
+
+    def _draw(self, x0):
+        n, dev, dt = x0.shape[0], x0.device, x0.dtype
+        mu, w, u = self._means.to(dev, dt), self._weights.to(dev, dt), self._u.to(dev, dt)
+        comp = torch.multinomial(w, n, replacement=True); z = torch.randn(n, mu.shape[1], device=dev, dtype=dt)
+        if self.mode == "V":
+            return mu[comp] + math.sqrt(self.var_factor) * z
+        return mu[comp] + self.shift * u[comp] + z
+
+
+class AdjointVEShapeASMatcher(_ShapedDraw, AdjointVEOracleMatcher):
+    """ AS on the synthetic wrong-shape buffer (adjoint = true energy gradient at the buffer points) """
+
+
+class AdjointVEShapeDSMMatcher(_ShapedDraw, AdjointVEOracleDSMMatcher):
+    """ DSM on the same synthetic buffer """
 

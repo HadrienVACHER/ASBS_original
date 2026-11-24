@@ -111,3 +111,22 @@ def shrink_beta(p_hat, p, cov):
     res = y - (ym + b * (x - xm))
     se = math.sqrt((res ** 2).sum() / (len(x) - 2) / sxx)
     return float(b), float(se)
+
+
+def shape_directions(d, K, seed=2027):
+    """ rules_shape_correction.md: one fixed unit direction per mode (rows), numpy default_rng(seed), used for the mean shift of the (M) buffer and for the rho_M measurement """
+    u = np.random.default_rng(seed).standard_normal((K, d)); return (u / np.linalg.norm(u, axis=1, keepdims=True)).astype(np.float64)
+
+
+def shape_measures(x, d, K, delta, shift=0.3, seed=2027, min_count=30):
+    """ rules_shape_correction.md. x: (n, d) samples. Assignment of each sample to the mode with the nearest TRUE mean (Voronoi; unit variance, Delta >= 6: error < 0.2 %).
+        rho_V = mean over modes (>= min_count samples) and coordinates of the sample variance (about the per-mode sample mean) / 1 (sigma_tar^2 = 1);
+        rho_M = mean over modes of the projection of (per-mode sample mean - true mean) on the fixed direction u_k, divided by `shift` (= 0.3 sigma_tar). """
+    mu = means(d, K, delta).double().numpy(); u = shape_directions(d, K, seed); x = np.asarray(x, np.float64)
+    a = ((x ** 2).sum(1)[:, None] - 2 * x @ mu.T + (mu ** 2).sum(1)[None]).argmin(1)
+    rv, rm, cnt = [], [], []
+    for k in range(K):
+        xk = x[a == k]; cnt.append(len(xk))
+        if len(xk) < min_count: rv.append(np.nan); rm.append(np.nan); continue
+        rv.append(float(xk.var(0, ddof=1).mean())); rm.append(float(((xk.mean(0) - mu[k]) @ u[k]) / shift))
+    return dict(rho_V=float(np.nanmean(rv)), rho_M=float(np.nanmean(rm)), rho_V_modes=rv, rho_M_modes=rm, counts=cnt, n_modes_used=int(np.isfinite(rv).sum()))

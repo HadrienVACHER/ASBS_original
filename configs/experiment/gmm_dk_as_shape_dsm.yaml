@@ -1,0 +1,9 @@
+# @package _global_
+
+# (d, K, Delta) study: EXACTLY the config of gmm_dk_as; only the matcher changes (adjoint_ve_shape_*: buffer of exact-mass, wrong-shape i.i.d. draws). rules_shape_correction.md.
+
+defaults:
+  - gmm_dk_as
+  - override /matcher@adjoint_matcher: adjoint_ve_shape_dsm
+
+exp_name: gmm_dk_as_shape_dsm_d${dim}_K${K}_D${delta}

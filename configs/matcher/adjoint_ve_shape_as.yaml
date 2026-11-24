@@ -1,0 +1,12 @@
+_target_: adjoint_samplers.components.matcher.AdjointVEShapeASMatcher
+mode: V          # 'V' (covariance x var_factor) or 'M' (mean shift): set by the experiment override adjoint_matcher.mode
+var_factor: 1.44
+shift: 0.3
+shape_seed: 2027
+
+grad_state_cost:
+  _target_: adjoint_samplers.components.state_cost.ZeroGradStateCost
+
+buffer:
+  _target_: adjoint_samplers.components.buffer.BatchBuffer
+  buffer_size: ${adjoint_matcher.buffer_size}
