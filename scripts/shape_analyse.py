@@ -1,5 +1,6 @@
 """ rules_shape_correction.md: local CPU analysis.
     python scripts/shape_analyse.py calib     calibration floors on the existing oracle runs (o-AS sd_o_d128, o-DSM sd_od_d128), before the rental
+    python scripts/shape_analyse.py runs2    rules_shape_correction_2.md: buffer (M') shift 1.0, starts (i) common controller and (ii) re-initialised; arms sd_Mp_<as|dsm>_<i|ii>_d128 ; T, P2'
     python scripts/shape_analyse.py runs      the 4 runs sd_<V|M>_<as|dsm>_d128 : rho_V, rho_M, basin / Voronoi TV, Q1, mean of the evaluations 350, 400, 450 (sd between evaluations) + final; P1, P2, P3 """
 import json, sys, time
 from pathlib import Path
@@ -11,8 +12,11 @@ mu = gmm_dk.means(D, K, DL).double().numpy(); wt = gmm_dk.weights(K).double().nu
 pt = gmm_dk.true_proportions(D, K, DL).numpy(); med = float(np.median(B.dist_to_nearest_minimum(B.sample_exact(pi, 10000, np.random.default_rng(2026)), M)))
 
 
+SHIFT = 0.3
+
+
 def stats(x):
-    pv = L.props(L.cells(x, mu), K); b, fc, _ = B.basins(pi, x, M); pb = B.basin_props(b, K); sm = gmm_dk.shape_measures(x, D, K, DL)
+    pv = L.props(L.cells(x, mu), K); b, fc, _ = B.basins(pi, x, M); pb = B.basin_props(b, K); sm = gmm_dk.shape_measures(x, D, K, DL, shift=SHIFT)
     return dict(tv_vor=L.tv(pv, pt), tv_basin=L.tv(pb, pt), q1_ratio=float(np.median(B.dist_to_nearest_minimum(x, M))) / med, rho_V=sm["rho_V"], rho_M=sm["rho_M"], rho_V_modes=sm["rho_V_modes"], rho_M_modes=sm["rho_M_modes"], counts=sm["counts"])
 
 
@@ -40,4 +44,13 @@ elif c == "runs":
     P2 = dict(rho_M_as=m("M_as", "rho_M"), rho_M_dsm=m("M_dsm", "rho_M")); P2["as_ok"] = bool(P2["rho_M_as"] <= 0.5); P2["dsm_ok"] = bool(P2["rho_M_dsm"] >= 0.8); P2["value"] = P2["as_ok"] and P2["dsm_ok"]
     P3 = {k: m(k, "tv_basin") for k in R}; P3["value"] = bool(all(v <= 0.053 for k, v in P3.items()))
     R["verdict"] = dict(P1=P1, P2=P2, P3=P3); json.dump(R, open(OUT / "analysis_runs.json", "w"), indent=1, default=float); print(json.dumps(R["verdict"], indent=1, default=float))
+elif c == "runs2":
+    SHIFT = 1.0; R = {}
+    for st in ("i", "ii"):
+        for a in ("as", "dsm"):
+            R[f"{st}_{a}"] = run(f"sd_Mp_{a}_{st}_d128"); print(st, a, {k: (round(v["mean"], 4), round(v["sd"], 4)) for k, v in R[f"{st}_{a}"]["agg"].items()}, "final rho_V %.3f rho_M %.3f" % (R[f"{st}_{a}"]["final"]["rho_V"], R[f"{st}_{a}"]["final"]["rho_M"]), flush=True)
+    m = lambda k, q: R[k]["agg"][q]["mean"]
+    T = {st: m(f"{st}_dsm", "rho_M") for st in ("i", "ii")}; Tv = {st: bool(v >= 0.8) for st, v in T.items()}
+    P2p = {st: dict(rho_M_as=m(f"{st}_as", "rho_M"), rho_M_dsm=T[st], value=bool(m(f"{st}_as", "rho_M") <= 0.3)) for st in ("i", "ii") if Tv[st]}
+    R["verdict"] = dict(T_values=T, T_per_start=Tv, T=any(Tv.values()), P2prime=P2p, A_m=-0.5442); json.dump(R, open(OUT / "analysis_runs2.json", "w"), indent=1, default=float); print(json.dumps(R["verdict"], indent=1, default=float))
 print(f"{c}: {time.time() - T0:.1f} s")

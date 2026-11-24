@@ -1852,3 +1852,5 @@ Moyennes des évaluations des époques 350, 400, 450 (écart entre évaluations)
 - **Masses** : les trois cas sous 0,053 ; le DSM sur buffer V (largeur 1,44 recopiée, Q1 1,27) est le seul au-dessus, avec une forte dispersion entre évaluations.
 - **Mes prédictions** : P1 vraie 40 % (vraie) ; P2 vraie 45 % (fausse) ; P3 vraie 55 % (fausse).
 - **Limites** : une graine ; 500 époques depuis un départ entraîné par AS ; masses exactes ; un seul décalage (0,3) ; modes pondérés de façon égale.
+
+**Amendement daté 2026-11-24 (étiquette de l'utilisateur, sans changement de la règle ni du verdict écrit)** : le verdict de P2 ci-dessus (faux) est conservé ; il est **étiqueté I** (témoin DSM non convergé : 43 % du décalage de 0,3). Suite : `rules_shape_correction_2.md` (décalage 1,0, deux départs).

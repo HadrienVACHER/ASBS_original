@@ -223,6 +223,7 @@ Détails dans RESULTS.md.
   - **D, (32, 8, 8) × 0,5** : S1 vrai (8/8 sur les 4 jeux, TV 0,063 contre 0,662 pour AS).
   - **B, (128, 8, 6) × 0,75** : S3 faux tel qu'écrit (TV de Voronoï 0,119 contre le seuil 0,098), mais TV par bassin 0,037.
   - **Oracle (buffer exact, `rules_oracle_buffer.md`, d16cf79)** : AS et DSM sur tirages exacts à (128, 8, 6) × 0,75 : Voronoï 0,118 et 0,113 (O1, O2 faux au seuil 0,098), bassin 0,047 et 0,043 (O1b vraie, O2 bassin vraie) ; (s) égale l'oracle en Voronoï (0,119) : le seuil de S3 est hors d'atteinte à ce budget quel que soit le buffer ; AS et DSM indiscernables.
+  - **Correction de forme (`rules_shape_correction.md`, 891328b)** : largeur : AS la corrige (ρ_V 0,978), DSM la recopie (1,596) ; position (décalage 0,3) : P2 faux, **étiqueté I** (témoin DSM non convergé), suite `rules_shape_correction_2.md`.
   - **C, MoS-w d = 10 depuis l'époque 250** (étiquette C décidée par l'utilisateur le 2026-11-23, paramètre S non exploré) : 10/10 bassins, TV par bassin 0,070, mais Q1 4,8 (S2 et S4 faux) à S = 10 ; le post hoc montre que S = 50 suffit pour la forme du buffer (M1).
   - **Banque incomplète, jouet CPU** (`rules_bank_incomplete.md`) : mode lointain de forme différente trouvé dès ε ≈ 10⁻⁴ (80 % en 40 rafraîchissements), jamais à ε = 0 (support) ; translation et affine transfèrent la bonne masse ; plomberie validée (sampler fixe), pas d'autre suite décidée.
   - **Forme du buffer** : MoS-w post hoc, Q1 ≤ 1,5 et TV bassin ≤ 0,02 à S = 50 (M1 vraie), pas à S = 10 ; translation et affine identiques (Hessiennes égales).
