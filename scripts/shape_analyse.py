@@ -46,11 +46,12 @@ elif c == "runs":
     R["verdict"] = dict(P1=P1, P2=P2, P3=P3); json.dump(R, open(OUT / "analysis_runs.json", "w"), indent=1, default=float); print(json.dumps(R["verdict"], indent=1, default=float))
 elif c == "runs2":
     SHIFT = 1.0; R = {}
-    for st in ("i", "ii"):
+    STARTS = [st for st in ("i", "ii") if (RUNS / f"sd_Mp_as_{st}_d128").exists()]                  # amendment 2026-11-24: start (ii) only
+    for st in STARTS:
         for a in ("as", "dsm"):
             R[f"{st}_{a}"] = run(f"sd_Mp_{a}_{st}_d128"); print(st, a, {k: (round(v["mean"], 4), round(v["sd"], 4)) for k, v in R[f"{st}_{a}"]["agg"].items()}, "final rho_V %.3f rho_M %.3f" % (R[f"{st}_{a}"]["final"]["rho_V"], R[f"{st}_{a}"]["final"]["rho_M"]), flush=True)
     m = lambda k, q: R[k]["agg"][q]["mean"]
-    T = {st: m(f"{st}_dsm", "rho_M") for st in ("i", "ii")}; Tv = {st: bool(v >= 0.8) for st, v in T.items()}
-    P2p = {st: dict(rho_M_as=m(f"{st}_as", "rho_M"), rho_M_dsm=T[st], value=bool(m(f"{st}_as", "rho_M") <= 0.3)) for st in ("i", "ii") if Tv[st]}
+    T = {st: m(f"{st}_dsm", "rho_M") for st in STARTS}; Tv = {st: bool(v >= 0.8) for st, v in T.items()}
+    P2p = {st: dict(rho_M_as=m(f"{st}_as", "rho_M"), rho_M_dsm=T[st], value=bool(m(f"{st}_as", "rho_M") <= 0.3)) for st in STARTS if Tv[st]}
     R["verdict"] = dict(T_values=T, T_per_start=Tv, T=any(Tv.values()), P2prime=P2p, A_m=-0.5442); json.dump(R, open(OUT / "analysis_runs2.json", "w"), indent=1, default=float); print(json.dumps(R["verdict"], indent=1, default=float))
 print(f"{c}: {time.time() - T0:.1f} s")
