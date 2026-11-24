@@ -1854,3 +1854,19 @@ Moyennes des évaluations des époques 350, 400, 450 (écart entre évaluations)
 - **Limites** : une graine ; 500 époques depuis un départ entraîné par AS ; masses exactes ; un seul décalage (0,3) ; modes pondérés de façon égale.
 
 **Amendement daté 2026-11-24 (étiquette de l'utilisateur, sans changement de la règle ni du verdict écrit)** : le verdict de P2 ci-dessus (faux) est conservé ; il est **étiqueté I** (témoin DSM non convergé : 43 % du décalage de 0,3). Suite : `rules_shape_correction_2.md` (décalage 1,0, deux départs).
+
+## Complément « correction de forme » : décalage 1,0, départ réinitialisé (2026-11-24, `rules_shape_correction_2.md` + amendement daté, commit 0ab9cb0 puis amendement avant la location)
+Écrit pour : Hadrien. Version réduite décidée par l'utilisateur : **départ (ii) seul** (contrôleur réinitialisé), AS et DSM sur le buffer (M') (masses et covariance exactes, moyenne décalée de δ = 1,0 σ_tar). Résultats : `figures/shape_correction/analysis_runs2.json` ; échantillons dans `results/selftrain_runs/sd_Mp_{as,dsm}_ii_d128`. Une graine, 500 époques. **Coût** : instance utilisée 11,3 min (≤ 0,019 $) + location ratée comptée à l'estimation haute (0,020 $) = **≤ 0,039 $** sur un plafond de 0,08 $ ; instance détruite après rapatriement (0 restante). Offre prise : fiabilité 0,9965 (critère d'origine), 0,0989 $/h facturé (annoncé 0,0943 $/h hors stockage).
+
+Moyennes des évaluations des époques 350, 400, 450 (écart entre évaluations) :
+
+| bras | ρ_M (δ = 1) | ρ_V | TV par bassin | TV de Voronoï | Q1 |
+|---|---|---|---|---|---|
+| DSM, départ (ii) | **0,363** (0,017) | 1,506 (0,025) | 0,0573 (0,0221) | 0,088 | 1,235 |
+| AS, départ (ii) | −0,018 (0,015) | 1,108 (0,006) | 0,0405 (0,0104) | 0,113 | 1,061 |
+
+- **T (ρ_M(DSM, départ ii) ≥ 0,8) : FAUSSE** (0,363 ; fin de run 0,366). **Le test est déclaré non concluant, sans lecture sur AS** (règle écrite d'avance). P2' n'est pas évaluée.
+- **Descriptif seulement** (ne vaut pas lecture) : ρ_M(AS) = −0,018, à comparer à A_m = −0,54 : la valeur prédite n'est pas retrouvée, AS est au plancher (−0,05) ; le DSM, lui, suit le décalage à 36 % seulement (même ordre que 43 % à δ = 0,3) et reste sur-large (ρ_V 1,51 contre un plancher de 1,16 à départ commun). **Le témoin DSM ne converge pas vers la position du buffer en 500 époques, à δ = 0,3 comme à δ = 1,0, de départ commun ou réinitialisé** (le départ (i) à δ = 1 n'a pas été lancé). Le DSM sur ce montage n'est donc pas un témoin de recopie de la position.
+- **Masses** : TV par bassin 0,0405 (AS) et 0,0573 (DSM, dispersion entre évaluations 0,022).
+- **Mes prédictions** : T vraie 45 % sur (ii) (fausse) ; test non concluant 45 % (réalisé).
+- **Limites** : une graine ; un seul décalage ; départ (i) non lancé ; le DSM n'a pas convergé (pondération standard, 500 époques) : le défaut peut venir de l'apprenant DSM et non du principe.
