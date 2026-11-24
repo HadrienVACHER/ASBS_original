@@ -1,0 +1,19 @@
+{
+ "3250": {
+  "n": 100,
+  "frac_collapsed": 0.94,
+  "med_tv": 0.5,
+  "med_cost": 260000.0,
+  "med_steps": 16.0,
+  "n_count2_gt_1pct": 6
+ },
+ "2300": {
+  "n": 100,
+  "frac_collapsed": 0.96,
+  "med_tv": 0.5,
+  "med_cost": 184000.0,
+  "med_steps": 16.0,
+  "n_count2_gt_1pct": 5
+ },
+ "E7": true
+}
