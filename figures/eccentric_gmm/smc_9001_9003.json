@@ -1,0 +1,80 @@
+[
+ {
+  "seed": 9001,
+  "smc_steps": 15,
+  "smc_cost": 75000,
+  "smc_p2": 0.0,
+  "smc_count2": 0,
+  "smc_tv": 0.5,
+  "bank_n": 2,
+  "bank_has": [
+   true,
+   true
+  ],
+  "bank_cost": 22000,
+  "dart_p2": 0.0,
+  "dart_tv": 0.5,
+  "dart": {
+   "jump_acc": 1.0,
+   "mala_acc": 0.597,
+   "cost": 163300,
+   "map": "translation"
+  },
+  "proxy_is_p2": 0.0,
+  "proxy_raw_p2": 0.0,
+  "proxy_dart_p2": 0.0,
+  "proxy_dart_tv": 0.5
+ },
+ {
+  "seed": 9002,
+  "smc_steps": 16,
+  "smc_cost": 80000,
+  "smc_p2": 0.0,
+  "smc_count2": 0,
+  "smc_tv": 0.5,
+  "bank_n": 2,
+  "bank_has": [
+   true,
+   true
+  ],
+  "bank_cost": 22000,
+  "dart_p2": 0.0,
+  "dart_tv": 0.5,
+  "dart": {
+   "jump_acc": 1.0,
+   "mala_acc": 0.5939,
+   "cost": 163300,
+   "map": "translation"
+  },
+  "proxy_is_p2": 0.0,
+  "proxy_raw_p2": 0.0,
+  "proxy_dart_p2": 0.0,
+  "proxy_dart_tv": 0.5
+ },
+ {
+  "seed": 9003,
+  "smc_steps": 15,
+  "smc_cost": 75000,
+  "smc_p2": 0.0,
+  "smc_count2": 0,
+  "smc_tv": 0.5,
+  "bank_n": 2,
+  "bank_has": [
+   true,
+   true
+  ],
+  "bank_cost": 22000,
+  "dart_p2": 0.0,
+  "dart_tv": 0.5,
+  "dart": {
+   "jump_acc": 1.0,
+   "mala_acc": 0.59696,
+   "cost": 163300,
+   "map": "translation"
+  },
+  "proxy_is_p2": 0.0,
+  "proxy_raw_p2": 0.0,
+  "proxy_dart_p2": 0.0,
+  "proxy_dart_tv": 0.5
+ }
+]

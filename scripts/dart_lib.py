@@ -68,15 +68,16 @@ def is_stats(lw, c, K, ptrue):
                 logz=float(logsumexp(lw) - math.log(n)), logz_se=float(wn.std() / math.sqrt(n)), p_hat=props(c, K, w).tolist())
 
 
-def darting(pi, X, mu, ptrue, discover=500, SW=(1, 5, 10), seed=99, keep_final=False, minima=None, force_translation=False, mala_step=None):
+def darting(pi, X, mu, ptrue, discover=500, SW=(1, 5, 10), seed=99, keep_final=False, minima=None, force_translation=False, mala_step=None, jump_prob=1.0):
     """ protocol of the phase 0 (500 discovery samples, quench, Hessians by finite differences, 1 jump + 5 MALA steps per sweep, MALA step tuned once for 0.6): returns a dict (None-safe) with TV, acceptances and cost per S.
         minima (optional, rules_bank_darting_dk.md): an EXTERNAL bank of minima [m, d] used instead of the discovery on X (its search cost is counted by the caller).
         force_translation (optional, rules_bank_incomplete.md): jump x -> x - m_a + m_b even if the Hessians differ (valid, Jacobian 1, but ignores the shapes); default False = the Hessian map when they differ.
+        jump_prob (optional, rules_eccentric_gmm.md): probability that a point ATTEMPTS its jump in a sweep (lazy jump, default 1 = unchanged, no extra random draw). With only 2 minima and equal weights the jump is accepted with probability 1 and flips the mode deterministically: the kernel is periodic (period 2) and the mass after S sweeps is 0 or 1; jump_prob = 0.5 removes the periodicity (valid: the lazy kernel still preserves pi).
         mala_step (optional, rules_mosw_affine_freeze.md): a given MALA step, no tuning on the batch (the tuning cost is then not counted). """
     K, d, n = pi.K, pi.d, len(X)
     cost = dict(E=0, G=0); res = {}
     if minima is not None:
-        return _darting_from_minima(pi, X, mu, ptrue, np.asarray(minima, float), SW, seed, keep_final, cost, res, force_translation, mala_step)
+        return _darting_from_minima(pi, X, mu, ptrue, np.asarray(minima, float), SW, seed, keep_final, cost, res, force_translation, mala_step, jump_prob)
     y = X[:discover].copy()
     for it in range(4000):
         _, g = pi.logp_grad(y); cost["G"] += len(y); y = y + 0.7 * g
@@ -91,13 +92,13 @@ def darting(pi, X, mu, ptrue, discover=500, SW=(1, 5, 10), seed=99, keep_final=F
     return _darting_from_minima(pi, X, mu, ptrue, M, SW, seed, keep_final, cost, res, force_translation, mala_step)
 
 
-def _darting_from_minima(pi, X, mu, ptrue, M, SW, seed, keep_final, cost, res, force_translation=False, mala_step=None):
+def _darting_from_minima(pi, X, mu, ptrue, M, SW, seed, keep_final, cost, res, force_translation=False, mala_step=None, jump_prob=1.0):
     K, d, n = pi.K, pi.d, len(X)
     res["minima_found"] = int(len(M))
     if len(M) < 2:
         res["error"] = f"{len(M)} minima discovered"; return res
     for _ in range(50):
-        _, g = pi.logp_grad(M); cost["G"] += len(M); M = M + 0.7 * g
+        _, g = pi.logp_grad(M); cost["G"] += len(M); M = M + 0.7 * pi.std ** 2 * g                  # std ** 2 = 1 for every target before rules_eccentric_gmm.md (unchanged); the gradient scales as 1 / std^2
     h = 1e-4; Hs = []
     for m in M:
         E = np.eye(d) * h
@@ -151,7 +152,9 @@ def _darting_from_minima(pi, X, mu, ptrue, M, SW, seed, keep_final, cost, res, f
             logJ = 0.5 * (logdet[a] - logdet[b])
         valid = vor(Y) == b
         lpy = pi.logp(Y); cost["E"] += n
-        acc = valid & (np.log(rd.random(n)) < lpy - lp + logJ); ja += int(acc.sum()); jp += n
+        acc = valid & (np.log(rd.random(n)) < lpy - lp + logJ)
+        if jump_prob < 1.0: acc &= rd.random(n) < jump_prob                              # lazy jump (only if requested: the default random stream is unchanged)
+        ja += int(acc.sum()); jp += n
         if acc.any():
             _, gy = pi.logp_grad(Y[acc]); cost["G"] += int(acc.sum()); Xc[acc] = Y[acc]; lp = np.where(acc, lpy, lp); g[acc] = gy
         for _s in range(5):

@@ -1,0 +1,142 @@
+[
+ {
+  "seed": 9001,
+  "bank_n": 2,
+  "has": [
+   true,
+   true
+  ],
+  "starts_per_mode": [
+   996,
+   4
+  ],
+  "frac_conv": 1.0,
+  "cost": 22000
+ },
+ {
+  "seed": 9002,
+  "bank_n": 2,
+  "has": [
+   true,
+   true
+  ],
+  "starts_per_mode": [
+   994,
+   6
+  ],
+  "frac_conv": 1.0,
+  "cost": 22000
+ },
+ {
+  "seed": 9003,
+  "bank_n": 2,
+  "has": [
+   true,
+   true
+  ],
+  "starts_per_mode": [
+   998,
+   2
+  ],
+  "frac_conv": 1.0,
+  "cost": 22000
+ },
+ {
+  "seed": 9004,
+  "bank_n": 2,
+  "has": [
+   true,
+   true
+  ],
+  "starts_per_mode": [
+   998,
+   2
+  ],
+  "frac_conv": 1.0,
+  "cost": 22000
+ },
+ {
+  "seed": 9005,
+  "bank_n": 2,
+  "has": [
+   true,
+   true
+  ],
+  "starts_per_mode": [
+   994,
+   6
+  ],
+  "frac_conv": 1.0,
+  "cost": 22000
+ },
+ {
+  "seed": 9006,
+  "bank_n": 2,
+  "has": [
+   true,
+   true
+  ],
+  "starts_per_mode": [
+   999,
+   1
+  ],
+  "frac_conv": 1.0,
+  "cost": 22000
+ },
+ {
+  "seed": 9007,
+  "bank_n": 2,
+  "has": [
+   true,
+   true
+  ],
+  "starts_per_mode": [
+   996,
+   4
+  ],
+  "frac_conv": 1.0,
+  "cost": 22000
+ },
+ {
+  "seed": 9008,
+  "bank_n": 2,
+  "has": [
+   true,
+   true
+  ],
+  "starts_per_mode": [
+   996,
+   4
+  ],
+  "frac_conv": 1.0,
+  "cost": 22000
+ },
+ {
+  "seed": 9009,
+  "bank_n": 2,
+  "has": [
+   true,
+   true
+  ],
+  "starts_per_mode": [
+   994,
+   6
+  ],
+  "frac_conv": 1.0,
+  "cost": 22000
+ },
+ {
+  "seed": 9010,
+  "bank_n": 2,
+  "has": [
+   true,
+   true
+  ],
+  "starts_per_mode": [
+   998,
+   2
+  ],
+  "frac_conv": 1.0,
+  "cost": 22000
+ }
+]
