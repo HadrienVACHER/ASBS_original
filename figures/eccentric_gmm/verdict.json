@@ -1,0 +1,54 @@
+{
+ "E1": {
+  "n": 100,
+  "both": 100,
+  "starts_mode2_median": 4.0,
+  "starts_mode2_mean": 3.94,
+  "value": true
+ },
+ "E2": {
+  "n_runs": 100,
+  "n_collapse": 98,
+  "frac_collapse": 0.98,
+  "count2_values": [
+   0,
+   0,
+   0,
+   0,
+   0,
+   "...",
+   0,
+   0,
+   0,
+   940,
+   983
+  ]
+ },
+ "E3": {
+  "n_collapse": 98,
+  "n_with_dart": 96,
+  "med_tv_smc": 0.5,
+  "med_tv_dart": 0.01050000000000001,
+  "frac_dart_le_0_10": 0.9795918367346939,
+  "value": true
+ },
+ "E4": {
+  "n": 100,
+  "med_tv_is": 0.5,
+  "med_tv_dart": 0.01200000000000001,
+  "frac_dart_le_0_10": 0.98,
+  "value": true
+ },
+ "E5": {
+  "n_noncollapse": 2,
+  "med_diff": -0.43249999999999994,
+  "value": "non \u00e9valuable (moins de 5 runs)"
+ },
+ "E6": {
+  "smc_cost_median": 80000.0,
+  "bank_cost_median": 22000.0,
+  "dart_cost_median": 158293.5,
+  "smc_steps_median": 16.0,
+  "dart_jump_acc_median": 0.49935
+ }
+}

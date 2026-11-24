@@ -1,0 +1,1402 @@
+[
+ {
+  "seed": 1,
+  "bank_n": 2,
+  "has": [
+   true,
+   true
+  ],
+  "starts_per_mode": [
+   995,
+   5
+  ],
+  "frac_conv": 1.0,
+  "cost": 22000
+ },
+ {
+  "seed": 2,
+  "bank_n": 2,
+  "has": [
+   true,
+   true
+  ],
+  "starts_per_mode": [
+   994,
+   6
+  ],
+  "frac_conv": 1.0,
+  "cost": 22000
+ },
+ {
+  "seed": 3,
+  "bank_n": 2,
+  "has": [
+   true,
+   true
+  ],
+  "starts_per_mode": [
+   994,
+   6
+  ],
+  "frac_conv": 1.0,
+  "cost": 22000
+ },
+ {
+  "seed": 4,
+  "bank_n": 2,
+  "has": [
+   true,
+   true
+  ],
+  "starts_per_mode": [
+   995,
+   5
+  ],
+  "frac_conv": 1.0,
+  "cost": 22000
+ },
+ {
+  "seed": 5,
+  "bank_n": 2,
+  "has": [
+   true,
+   true
+  ],
+  "starts_per_mode": [
+   996,
+   4
+  ],
+  "frac_conv": 1.0,
+  "cost": 22000
+ },
+ {
+  "seed": 6,
+  "bank_n": 2,
+  "has": [
+   true,
+   true
+  ],
+  "starts_per_mode": [
+   998,
+   2
+  ],
+  "frac_conv": 1.0,
+  "cost": 22000
+ },
+ {
+  "seed": 7,
+  "bank_n": 2,
+  "has": [
+   true,
+   true
+  ],
+  "starts_per_mode": [
+   999,
+   1
+  ],
+  "frac_conv": 1.0,
+  "cost": 22000
+ },
+ {
+  "seed": 8,
+  "bank_n": 2,
+  "has": [
+   true,
+   true
+  ],
+  "starts_per_mode": [
+   994,
+   6
+  ],
+  "frac_conv": 1.0,
+  "cost": 22000
+ },
+ {
+  "seed": 9,
+  "bank_n": 2,
+  "has": [
+   true,
+   true
+  ],
+  "starts_per_mode": [
+   997,
+   3
+  ],
+  "frac_conv": 1.0,
+  "cost": 22000
+ },
+ {
+  "seed": 10,
+  "bank_n": 2,
+  "has": [
+   true,
+   true
+  ],
+  "starts_per_mode": [
+   998,
+   2
+  ],
+  "frac_conv": 1.0,
+  "cost": 22000
+ },
+ {
+  "seed": 11,
+  "bank_n": 2,
+  "has": [
+   true,
+   true
+  ],
+  "starts_per_mode": [
+   994,
+   6
+  ],
+  "frac_conv": 1.0,
+  "cost": 22000
+ },
+ {
+  "seed": 12,
+  "bank_n": 2,
+  "has": [
+   true,
+   true
+  ],
+  "starts_per_mode": [
+   998,
+   2
+  ],
+  "frac_conv": 1.0,
+  "cost": 22000
+ },
+ {
+  "seed": 13,
+  "bank_n": 2,
+  "has": [
+   true,
+   true
+  ],
+  "starts_per_mode": [
+   995,
+   5
+  ],
+  "frac_conv": 1.0,
+  "cost": 22000
+ },
+ {
+  "seed": 14,
+  "bank_n": 2,
+  "has": [
+   true,
+   true
+  ],
+  "starts_per_mode": [
+   997,
+   3
+  ],
+  "frac_conv": 1.0,
+  "cost": 22000
+ },
+ {
+  "seed": 15,
+  "bank_n": 2,
+  "has": [
+   true,
+   true
+  ],
+  "starts_per_mode": [
+   997,
+   3
+  ],
+  "frac_conv": 1.0,
+  "cost": 22000
+ },
+ {
+  "seed": 16,
+  "bank_n": 2,
+  "has": [
+   true,
+   true
+  ],
+  "starts_per_mode": [
+   998,
+   2
+  ],
+  "frac_conv": 1.0,
+  "cost": 22000
+ },
+ {
+  "seed": 17,
+  "bank_n": 2,
+  "has": [
+   true,
+   true
+  ],
+  "starts_per_mode": [
+   996,
+   4
+  ],
+  "frac_conv": 1.0,
+  "cost": 22000
+ },
+ {
+  "seed": 18,
+  "bank_n": 2,
+  "has": [
+   true,
+   true
+  ],
+  "starts_per_mode": [
+   997,
+   3
+  ],
+  "frac_conv": 1.0,
+  "cost": 22000
+ },
+ {
+  "seed": 19,
+  "bank_n": 2,
+  "has": [
+   true,
+   true
+  ],
+  "starts_per_mode": [
+   997,
+   3
+  ],
+  "frac_conv": 1.0,
+  "cost": 22000
+ },
+ {
+  "seed": 20,
+  "bank_n": 2,
+  "has": [
+   true,
+   true
+  ],
+  "starts_per_mode": [
+   997,
+   3
+  ],
+  "frac_conv": 1.0,
+  "cost": 22000
+ },
+ {
+  "seed": 21,
+  "bank_n": 2,
+  "has": [
+   true,
+   true
+  ],
+  "starts_per_mode": [
+   997,
+   3
+  ],
+  "frac_conv": 1.0,
+  "cost": 22000
+ },
+ {
+  "seed": 22,
+  "bank_n": 2,
+  "has": [
+   true,
+   true
+  ],
+  "starts_per_mode": [
+   995,
+   5
+  ],
+  "frac_conv": 1.0,
+  "cost": 22000
+ },
+ {
+  "seed": 23,
+  "bank_n": 2,
+  "has": [
+   true,
+   true
+  ],
+  "starts_per_mode": [
+   998,
+   2
+  ],
+  "frac_conv": 1.0,
+  "cost": 22000
+ },
+ {
+  "seed": 24,
+  "bank_n": 2,
+  "has": [
+   true,
+   true
+  ],
+  "starts_per_mode": [
+   998,
+   2
+  ],
+  "frac_conv": 1.0,
+  "cost": 22000
+ },
+ {
+  "seed": 25,
+  "bank_n": 2,
+  "has": [
+   true,
+   true
+  ],
+  "starts_per_mode": [
+   997,
+   3
+  ],
+  "frac_conv": 1.0,
+  "cost": 22000
+ },
+ {
+  "seed": 26,
+  "bank_n": 2,
+  "has": [
+   true,
+   true
+  ],
+  "starts_per_mode": [
+   994,
+   6
+  ],
+  "frac_conv": 1.0,
+  "cost": 22000
+ },
+ {
+  "seed": 27,
+  "bank_n": 2,
+  "has": [
+   true,
+   true
+  ],
+  "starts_per_mode": [
+   996,
+   4
+  ],
+  "frac_conv": 1.0,
+  "cost": 22000
+ },
+ {
+  "seed": 28,
+  "bank_n": 2,
+  "has": [
+   true,
+   true
+  ],
+  "starts_per_mode": [
+   996,
+   4
+  ],
+  "frac_conv": 1.0,
+  "cost": 22000
+ },
+ {
+  "seed": 29,
+  "bank_n": 2,
+  "has": [
+   true,
+   true
+  ],
+  "starts_per_mode": [
+   996,
+   4
+  ],
+  "frac_conv": 1.0,
+  "cost": 22000
+ },
+ {
+  "seed": 30,
+  "bank_n": 2,
+  "has": [
+   true,
+   true
+  ],
+  "starts_per_mode": [
+   997,
+   3
+  ],
+  "frac_conv": 1.0,
+  "cost": 22000
+ },
+ {
+  "seed": 31,
+  "bank_n": 2,
+  "has": [
+   true,
+   true
+  ],
+  "starts_per_mode": [
+   999,
+   1
+  ],
+  "frac_conv": 1.0,
+  "cost": 22000
+ },
+ {
+  "seed": 32,
+  "bank_n": 2,
+  "has": [
+   true,
+   true
+  ],
+  "starts_per_mode": [
+   996,
+   4
+  ],
+  "frac_conv": 1.0,
+  "cost": 22000
+ },
+ {
+  "seed": 33,
+  "bank_n": 2,
+  "has": [
+   true,
+   true
+  ],
+  "starts_per_mode": [
+   996,
+   4
+  ],
+  "frac_conv": 1.0,
+  "cost": 22000
+ },
+ {
+  "seed": 34,
+  "bank_n": 2,
+  "has": [
+   true,
+   true
+  ],
+  "starts_per_mode": [
+   993,
+   7
+  ],
+  "frac_conv": 1.0,
+  "cost": 22000
+ },
+ {
+  "seed": 35,
+  "bank_n": 2,
+  "has": [
+   true,
+   true
+  ],
+  "starts_per_mode": [
+   998,
+   2
+  ],
+  "frac_conv": 1.0,
+  "cost": 22000
+ },
+ {
+  "seed": 36,
+  "bank_n": 2,
+  "has": [
+   true,
+   true
+  ],
+  "starts_per_mode": [
+   996,
+   4
+  ],
+  "frac_conv": 1.0,
+  "cost": 22000
+ },
+ {
+  "seed": 37,
+  "bank_n": 2,
+  "has": [
+   true,
+   true
+  ],
+  "starts_per_mode": [
+   996,
+   4
+  ],
+  "frac_conv": 1.0,
+  "cost": 22000
+ },
+ {
+  "seed": 38,
+  "bank_n": 2,
+  "has": [
+   true,
+   true
+  ],
+  "starts_per_mode": [
+   997,
+   3
+  ],
+  "frac_conv": 1.0,
+  "cost": 22000
+ },
+ {
+  "seed": 39,
+  "bank_n": 2,
+  "has": [
+   true,
+   true
+  ],
+  "starts_per_mode": [
+   996,
+   4
+  ],
+  "frac_conv": 1.0,
+  "cost": 22000
+ },
+ {
+  "seed": 40,
+  "bank_n": 2,
+  "has": [
+   true,
+   true
+  ],
+  "starts_per_mode": [
+   996,
+   4
+  ],
+  "frac_conv": 1.0,
+  "cost": 22000
+ },
+ {
+  "seed": 41,
+  "bank_n": 2,
+  "has": [
+   true,
+   true
+  ],
+  "starts_per_mode": [
+   997,
+   3
+  ],
+  "frac_conv": 1.0,
+  "cost": 22000
+ },
+ {
+  "seed": 42,
+  "bank_n": 2,
+  "has": [
+   true,
+   true
+  ],
+  "starts_per_mode": [
+   992,
+   8
+  ],
+  "frac_conv": 1.0,
+  "cost": 22000
+ },
+ {
+  "seed": 43,
+  "bank_n": 2,
+  "has": [
+   true,
+   true
+  ],
+  "starts_per_mode": [
+   995,
+   5
+  ],
+  "frac_conv": 1.0,
+  "cost": 22000
+ },
+ {
+  "seed": 44,
+  "bank_n": 2,
+  "has": [
+   true,
+   true
+  ],
+  "starts_per_mode": [
+   999,
+   1
+  ],
+  "frac_conv": 1.0,
+  "cost": 22000
+ },
+ {
+  "seed": 45,
+  "bank_n": 2,
+  "has": [
+   true,
+   true
+  ],
+  "starts_per_mode": [
+   994,
+   6
+  ],
+  "frac_conv": 1.0,
+  "cost": 22000
+ },
+ {
+  "seed": 46,
+  "bank_n": 2,
+  "has": [
+   true,
+   true
+  ],
+  "starts_per_mode": [
+   999,
+   1
+  ],
+  "frac_conv": 1.0,
+  "cost": 22000
+ },
+ {
+  "seed": 47,
+  "bank_n": 2,
+  "has": [
+   true,
+   true
+  ],
+  "starts_per_mode": [
+   994,
+   6
+  ],
+  "frac_conv": 1.0,
+  "cost": 22000
+ },
+ {
+  "seed": 48,
+  "bank_n": 2,
+  "has": [
+   true,
+   true
+  ],
+  "starts_per_mode": [
+   996,
+   4
+  ],
+  "frac_conv": 1.0,
+  "cost": 22000
+ },
+ {
+  "seed": 49,
+  "bank_n": 2,
+  "has": [
+   true,
+   true
+  ],
+  "starts_per_mode": [
+   997,
+   3
+  ],
+  "frac_conv": 1.0,
+  "cost": 22000
+ },
+ {
+  "seed": 50,
+  "bank_n": 2,
+  "has": [
+   true,
+   true
+  ],
+  "starts_per_mode": [
+   996,
+   4
+  ],
+  "frac_conv": 1.0,
+  "cost": 22000
+ },
+ {
+  "seed": 51,
+  "bank_n": 2,
+  "has": [
+   true,
+   true
+  ],
+  "starts_per_mode": [
+   998,
+   2
+  ],
+  "frac_conv": 1.0,
+  "cost": 22000
+ },
+ {
+  "seed": 52,
+  "bank_n": 2,
+  "has": [
+   true,
+   true
+  ],
+  "starts_per_mode": [
+   999,
+   1
+  ],
+  "frac_conv": 1.0,
+  "cost": 22000
+ },
+ {
+  "seed": 53,
+  "bank_n": 2,
+  "has": [
+   true,
+   true
+  ],
+  "starts_per_mode": [
+   993,
+   7
+  ],
+  "frac_conv": 1.0,
+  "cost": 22000
+ },
+ {
+  "seed": 54,
+  "bank_n": 2,
+  "has": [
+   true,
+   true
+  ],
+  "starts_per_mode": [
+   996,
+   4
+  ],
+  "frac_conv": 1.0,
+  "cost": 22000
+ },
+ {
+  "seed": 55,
+  "bank_n": 2,
+  "has": [
+   true,
+   true
+  ],
+  "starts_per_mode": [
+   993,
+   7
+  ],
+  "frac_conv": 1.0,
+  "cost": 22000
+ },
+ {
+  "seed": 56,
+  "bank_n": 2,
+  "has": [
+   true,
+   true
+  ],
+  "starts_per_mode": [
+   997,
+   3
+  ],
+  "frac_conv": 1.0,
+  "cost": 22000
+ },
+ {
+  "seed": 57,
+  "bank_n": 2,
+  "has": [
+   true,
+   true
+  ],
+  "starts_per_mode": [
+   996,
+   4
+  ],
+  "frac_conv": 1.0,
+  "cost": 22000
+ },
+ {
+  "seed": 58,
+  "bank_n": 2,
+  "has": [
+   true,
+   true
+  ],
+  "starts_per_mode": [
+   998,
+   2
+  ],
+  "frac_conv": 1.0,
+  "cost": 22000
+ },
+ {
+  "seed": 59,
+  "bank_n": 2,
+  "has": [
+   true,
+   true
+  ],
+  "starts_per_mode": [
+   993,
+   7
+  ],
+  "frac_conv": 1.0,
+  "cost": 22000
+ },
+ {
+  "seed": 60,
+  "bank_n": 2,
+  "has": [
+   true,
+   true
+  ],
+  "starts_per_mode": [
+   995,
+   5
+  ],
+  "frac_conv": 1.0,
+  "cost": 22000
+ },
+ {
+  "seed": 61,
+  "bank_n": 2,
+  "has": [
+   true,
+   true
+  ],
+  "starts_per_mode": [
+   998,
+   2
+  ],
+  "frac_conv": 1.0,
+  "cost": 22000
+ },
+ {
+  "seed": 62,
+  "bank_n": 2,
+  "has": [
+   true,
+   true
+  ],
+  "starts_per_mode": [
+   995,
+   5
+  ],
+  "frac_conv": 1.0,
+  "cost": 22000
+ },
+ {
+  "seed": 63,
+  "bank_n": 2,
+  "has": [
+   true,
+   true
+  ],
+  "starts_per_mode": [
+   997,
+   3
+  ],
+  "frac_conv": 1.0,
+  "cost": 22000
+ },
+ {
+  "seed": 64,
+  "bank_n": 2,
+  "has": [
+   true,
+   true
+  ],
+  "starts_per_mode": [
+   994,
+   6
+  ],
+  "frac_conv": 1.0,
+  "cost": 22000
+ },
+ {
+  "seed": 65,
+  "bank_n": 2,
+  "has": [
+   true,
+   true
+  ],
+  "starts_per_mode": [
+   998,
+   2
+  ],
+  "frac_conv": 1.0,
+  "cost": 22000
+ },
+ {
+  "seed": 66,
+  "bank_n": 2,
+  "has": [
+   true,
+   true
+  ],
+  "starts_per_mode": [
+   995,
+   5
+  ],
+  "frac_conv": 1.0,
+  "cost": 22000
+ },
+ {
+  "seed": 67,
+  "bank_n": 2,
+  "has": [
+   true,
+   true
+  ],
+  "starts_per_mode": [
+   996,
+   4
+  ],
+  "frac_conv": 1.0,
+  "cost": 22000
+ },
+ {
+  "seed": 68,
+  "bank_n": 2,
+  "has": [
+   true,
+   true
+  ],
+  "starts_per_mode": [
+   996,
+   4
+  ],
+  "frac_conv": 1.0,
+  "cost": 22000
+ },
+ {
+  "seed": 69,
+  "bank_n": 2,
+  "has": [
+   true,
+   true
+  ],
+  "starts_per_mode": [
+   994,
+   6
+  ],
+  "frac_conv": 1.0,
+  "cost": 22000
+ },
+ {
+  "seed": 70,
+  "bank_n": 2,
+  "has": [
+   true,
+   true
+  ],
+  "starts_per_mode": [
+   994,
+   6
+  ],
+  "frac_conv": 1.0,
+  "cost": 22000
+ },
+ {
+  "seed": 71,
+  "bank_n": 2,
+  "has": [
+   true,
+   true
+  ],
+  "starts_per_mode": [
+   996,
+   4
+  ],
+  "frac_conv": 1.0,
+  "cost": 22000
+ },
+ {
+  "seed": 72,
+  "bank_n": 2,
+  "has": [
+   true,
+   true
+  ],
+  "starts_per_mode": [
+   995,
+   5
+  ],
+  "frac_conv": 1.0,
+  "cost": 22000
+ },
+ {
+  "seed": 73,
+  "bank_n": 2,
+  "has": [
+   true,
+   true
+  ],
+  "starts_per_mode": [
+   997,
+   3
+  ],
+  "frac_conv": 1.0,
+  "cost": 22000
+ },
+ {
+  "seed": 74,
+  "bank_n": 2,
+  "has": [
+   true,
+   true
+  ],
+  "starts_per_mode": [
+   991,
+   9
+  ],
+  "frac_conv": 1.0,
+  "cost": 22000
+ },
+ {
+  "seed": 75,
+  "bank_n": 2,
+  "has": [
+   true,
+   true
+  ],
+  "starts_per_mode": [
+   994,
+   6
+  ],
+  "frac_conv": 1.0,
+  "cost": 27000
+ },
+ {
+  "seed": 76,
+  "bank_n": 2,
+  "has": [
+   true,
+   true
+  ],
+  "starts_per_mode": [
+   997,
+   3
+  ],
+  "frac_conv": 1.0,
+  "cost": 22000
+ },
+ {
+  "seed": 77,
+  "bank_n": 2,
+  "has": [
+   true,
+   true
+  ],
+  "starts_per_mode": [
+   998,
+   2
+  ],
+  "frac_conv": 1.0,
+  "cost": 22000
+ },
+ {
+  "seed": 78,
+  "bank_n": 2,
+  "has": [
+   true,
+   true
+  ],
+  "starts_per_mode": [
+   998,
+   2
+  ],
+  "frac_conv": 1.0,
+  "cost": 22000
+ },
+ {
+  "seed": 79,
+  "bank_n": 2,
+  "has": [
+   true,
+   true
+  ],
+  "starts_per_mode": [
+   997,
+   3
+  ],
+  "frac_conv": 1.0,
+  "cost": 22000
+ },
+ {
+  "seed": 80,
+  "bank_n": 2,
+  "has": [
+   true,
+   true
+  ],
+  "starts_per_mode": [
+   996,
+   4
+  ],
+  "frac_conv": 1.0,
+  "cost": 22000
+ },
+ {
+  "seed": 81,
+  "bank_n": 2,
+  "has": [
+   true,
+   true
+  ],
+  "starts_per_mode": [
+   995,
+   5
+  ],
+  "frac_conv": 1.0,
+  "cost": 22000
+ },
+ {
+  "seed": 82,
+  "bank_n": 2,
+  "has": [
+   true,
+   true
+  ],
+  "starts_per_mode": [
+   996,
+   4
+  ],
+  "frac_conv": 1.0,
+  "cost": 22000
+ },
+ {
+  "seed": 83,
+  "bank_n": 2,
+  "has": [
+   true,
+   true
+  ],
+  "starts_per_mode": [
+   998,
+   2
+  ],
+  "frac_conv": 1.0,
+  "cost": 22000
+ },
+ {
+  "seed": 84,
+  "bank_n": 2,
+  "has": [
+   true,
+   true
+  ],
+  "starts_per_mode": [
+   999,
+   1
+  ],
+  "frac_conv": 1.0,
+  "cost": 22000
+ },
+ {
+  "seed": 85,
+  "bank_n": 2,
+  "has": [
+   true,
+   true
+  ],
+  "starts_per_mode": [
+   999,
+   1
+  ],
+  "frac_conv": 1.0,
+  "cost": 22000
+ },
+ {
+  "seed": 86,
+  "bank_n": 2,
+  "has": [
+   true,
+   true
+  ],
+  "starts_per_mode": [
+   996,
+   4
+  ],
+  "frac_conv": 1.0,
+  "cost": 22000
+ },
+ {
+  "seed": 87,
+  "bank_n": 2,
+  "has": [
+   true,
+   true
+  ],
+  "starts_per_mode": [
+   995,
+   5
+  ],
+  "frac_conv": 1.0,
+  "cost": 22000
+ },
+ {
+  "seed": 88,
+  "bank_n": 2,
+  "has": [
+   true,
+   true
+  ],
+  "starts_per_mode": [
+   995,
+   5
+  ],
+  "frac_conv": 1.0,
+  "cost": 22000
+ },
+ {
+  "seed": 89,
+  "bank_n": 2,
+  "has": [
+   true,
+   true
+  ],
+  "starts_per_mode": [
+   995,
+   5
+  ],
+  "frac_conv": 1.0,
+  "cost": 22000
+ },
+ {
+  "seed": 90,
+  "bank_n": 2,
+  "has": [
+   true,
+   true
+  ],
+  "starts_per_mode": [
+   996,
+   4
+  ],
+  "frac_conv": 1.0,
+  "cost": 22000
+ },
+ {
+  "seed": 91,
+  "bank_n": 2,
+  "has": [
+   true,
+   true
+  ],
+  "starts_per_mode": [
+   996,
+   4
+  ],
+  "frac_conv": 1.0,
+  "cost": 22000
+ },
+ {
+  "seed": 92,
+  "bank_n": 2,
+  "has": [
+   true,
+   true
+  ],
+  "starts_per_mode": [
+   997,
+   3
+  ],
+  "frac_conv": 1.0,
+  "cost": 22000
+ },
+ {
+  "seed": 93,
+  "bank_n": 2,
+  "has": [
+   true,
+   true
+  ],
+  "starts_per_mode": [
+   992,
+   8
+  ],
+  "frac_conv": 1.0,
+  "cost": 22000
+ },
+ {
+  "seed": 94,
+  "bank_n": 2,
+  "has": [
+   true,
+   true
+  ],
+  "starts_per_mode": [
+   995,
+   5
+  ],
+  "frac_conv": 1.0,
+  "cost": 22000
+ },
+ {
+  "seed": 95,
+  "bank_n": 2,
+  "has": [
+   true,
+   true
+  ],
+  "starts_per_mode": [
+   998,
+   2
+  ],
+  "frac_conv": 1.0,
+  "cost": 22000
+ },
+ {
+  "seed": 96,
+  "bank_n": 2,
+  "has": [
+   true,
+   true
+  ],
+  "starts_per_mode": [
+   997,
+   3
+  ],
+  "frac_conv": 1.0,
+  "cost": 22000
+ },
+ {
+  "seed": 97,
+  "bank_n": 2,
+  "has": [
+   true,
+   true
+  ],
+  "starts_per_mode": [
+   994,
+   6
+  ],
+  "frac_conv": 1.0,
+  "cost": 22000
+ },
+ {
+  "seed": 98,
+  "bank_n": 2,
+  "has": [
+   true,
+   true
+  ],
+  "starts_per_mode": [
+   993,
+   7
+  ],
+  "frac_conv": 1.0,
+  "cost": 22000
+ },
+ {
+  "seed": 99,
+  "bank_n": 2,
+  "has": [
+   true,
+   true
+  ],
+  "starts_per_mode": [
+   997,
+   3
+  ],
+  "frac_conv": 1.0,
+  "cost": 22000
+ },
+ {
+  "seed": 100,
+  "bank_n": 2,
+  "has": [
+   true,
+   true
+  ],
+  "starts_per_mode": [
+   997,
+   3
+  ],
+  "frac_conv": 1.0,
+  "cost": 22000
+ }
+]
