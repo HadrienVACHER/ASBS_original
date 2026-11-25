@@ -1,5 +1,6 @@
 """ rules_shape_correction.md: local CPU analysis.
     python scripts/shape_analyse.py calib     calibration floors on the existing oracle runs (o-AS sd_o_d128, o-DSM sd_od_d128), before the rental
+    python scripts/shape_analyse.py final    rules_shape_final.md (W on seeds 0, 1, 2; T and P2' on the 2000-epoch runs)
     python scripts/shape_analyse.py runs2    rules_shape_correction_2.md: buffer (M') shift 1.0, starts (i) common controller and (ii) re-initialised; arms sd_Mp_<as|dsm>_<i|ii>_d128 ; T, P2'
     python scripts/shape_analyse.py runs      the 4 runs sd_<V|M>_<as|dsm>_d128 : rho_V, rho_M, basin / Voronoi TV, Q1, mean of the evaluations 350, 400, 450 (sd between evaluations) + final; P1, P2, P3 """
 import json, sys, time
@@ -20,9 +21,9 @@ def stats(x):
     return dict(tv_vor=L.tv(pv, pt), tv_basin=L.tv(pb, pt), q1_ratio=float(np.median(B.dist_to_nearest_minimum(x, M))) / med, rho_V=sm["rho_V"], rho_M=sm["rho_M"], rho_V_modes=sm["rho_V_modes"], rho_M_modes=sm["rho_M_modes"], counts=sm["counts"])
 
 
-def run(name):
+def run(name, evals=EVALS):
     per = []
-    for e in EVALS:
+    for e in evals:
         x = torch.load(RUNS / name / "eval_samples" / f"ep{e:05d}.pt", map_location="cpu", weights_only=False).double().numpy(); per.append(dict(epoch=e, **stats(x)))
     xf = torch.load(RUNS / name / "samples_final.pt", map_location="cpu", weights_only=False)["model_samples"].double().numpy()
     agg = {k: dict(mean=float(np.mean([p[k] for p in per])), sd=float(np.std([p[k] for p in per], ddof=1))) for k in ("tv_vor", "tv_basin", "q1_ratio", "rho_V", "rho_M")}
@@ -54,4 +55,21 @@ elif c == "runs2":
     T = {st: m(f"{st}_dsm", "rho_M") for st in STARTS}; Tv = {st: bool(v >= 0.8) for st, v in T.items()}
     P2p = {st: dict(rho_M_as=m(f"{st}_as", "rho_M"), rho_M_dsm=T[st], value=bool(m(f"{st}_as", "rho_M") <= 0.3)) for st in STARTS if Tv[st]}
     R["verdict"] = dict(T_values=T, T_per_start=Tv, T=any(Tv.values()), P2prime=P2p, A_m=-0.5442); json.dump(R, open(OUT / "analysis_runs2.json", "w"), indent=1, default=float); print(json.dumps(R["verdict"], indent=1, default=float))
+elif c == "final":                                                                                  # rules_shape_final.md
+    R = dict(width={}, position={}); sfx = {0: "", 1: "_s1", 2: "_s2"}
+    for sd, x in sfx.items():
+        R["width"][sd] = {a: run(n + x) for a, n in (("V_as", "sd_V_as_d128"), ("V_dsm", "sd_V_dsm_d128"), ("o_as", "sd_o_d128"), ("o_dsm", "sd_od_d128"))}
+    W = {}
+    for sd, r in R["width"].items():
+        g = lambda a: r[a]["agg"]["rho_V"]["mean"]; da, dd = g("V_as") - g("o_as"), g("V_dsm") - g("o_dsm"); W[sd] = dict(delta_as=da, delta_dsm=dd, as_ok=bool(da <= 0), dsm_ok=bool(dd >= 0.30))
+    Wv = dict(per_seed=W, value=bool(all(v["as_ok"] and v["dsm_ok"] for v in W.values())), predicted=dict(as_=-0.10, dsm=0.44))
+    for k in ("delta_as", "delta_dsm"): Wv[k] = dict(mean=float(np.mean([v[k] for v in W.values()])), sd=float(np.std([v[k] for v in W.values()], ddof=1)))
+    SHIFT = 1.0; all_ev = tuple(range(0, 2000, 250))
+    for a in ("as", "dsm"):
+        R["position"][a] = run(f"sd_Mp_{a}_long_d128", all_ev)
+    last3 = lambda a, q: float(np.mean([R["position"][a]["evals"][-2][q], R["position"][a]["evals"][-1][q], R["position"][a]["final"][q]]))
+    fin = lambda a, q: R["position"][a]["final"][q]
+    T = dict(rho_M_dsm_final=fin("dsm", "rho_M"), rho_M_dsm_last3=last3("dsm", "rho_M")); T["value"] = bool(T["rho_M_dsm_final"] >= 0.8); T["last3_agrees"] = bool((T["rho_M_dsm_last3"] >= 0.8) == T["value"])
+    P2 = dict(rho_M_as_final=fin("as", "rho_M"), rho_M_as_last3=last3("as", "rho_M"), value=bool(fin("as", "rho_M") <= 0.3), A_m=-0.5442) if T["value"] else "non évaluée (T faux : non concluant, sans lecture sur AS)"
+    R["verdict"] = dict(W=Wv, T=T, P2prime=P2); json.dump(R, open(OUT / "analysis_final.json", "w"), indent=1, default=float); print(json.dumps(R["verdict"], indent=1, ensure_ascii=False, default=float))
 print(f"{c}: {time.time() - T0:.1f} s")

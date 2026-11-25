@@ -1,0 +1,51 @@
+#!/bin/bash
+#PBS -N shape_final
+#PBS -P gs_ccds_haidang.dau
+#PBS -q gpu_as
+#PBS -l walltime=04:00:00
+#PBS -l select=1:ncpus=8:ngpus=1:mem=48gb
+#PBS -j oe
+
+# rules_shape_final.md. 10 runs on ONE GPU, at most MAXJ at once: 2 long runs (position, 2000 epochs, started first) then 8 runs of 500 epochs (width, seeds 1 and 2; seed 0 is reused locally).
+# A run whose results/<name>/samples_final.pt exists is skipped (the job can be resubmitted). Needs results/wf_start/d128/{controller_start.pt,start_samples.pt} (NOT in git: copy them first).
+# Options (qsub -v): MAXJ (default 6), WANDB (default true), DRY=1 (print the commands only).
+cd "${PBS_O_WORKDIR:-.}" || exit 1
+mkdir -p logs
+export PYTHONUNBUFFERED=1 MPLBACKEND=Agg OMP_NUM_THREADS=1 MKL_NUM_THREADS=1
+MAXJ=${MAXJ:-6}; WANDB=${WANDB:-true}; DRY=${DRY:-0}
+if echo "${CUDA_VISIBLE_DEVICES:-}" | grep -q "GPU-"; then
+    GPU_COUNT=$(echo "${CUDA_VISIBLE_DEVICES}" | tr ',' '\n' | wc -l); CUDA_VISIBLE_DEVICES=$(seq -s, 0 $((GPU_COUNT - 1))); export CUDA_VISIBLE_DEVICES
+fi
+if [ "$DRY" != 1 ]; then
+  module purge; module load anaconda/2025; eval "$(/usr/local/anaconda2025/bin/conda shell.bash hook)"; conda activate BMS
+  echo "Noeud : $(hostname) a $(date)"; nvidia-smi -L; git log --oneline -1
+  for f in results/wf_start/d128/controller_start.pt results/wf_start/d128/start_samples.pt; do [ -f "$f" ] || { echo "FICHIER MANQUANT : $f"; exit 1; }; done
+fi
+COMMIT=$(git rev-parse --short HEAD 2>/dev/null || echo unknown)
+COMMON="dim=128 K=8 delta=6 sigma_max=1.602001 init_controller=results/wf_start/d128/controller_start.pt init_buffer=results/wf_start/d128/start_samples.pt init_buffer_key=buffer_x1 num_eval_samples=10000 +dump_eval_samples=true dump_final=true dump_n_samples=10000 buffer_on_device=true fast_train=true fast_sampling=true project=selftrain_dartbank use_wandb=${WANDB} +code_commit=${COMMIT}"
+SHORT="num_epochs=500 eval_freq=50 +save_controller_epochs=[100,200,300,400,500]"
+LONG="num_epochs=2000 eval_freq=250 +save_controller_epochs=[500,1000,1500,2000]"
+JOBS=(
+ "sd_Mp_as_long_d128|experiment=gmm_dk_as_shape_as adjoint_matcher.mode=M adjoint_matcher.shift=1.0 seed=0 $LONG"
+ "sd_Mp_dsm_long_d128|experiment=gmm_dk_as_shape_dsm adjoint_matcher.mode=M adjoint_matcher.shift=1.0 seed=0 $LONG"
+)
+for s in 1 2; do
+ JOBS+=("sd_V_as_d128_s$s|experiment=gmm_dk_as_shape_as adjoint_matcher.mode=V seed=$s $SHORT"
+        "sd_V_dsm_d128_s$s|experiment=gmm_dk_as_shape_dsm adjoint_matcher.mode=V seed=$s $SHORT"
+        "sd_o_d128_s$s|experiment=gmm_dk_as_oracle seed=$s $SHORT"
+        "sd_od_d128_s$s|experiment=gmm_dk_as_oracle_dsm seed=$s $SHORT")
+done
+run() { N=${1%%|*}; ARGS=${1#*|}; DIR=results/$N
+  if [ -f $DIR/samples_final.pt ]; then echo "deja fait : $N"; return; fi
+  if [ "$DRY" = 1 ]; then echo "python train.py $ARGS $COMMON exp_name=$N hydra.run.dir=$DIR '~lancher'"; return; fi
+  mkdir -p $DIR; echo "lancement $N $(date +%H:%M:%S)"
+  python train.py $ARGS $COMMON exp_name=$N hydra.run.dir=$DIR '~lancher' > logs/$N.log 2>&1 || { echo "ECHEC $N (voir logs/$N.log)"; return 1; }
+  echo "fini $N $(date +%H:%M:%S)"; }
+pids=()
+for j in "${JOBS[@]}"; do
+  while [ "$(jobs -rp | wc -l)" -ge "$MAXJ" ]; do sleep 10; done
+  run "$j" & pids+=($!); sleep 2
+done
+fail=0; for p in "${pids[@]}"; do wait "$p" || fail=1; done
+if [ "$DRY" != 1 ] && [ $fail = 0 ]; then tar czf shape_final_results.tar.gz results/sd_Mp_*_long_d128 results/sd_V_*_d128_s[12] results/sd_o_d128_s[12] results/sd_od_d128_s[12] && ls -la shape_final_results.tar.gz; fi
+echo "Fin a $(date), statut : $fail"; exit $fail
