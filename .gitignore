@@ -183,3 +183,6 @@ data/*
 
 # W&B local run directories (created by wandb.init in the repo root)
 wandb/
+
+# macOS
+.DS_Store

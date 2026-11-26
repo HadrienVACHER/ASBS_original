@@ -4,6 +4,14 @@ Ce fichier est une carte. Le journal détaillé (chiffres, règles, verdicts, é
 Branches : `barker` (travail Barker, sections 1 à 4 de RESULTS.md), `div` (division, puis tous les tests DW-4 récents ; environ 200 commits d'avance sur `main`, poussée). Les branches `cv`, `dang`, `mh_test`, `test`, `testt` ne sont pas revues ici.
 Conventions de travail : règles pré-enregistrées dans l'en-tête du script ou dans un fichier `rules_*.md`, commitées avant le run ; seuils jamais relâchés après coup ; une seule graine (0) sauf mention.
 
+## Organisation du dépôt (2026-11-26)
+
+- Racine : [RESULTS.md](RESULTS.md) (journal), [grille_pistes.md](grille_pistes.md) (grille méthodes × cibles), ce fichier.
+- [rules/](rules/README.md) : les règles pré-enregistrées (auparavant à la racine).
+- [docs/](docs/) : [mémo VC et modes d'échec](docs/memo_cv_failure_modes.md), [audit des fermetures](docs/audit_fermetures.md), [prédictions (d, K, Δ)](docs/predictions_dk.md).
+- Code : `adjoint_samplers/`, `configs/`, `scripts/`, `tests/`, `train.py`, `gmm_dk.py`.
+- Données : `figures/` (résultats versionnés), `results/` (gros fichiers, hors dépôt).
+
 ## 1. Le fil des conclusions
 
 | Cible | Méthode | Verdict | Où |
