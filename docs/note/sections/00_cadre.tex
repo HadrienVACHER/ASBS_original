@@ -1,0 +1,49 @@
+% ===========================================================================
+\section{Cadre, cibles, métriques et méthode de travail}
+\label{sec:cadre}
+% ===========================================================================
+
+\subsection{Adjoint Sampling (AS)}
+Adjoint Sampling (Havens et al., arXiv 2504.11713) apprend un contrôle $u_\theta(t,x)$ tel que la SDE contrôlée
+\[
+  dX_t = g(t)^2\,u_\theta(t,X_t)\,dt + g(t)\,dW_t,\qquad X_0=0,
+\]
+ait pour loi terminale la cible $\pi\propto e^{-E}$. Dans tout le dépôt, la référence est une SDE à variance explosive (VE) sans dérive, de diffusion géométrique
+\[
+  g(t)=\smin\Big(\tfrac{\smax}{\smin}\Big)^{1-t}\sqrt{2\log(\smax/\smin)},\qquad \nuone=\smax^2-\smin^2=\int_0^1 g^2,
+\]
+avec $\smin=10^{-3}$. La loi de base (marginale terminale du processus de référence) est $\N(0,\nuone I)$. AS est \emph{sans mémoire} : on simule des chemins avec le contrôle courant, on stocke dans un \emph{buffer} les points terminaux $x_1$ et le « terme adjoint » $\nabla g(x_1)=\nabla E(x_1)+\nabla\log p^{\rm base}_1(x_1)$ (gradient de l'énergie corrigé du score de la loi de base), puis on régresse $u_\theta(t,x_t)$ sur $-\nabla g(x_1)$ au point $x_t$ tiré du pont de référence entre $x_0$ et $x_1$ (temps $t$ uniforme). Dans le texte, « $-\nabla E$ » désigne par abus cette cible. Recette utilisée (sauf mention) : buffer de $10^4$ points, 512 nouveaux points par époque, 100 itérations de gradient par époque, lot de 512, Adam à $10^{-4}$, 200 pas d'Euler ; contrôleur FourierMLP $4\times128$ (GMM-dk, MoS) ou $256\times6$ (GMM simplexe), EGNN pour DW-4.
+
+\paragraph{Point fixe et multiplicateur $\Am$.} L'article \emph{Failure Modes of Adjoint Sampling} (soumission anonyme ICLR 2027) montre que, pour une cible gaussienne de variance $\sigma_{\rm tar}^2$ et une erreur de moyenne, une itération d'AS multiplie l'erreur de moyenne par
+\[
+  \Am = 1+\frac{\log s^2}{1-s^2},\qquad s^2=\sigma_{\rm tar}^2/\nuone .
+\]
+AS est instable (inversion et amplification de l'erreur) si $|\Am|>1$, c'est-à-dire si $\nuone>4{,}92\,\sigma_{\rm tar}^2$ (section~\ref{sec:theorie}).
+
+\subsection{Cibles}
+\begin{itemize}
+  \item \textbf{GMM simplexe} (début du projet) : $K=d$ gaussiennes isotropes aux sommets d'un simplexe régulier, rayon $4{,}25$, poids log-uniformes ; variante hétérogène (rayons et covariances inégaux).
+  \item \textbf{GMM-dk} (\code{gmm_dk.py}) : $K\le d$ gaussiennes de covariance $I$, moyennes sur des axes orthogonaux à distance mutuelle $\Delta$, poids géométriques (rapport max/min $=10$). Cellule notée $(d,K,\Delta)\times c$, où $c$ multiplie la valeur par défaut $\smax=2\sqrt{1+\Delta^2/(2d)}$.
+  \item \textbf{MoG, MoS} (\emph{Beyond ELBOs}) : mélanges de gaussiennes ou de Student $t_2$ produits ; \textbf{MoS-w} : mêmes moyennes, poids inégaux $\log w\sim\N(0,1)$ (de $0{,}012$ à $0{,}33$), $\smax=23{,}2$ ; \textbf{MoS-dk} : Student $t_3$ d'échelle réglée pour une hessienne unité, géométrie GMM-dk.
+  \item \textbf{ManyWell-32} (FAB) : 16 doubles puits et 16 coordonnées gaussiennes.
+  \item \textbf{DW-4} : 4 particules en 2D, potentiel double puits sur les distances, configuration officielle d'AS (EGNN, $\smax=2$).
+  \item \textbf{Eccentric GMM} ($d=50$) : $\tfrac12\N(0,\tfrac1{16}I)+\tfrac12\N(\tfrac34\mathbf 1,\tfrac1{16}I)$, loi initiale $\N(0,I)$.
+\end{itemize}
+
+\subsection{Métriques}
+\begin{itemize}
+  \item \textbf{Erreur de poids} $\overline{|\log \bar R|}$ : moyenne sur les modes de $|\log(\hat p_k/p_k)|$, proportions moyennées dans le temps (30 dernières évaluations) ; utilisée pour le GMM simplexe.
+  \item \textbf{TV de Voronoï} : distance en variation totale entre proportions par cellule de Voronoï des moyennes et proportions vraies.
+  \item \textbf{TV par bassin} : idem avec l'affectation par trempe (descente convergée de $E$, \code{basin_lib.quench}) au minimum le plus proche. \emph{Depuis le 23 novembre, c'est la métrique de masse principale} ; le Voronoï est secondaire.
+  \item \textbf{Q1} : rapport de la distance médiane au minimum le plus proche à celle sous $\pi$ (mesure de forme ; $1$ = forme juste) ; \textbf{couverture} : nombre de modes ou bassins avec $\hat p\ge 0{,}25\,p$.
+  \item \textbf{ESS} normalisé et $\khat$ de Pareto (PSIS) pour les poids d'importance ; poids de chemin exacts par Girsanov discret.
+  \item \textbf{Coût} : nombre d'évaluations d'énergie et de gradient (convention : une énergie $=$ un gradient $=1$).
+\end{itemize}
+
+\subsection{Méthode de travail}
+\begin{itemize}
+  \item \textbf{Pré-enregistrement} : chaque test a une règle écrite (en-tête de script ou fichier \code{rules/rules_*.md}), commitée \emph{avant} le calcul ; les seuils ne sont jamais relâchés ; toute modification ultérieure est un \emph{amendement daté}, le verdict d'origine restant visible.
+  \item \textbf{Étiquettes} (grille \code{grille_pistes.md}) : R (réfuté), C (une configuration testée), I (inconclusif) ; N (non testé), X (exclu par un théorème).
+  \item \textbf{Variabilité} : les écarts-types des seuils incluent la variabilité entre évaluations (instantanés, moyennes temporelles), pas seulement le bootstrap à modèle fixé.
+  \item \textbf{Calcul} : CPU local ($<1$ min par appel), cluster NTU (PBS, jusqu'au 16 novembre), puis locations Vast.ai (RTX 3070, quelques centimes, accord explicite et plafond dur à chaque fois). Une seule graine (0) sauf mention : c'est la limite principale de presque tous les résultats.
+\end{itemize}

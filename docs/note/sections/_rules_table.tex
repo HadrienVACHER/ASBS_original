@@ -1,0 +1,40 @@
+\begin{longtable}{p{1.9cm}p{4.6cm}p{8.6cm}}
+\toprule date & fichier & titre\\\midrule\endhead
+2026-11-25 & \code{rules_shape_final.md} & Dernier lot : confirmation de la correction de forme à (128, 8, 6) $\times$ 0,75\\
+2026-11-24 & \code{rules_shape_correction_2.md} & Complément « correction de forme » : décalage $\delta$ = 1,0 $\sigma$\_tar, deux départs, à (128, 8, 6) $\times$ 0,75\\
+2026-11-24 & \code{rules_shape_correction.md} & Test « AS corrige les formes d'un buffer aux bonnes masses » à (128, 8, 6) $\times$ 0,75\\
+2026-11-24 & \code{rules_eccentric_gmm.md} & Eccentric GMM (d = 50) : le darting marche là où le SMC et l'IS échouent ? (jouet CPU)\\
+2026-11-23 & \code{rules_train_weightfree.md} & Étape B : correction des masses à l'entraînement, sans poids (darting) contre par poids de trajectoire (IS tempéré)\\
+2026-11-23 & \code{rules_selftrain_dartbank.md} & Auto-entraînement sur un buffer corrigé par banque de minima + darting (sans poids)\\
+2026-11-23 & \code{rules_oracle_buffer.md} & Contrôle par buffer oracle à (128, 8, 6) $\times$ 0,75 : AS et DSM entraînés sur des tirages exacts de la cible\\
+2026-11-23 & \code{rules_mosw_posthoc.md} & A4 : post hoc sur les 12 contrôleurs MoS-w de l'étape 3 (IS, darting, MALA seul, banque de minima)\\
+2026-11-23 & \code{rules_mosw_affine_freeze.md} & MoS-w post hoc : forme du buffer corrigé (translation et affine, S $\in$ {10, 50, 200}) ; pas MALA figé\\
+2026-11-23 & \code{rules_division_gmmdk.md} & A5 : division hors ligne sur les modes gaussiens du GMM-dk (32, 8, 6) $\times$ 0,5, gabarits gaussiens non rétrécis\\
+2026-11-23 & \code{rules_darting_large_sigma_snapshots.md} & Étape A : robustesse du darting post hoc dans le régime où l'IS s'effondre (autres instantanés) et variance de log W par bassin\\
+2026-11-23 & \code{rules_darting_large_sigma.md} & Darting post hoc dans le régime où l'IS de chemin s'effondre (réouverture n° 2 de l'audit, élargie)\\
+2026-11-23 & \code{rules_bank_incomplete.md} & Banque incomplète : un mode lointain, de forme différente, absent de la banque initiale (jouet CPU)\\
+2026-11-23 & \code{rules_bank_darting_dk.md} & A3 : banque de minima (trempe depuis la loi de base) + darting post hoc sur GMM-dk (32, 8, 8)\\
+2026-11-22 & \code{rules_tempered_is_quadrature.md} & Phase 0, tâche 2/4 : AS pondéré par IS tempéré (idée I1), quadrature 1D dans le cadre de *Failure Modes*\\
+2026-11-22 & \code{rules_ns_damping.md} & Test GPU : Newton-Stein contre amortissement contre AS (GMM-dk, d = 32)\\
+2026-11-22 & \code{rules_mosw_ns.md} & Newton-Stein dans le régime d'instabilité extrême : MoS-w, $\sigma$\_max = 23,2\\
+2026-11-22 & \code{rules_dw4_template_variance.md} & Phase 0, tâche 3/4 : mécanisme de l'échec de la division sur DW-4 (idée I3). Des gabarits par bassin plus riches réduisent-ils la dispersion de log u ?\\
+2026-11-22 & \code{rules_dw4_guard_power.md} & Phase 0, tâche 1/4 : garde-fou (iii) de la confirmation du darting DW-4, refait avec assez de puissance (réanalyse déclarée)\\
+2026-11-21 & \code{rules_mosw_step3.md} & Étape 3 : AS MoS-w à la recette d'origine (1500 époques), critère de qualité Q avant toute comparaison darting / IS\\
+2026-11-21 & \code{rules_hsaut_basin.md} & Contrôle CPU de H\_saut par bassins sur le contrôleur MoS-dk d = 128 $\times$ 0,75, époque 1500 (suite de l'étape 5)\\
+2026-11-21 & \code{rules_gmmdk_step4.md} & Étape 4 : GMM-dk en grande dimension avec un vrai AS (version réelle d'A1) ; dernier test de la piste darting\\
+2026-11-21 & \code{rules_dk_step5.md} & Étape 5 : dernier lot de la piste darting, GMM-dk en grande dimension et MoS-dk (queues lourdes), vrais AS\\
+2026-11-21 & \code{rules_cv_failure_modes.md} & Règles pré-enregistrées : vérifications numériques du mémo « variables de contrôle et modes d'échec d'AS »\\
+2026-11-20 & \code{rules_train_darting.md} & Règle pré-enregistrée : test décisif de la forme 1 (AS entraîné AVEC la variable de contrôle darting, sans IS)\\
+2026-11-20 & \code{rules_sigma_select.md} & Règle pré-enregistrée : choix de sigma\_max sans vérité (log $\hat Z$ de l'IS de chemin), validation sur la graine 1\\
+2026-11-20 & \code{rules_quadrature_1d.md} & Règles pré-enregistrées : quadrature 1D, vitesse de correction des poids (AS seul contre AS + darting)\\
+2026-11-20 & \code{rules_mos_step1.md} & Règles pré-enregistrées : étape 1 CPU (darting sur le contrôleur MoS d = 50, $\sigma$\_max = 23,2) et étape 2 (proposition MoS-w)\\
+2026-11-20 & \code{rules_mos_pilot.md} & Règles pré-enregistrées : pilote AS sur le MoS (d = 50) et variante MoS-w (CPU)\\
+2026-11-20 & \code{rules_mog_mos_phase0.md} & Règles pré-enregistrées : phase 0 « darting post hoc contre IS sur les benchmarks MoG et MoS »\\
+2026-11-20 & \code{rules_darting_vs_is.md} & Règles pré-enregistrées : darting post hoc contre IS pour corriger les proportions des modes, en dimension croissante\\
+2026-11-19 & \code{rules_gmm2d_radius.md} & Règle pré-enregistrée : AS seul sur GMM 2D à 3 modes, balayage du rayon r\\
+2026-11-18 & \code{rules_darting_seeds_gamma.md} & Règle pré-enregistrée : darting $\gamma$ = 3 sur les graines 1 et 2 (appariées à C1 et C2), puis dose-réponse en $\gamma$\\
+2026-11-18 & \code{rules_darting_run.md} & Règle pré-enregistrée : UN run de continuation avec le noyau de darting (DW-4), comparé aux deux runs AS existants\\
+2026-11-18 & \code{rules_darting_confirm.md} & Règle pré-enregistrée : test de CONFIRMATION du darting $\gamma$ = 30 sur des graines neuves\\
+2026-11-16 & \code{rules_reference_check.md} & Règles pré-enregistrées : la référence DW-4 est-elle biaisée par rapport à exp(-E\_repo)/Z ?\\
+2026-11-16 & \code{rules_reeval_pt.md} & Règles pré-enregistrées : réévaluation des règles DW-4 (Barker, continuation) contre p\_PT\\
+\bottomrule\end{longtable}

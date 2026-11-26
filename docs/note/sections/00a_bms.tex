@@ -1,0 +1,22 @@
+% ===========================================================================
+\section{Point de départ : Bridge Matching Sampler et variables de contrôle de Stein}
+\label{sec:bms}
+% ===========================================================================
+
+Cette section résume la note de départ du projet (\emph{Bridge Matching Sampler and Stein Control Variates}, 4 pages, septembre 2026), qui motive les premières expériences d'octobre (section~\ref{sec:debuts}).
+
+\subsection{Pont non markovien et projection markovienne}
+On cherche un contrôle markovien $u(X_t,t)$ tel que $dX_t=\sigma(t)u(X_t,t)\,dt+\sigma(t)\,dB_t$, $X_0\sim p_{\rm prior}$, ait pour loi terminale $p_{\rm target}=\rho_{\rm target}/\mathcal Z$. L'idéal est le pont non markovien $\Pi^*(X)=p_{\rm prior}(X_0)\,p_{\rm target}(X_T)\,P_{|0,T}(X\mid X_0,X_T)$, de dérive dépendant du chemin ; pour un pont brownien, $\xi(X,t)=\sigma(t)\big(\int_t^T\sigma^2\big)^{-1}(X_T-X_t)$, inaccessible faute d'échantillons de la cible. La projection markovienne $u^*(x,t)=\E_{\Pi^*}[\xi(X,t)\mid X_t=x]$ minimise $D_{\rm KL}(\Pi^*\|\mathbb P^u)$ ; le \emph{Bridge Matching Sampler} (BMS) l'approche par une itération de point fixe qui alterne projection réciproque $\Pi^i=\Pi^i_{0,T}P_{|0,T}$ et markovianisation (régression de $\xi$).
+
+\subsection{Identité du score cible et couplage indépendant}
+Avec $\kappa(t)=\int_0^t\sigma^2$, $\gamma(t)=\kappa(t)/\kappa(T)$ et une fonction de mélange $c(t)\in(0,1]$, l'identité généralisée du score cible s'écrit
+\[
+\nabla_x\log\Pi^*_t(x)=\E_{\Pi^*_{0,T|t}}\Big[\tfrac{1-c(t)}{1-\gamma(t)}\nabla_{X_0}\log\Pi^*_{0,T}+\tfrac{c(t)}{\gamma(t)}\nabla_{X_T}\log\Pi^*_{0,T}\,\Big|\,X_t=x\Big].
+\]
+Sous couplage indépendant $\Pi^*_{0,T}=p_{\rm prior}\otimes p_{\rm target}$ (choix de BMS), la dérive ne demande que le score de la base et celui de la cible ($-\nabla E(X_T)$). Les deux composantes ont des variances opposées : l'estimateur « DSI » ($G_0=\nabla\log p_{\rm prior}(X_0)/(1-\gamma)$) diverge quand $t\to T$, l'estimateur « TSI » ($G_T=\nabla\log p_{\rm target}(X_T)/\gamma$) quand $t\to0$ ; $c(t)$ interpole entre les deux.
+
+\subsection{BMS comme variable de contrôle de Stein triviale}
+L'interpolation s'écrit $G_0-c(t)(G_0-G_T)$, où $G_0-G_T$ est de moyenne conditionnelle nulle : c'est une VC. Pour la postérieure jointe $\mu_{X_t}(X_0,X_T)\propto p_{\rm prior}(X_0)p_{\rm target}(X_T)P_{t|0,T}(X_t\mid X_0,X_T)$ et l'opérateur de Langevin--Stein $\mathcal T_{\mu}F=F^\top\nabla\log\mu+\mathrm{div}F$, le choix du champ \emph{constant} $F=\big[\tfrac1{1-\gamma}I_d;\,-\tfrac1{\gamma}I_d\big]$ redonne exactement $G_0-G_T$ (les scores de transition du pont brownien se compensent). La note constate la limite : cette VC n'utilise que des gradients locaux, elle « voit les pentes mais pas la profondeur $E(X_T)$ » (\emph{mode-weight mismatch}), et propose un champ $F_\phi$ appris par un réseau qui prend $E(X_T)$ en entrée pour corriger les poids des modes.
+
+\subsection{Ce qu'il en est advenu}
+Cette idée est la VC de Stein apprise de la branche \code{cv} (section~\ref{sec:debuts}) : sur les GMM, elle n'a pas fait mieux qu'AS. La théorie de novembre (section~\ref{sec:theorie}) en donne la raison : une VC de Stein de la forme $\mathcal T_\mu F$ a une moyenne sous la loi courante égale à $\E_{\tilde q}[F^\top\nabla\log r]$, exponentiellement petite hors de la couche de transition entre modes, même si $F$ dépend de $E$ : les VC de Stein sont aveugles aux poids (extension du Th.~3.8 de \emph{Failure Modes}). Il faut un noyau qui saute entre bassins, ce qui a conduit à Barker, au darting et à la banque de minima.

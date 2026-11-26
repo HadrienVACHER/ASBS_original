@@ -1,0 +1,75 @@
+% ===========================================================================
+\section{Premières pistes (octobre) : mise en place et explorations}
+\label{sec:debuts}
+% ===========================================================================
+
+Cette section couvre le travail du 12 au 26 octobre qui n'a pas de section dans le journal : une partie est sur des branches non fusionnées (\code{cv}, \code{mh_test}, \code{testt}), le reste n'a laissé que des métriques W\&B (projet \code{CCDS_NTU/adjoint_sampler_cv}). Les chiffres ci-dessous ont été extraits de W\&B pour cette note (152 runs créés avant le 23 octobre).
+
+\paragraph{Avertissement sur ces chiffres.} Ce sont les valeurs \emph{finales} du résumé W\&B, c'est-à-dire \emph{une seule évaluation} en fin de run, sans moyenne temporelle ; une graine (0) ; aucune règle pré-enregistrée (la méthode de travail pré-enregistrée commence fin octobre). La métrique est le \code{mode_tv} de l'évaluateur GMM de l'époque (affectation de chaque échantillon à un mode, TV des proportions), de plancher 0,011 / 0,018 / 0,023 à $d=12/24/36$. Les écarts de l'ordre de 0,02 ne sont pas interprétables.
+
+\subsection{Infrastructure et cible de référence}
+\begin{itemize}
+  \item \textbf{Options de vitesse} (12--15 octobre) : \code{fast_sampling} (simulation rejouée comme graphe CUDA), \code{buffer_on_device}, \code{fast_train} (Adam fusionné et \code{torch.compile}) ; benchmark \code{scripts/bench_sampler.py} ; plus tard graphes CUDA pour l'EGNN de DW-4 et distances de nuages de points vectorisées ($\times14$).
+  \item \textbf{GMM simplexe} : dispositions sphère puis simplexe régulier (« spread »), poids log-uniformes (rapport 20), $\smax$ suivant l'écart-type de la cible, balayages en $d=K$ et en rayon ; rayon par défaut 4,25. Évaluateur par mode avec planchers d'échantillons exacts.
+\end{itemize}
+
+\subsection{Variables de contrôle à l'entraînement : Stein, MH, EMA (15--16 octobre)}
+\begin{itemize}
+  \item \textbf{VC de Stein apprise} (\code{AdjointVESteinMatcher}, branche \code{cv}, issue de la note de la section~\ref{sec:bms}) : cible $-(\nabla g(X_1)+TF)$, $F=c\,\nu_{1|t}A$, $A=BB^\top$, $B=I+N(t,X_t,X_1,E(X_1))$ appris avec le contrôleur ; retirée le 16 octobre.
+  \item \textbf{VC Metropolis--Hastings} (\code{AdjointVEMHMatcher}) : translations d'un centre à l'autre, acceptées sous la postérieure ; $\gamma\in\{0{,}5;2;4\}$, $M\in\{K,2K\}$, Rao--Blackwell ou non, \code{t_focus}, centres par $k$-means sur $x_1+\nabla\log p_1(x_1)$.
+  \item \textbf{EMA du contrôleur} (\code{ema_decay}, \code{ema_buffer} : le buffer simulé aussi avec l'EMA) et grand contrôleur $256\times6$.
+\end{itemize}
+\begin{table}[h]\centering\small
+\begin{tabular}{lccc}\toprule
+bras (GMM simplexe, \code{mode_tv} final) & $d=12$ & $d=24$ & $d=36$\\\midrule
+AS, 2000 époques & 0,035 & 0,097 & 0,119\\
+Stein appris ($c=-0{,}1$ / $-1$ / $-1$), 2000 ép. & 0,076 & 0,104 & 0,152\\
+AS, 5000 ép. & 0,062 & 0,050 & 0,110\\
+AS grand réseau, 5000 ép. & 0,090 & 0,035 & 0,079\\
+MH $\gamma=2$, $M=2K$, 5000 ép. & 0,056 & 0,056 & 0,109\\
+MH $\gamma=4$, 5000 ép. & 0,033 & 0,059 & 0,099\\
+MH grand réseau & 0,030 & 0,056 & 0,072\\
+MH + EMA / MH + EMA du buffer & 0,052 / 0,037 & 0,047 / 0,052 & 0,103 / 0,125\\
+AS sur buffer de tirages exacts (\code{mh_test}), 2000 ép. & 0,037 & 0,066 & 0,054\\\bottomrule
+\end{tabular}
+\caption{Valeurs finales W\&B, graine 0. La VC de Stein apprise est \emph{pire} qu'AS à chaque dimension ; MH et EMA ne se distinguent pas d'AS au-delà du bruit (une évaluation) ; le grand réseau aide un peu à $d=36$. Même avec un buffer de tirages exacts, le modèle reste à 2--3 fois le plancher (\code{energy_w2} 0,27 / 0,51 / 1,20) : premier signe de la limite d'apprentissage retrouvée en novembre avec l'oracle (section~\ref{sec:oracle}).}
+\end{table}
+C'est après ces essais que MH a été remplacé par Barker (agrégation de toute l'orbite, centres à seuil), qui devient la méthode figée du 23 octobre et donne $-86\,\%$ / $-68\,\%$ (section~\ref{sec:barker}).
+
+\subsection{Démo 1D à deux modes (19--22 octobre)}
+Masse du mode gauche (vérité 0,1), valeur finale W\&B : AS 0,64 et 0,49 (deux runs de 2000 époques) ; MH ($\gamma=2$, $M=4$) 0,097 ; buffer de tirages exacts 0,12 à 0,18 ; prototype Gelfand--Dey 1D (\code{AdjointVEGelfandDeyMatcher}, branche \code{testt}) : $c=-2$ : 0,098 et 0,083 ; $c=-0{,}5$ : 0,16 et 0,07 ; $c=-5$ : 0,006 et 0,34 (instable). Les runs Gelfand--Dey sont marqués « failed » dans W\&B (interrompus), leurs valeurs sont la dernière évaluation enregistrée. Le prototype : $cv=h(X_t)\sum_k\lambda_kN_k(X_1)e^{E(X_1)}/C_k(X_t)$, $\lambda=(1,-1)$, $N_k$ de Laplace, $h=1/\sum_kC_k^{-1}$ (qui borne la VC ; $h=1$ donnerait une variance infinie) ; c'est l'ancêtre de la VC par division (section~\ref{sec:division}).
+
+\subsection{Correction du buffer par Metropolis--Hastings indépendant (20--22 octobre)}
+Idée : corriger les \emph{masses} des points du buffer par un MCMC à proposition ajustée sur le buffer lui-même (\code{adjoint_samplers/components/mode_correction.py} : mélange gaussien ajusté par EM, centres raffinés par descente sur $E$, IMH, IS autonormalisé (SNIS), sauts + MALA, compteurs d'énergie).
+\paragraph{Post hoc} (\code{imh_fitted_gmm.py}, \code{imh_refined_gmm.py}). Sur les buffers d'AS ($d=12/24/36$, \code{mode_tv} 0,19 / 0,28 / 0,23), l'IMH à proposition ajustée ramène la TV à 0,018--0,037 / 0,027--0,049 / 0,028--0,088 selon la famille de covariance (planchers de cette taille 0,029 / 0,040 / 0,042 ; proposition oracle 0,031 / 0,036 / 0,040). Avec centres raffinés (autres buffers, TV d'AS 0,051 / 0,096 / 0,127) : SNIS 0,003 / 0,020 / 0,021, IMH 0,005 / 0,027 / 0,046, sauts + MALA 0,015 / 0,021 / 0,037. Démo 1D : 0,49 $\to$ 0,006. L'acceptation de l'IMH tombe à 0,09 à $d=36$ (0,58 avec la proposition oracle).
+\paragraph{À l'entraînement} (\code{AdjointVECorrectedBufferMatcher} : AS pur pendant un échauffement, puis le buffer est corrigé par des chaînes IMH persistantes, proposition réajustée périodiquement sur des échantillons \emph{du modèle}). Runs « hard », GMM simplexe à poids de rapport 20, 2000 époques :
+\begin{table}[h]\centering\small
+\begin{tabular}{lcccc}\toprule
+bras & \multicolumn{2}{c}{$d=K=24$} & \multicolumn{2}{c}{$d=K=36$}\\
+ & modèle & buffer & modèle & buffer\\\midrule
+AS & 0,097 & 0,100 & 0,119 & 0,122\\
+AS + EMA & 0,101 & 0,100 & 0,117 & 0,122\\
+buffer exact & 0,066 & 0,017 & 0,054 & 0,023\\
+buffer exact + EMA & 0,029 & 0,017 & 0,033 & 0,023\\
+buffer exact + EMA, nfe 400 & \textbf{0,028} & 0,015 & \textbf{0,025} & 0,022\\
+buffer corrigé (IMH) & 0,032 & 0,016 & 0,068 & 0,030\\
+buffer corrigé + EMA & \textbf{0,026} & 0,016 & \textbf{0,039} & 0,029\\
+buffer corrigé + EMA, correction arrêtée à l'époque 600 & 0,062 & 0,062 & 0,077 & 0,076\\\bottomrule
+\end{tabular}
+\caption{\code{mode_tv} final (une évaluation, graine 0 ; planchers 0,018 et 0,023). Autres cellules (buffer exact contre AS) : $(16,10)$ rapport 100 : 0,023 contre 0,111 ; $(32,20)$ : 0,052 contre 0,103 (corrigé 0,027) ; $(32,10)$ rapport 1000 : 0,020 contre 0,137 ; $(16,10)$ rayon 6 : 0,028 contre 0,76.}
+\end{table}
+\begin{remark}[lecture a posteriori, non pré-enregistrée]
+Ces runs d'octobre contiennent déjà, un mois avant l'auto-entraînement de novembre (section~\ref{sec:sanspoids}), le résultat « un buffer corrigé en masse donne un sampler corrigé » : AS sur buffer corrigé + EMA divise l'erreur par 3 à 4 ($0{,}097\to0{,}026$, $0{,}119\to0{,}039$), et la correction doit être maintenue (arrêtée à l'époque 600, l'erreur remonte). Côté coût, le compteur W\&B \code{cost/corr_E_cum} vaut $5{,}3$ à $5{,}4\cdot10^6$ évaluations d'énergie sur le run pour $2\cdot10^6$ gradients d'AS ; mais le même compteur, alimenté par le moniteur de diagnostic, vaut aussi $2{,}9$ à $5{,}4\cdot10^6$ dans des runs d'AS pur, donc le surcoût propre de la correction n'est pas isolable ici. L'ordre de grandeur (quelques fois AS) reste très loin du facteur 210 de (s) en novembre (darting à $S=10$ et réglage du pas MALA à chaque lot) ; à vérifier dans le code avant de le citer. Deux autres constats y figurent déjà : avec un buffer \emph{exact}, le modèle reste au-dessus de son buffer (limite d'apprentissage, retrouvée par l'oracle de novembre), et l'EMA ainsi que nfe 400 réduisent cet écart (0,054 $\to$ 0,025 à $d=36$). L'EMA n'a pas été utilisée dans les expériences de novembre ; elle est une piste non testée pour l'écart oracle/plancher à $d=128$. Ces chiffres sont des instantanés uniques, sans règle : à confirmer avant toute affirmation.
+\end{remark}
+Le moniteur \code{correction_every} de \code{train.py} (diagnostic sans rétroaction) calcule aussi, pendant un entraînement d'AS, la TV qu'aurait le buffer corrigé par IMH : à $d=36$, 0,035 contre 0,127 pour le buffer brut.
+
+\subsection{Diagnostics de la VC de Barker sur le GMM (23 octobre)}
+\begin{itemize}
+  \item \textbf{Itération exacte} (\code{exact_iteration.py}) : une itération externe depuis un buffer figé à masses fausses, régression résolue exactement ; rapport de transfert par mode pour AS, le terme de Barker, $u^*$ restreint aux petits $t$ et $u^*$ partout.
+  \item \textbf{Masse engagée} (\code{committed_mass.py}) : $\hat w_k(s)=\E[\pi^*(k\mid X_s)]$ le long des trajectoires, plate sous la dérive exacte ; sa chute localise la fuite de masse.
+  \item \textbf{Flux par mode} (\code{diagnose_mode_flux.py}) et intervention à centres oracles : $k$-means limitait Barker, d'où les centres à seuil.
+  \item \textbf{Ablation de capacité} ($-47\,\%$ petit réseau, $-55\,\%$ grand, $d=36$, $\gamma=2$) et \textbf{recuit de $\gamma$} vers 0 sur les derniers 20\,\% (sans biais, non adopté).
+\end{itemize}
+
+\subsection{ManyWell : correction d'un sampler pré-entraîné}
+Pré-entraînement sur la cible symétrisée avec un buffer fixe (\code{AdjointVEFixedBufferMatcher}), puis correction par Barker, avec comparateurs post hoc (repondération BAR, MCMC d'orbite à budget égal) et métriques de qualité du modèle (ESS des poids de Girsanov, erreur sur $\log Z$). La porte d'entrée pré-enregistrée a échoué deux fois (v1 : 54\,\% d'échantillons avec $|x|>3$ ; v2 : \code{energy_w2} 2146) : abandon technique (I).

@@ -1,0 +1,55 @@
+% ===========================================================================
+\section{La ligne darting : post hoc, à l'entraînement, et contre l'IS}
+\label{sec:darting}
+% ===========================================================================
+
+Le darting (Andricioaei et al.\ 2001 ; Tjelmeland \& Hegstad 2001 ; version généralisée de Sminchisescu \& Welling 2007) alterne des \emph{sauts} entre minima de l'énergie (translation $x\mapsto x-m_a+m_b$, ou carte affine $x\mapsto m_b+H_b^{-1/2}H_a^{1/2}(x-m_a)$ avec jacobien, acceptés par Metropolis) et des pas de MALA. Protocole de \code{scripts/dart_lib.py} : minima découverts par trempe de 500 échantillons (gardés s'ils sont atteints au moins 5 fois) ou fournis par une banque externe, hessiennes par différences finies, $S$ balayages de « 1 saut + 5 pas MALA », pas MALA réglé pour une acceptation de 0,6.
+
+\subsection{Quadrature 1D (modèle de \emph{Failure Modes})}
+Déterministe, sans Monte Carlo (\code{rules_quadrature_1d.md}). La correction relative des poids par itération d'AS décroît comme $e^{-0{,}8/(2\varepsilon^2)}$ ($\ln\rho$ affine en $1/(2\varepsilon^2)$, pente $-0{,}797$, $R^2=0{,}992$) : la correction des poids par AS devient exponentiellement lente quand les modes se séparent ($\varepsilon$ petit). Avec le darting comme variable de contrôle, $\rho_{\rm CV}=0{,}93$--$1{,}42$ pour tout $\varepsilon$, et $|\hat w-w|<0{,}01$ dès la 2\textsuperscript{e} itération.
+\begin{verdict}$H_{\rm CV}$ soutenue ; $H_{\rm AS}$ non soutenue telle qu'écrite (pente juste, mais $\rho_{\rm AS}=0{,}19$ et $0{,}054$ à $\varepsilon=0{,}35$ et $0{,}30$, au-dessus du seuil 0,05).\end{verdict}
+
+\subsection{Darting post hoc contre IS (samplers synthétiques et vrais contrôleurs GMM-dk)}
+\code{rules_darting_vs_is.md}. Étape A, $K=8$, $\Delta=8$, erreur de poids $\delta=0{,}1$, $n=10^4$ :
+\begin{itemize}
+  \item \textbf{A1 (gaussien, translation exacte)} : l'IS exact s'effondre avec $d$ (à $d=512$, ESS 0,23\,\%, TV 0,156 ; même à $10^5$ tirages, 0,106) alors que le darting reste au plancher (0,010 à $S=10$, acceptation 0,58 indépendante de $d$). \textbf{R1 vraie.}
+  \item \textbf{A2 (composantes de Student, translation fausse)} : le darting perd dès $d=32$ (TV 0,14 contre 0,003 pour l'IS) ; à $d\ge128$, les composantes de Student n'ont plus de minimum local (les queues des gaussiennes voisines dominent) et la découverte ne trouve que 4 minima sur 8. Avec centres oracles, l'acceptation tient (0,26--0,32) mais la TV reste à 0,07--0,14 : \emph{biais de forme}, pas chute d'acceptation.
+  \item \textbf{Étape B, vrais contrôleurs à 8/8} ($\smax\times0{,}5$) : darting ($S=5$) et IS de chemin (ESS 0,55--0,88) ramènent tous deux la TV au plancher. \textbf{R3 vraie}, mais l'IS suffit. À $(32,8,8)\times0{,}5$ (1/8 mode), l'IS de chemin atteint 5/8, le darting (2 minima découverts) 2/8 : il ne crée pas les modes absents.
+\end{itemize}
+
+\subsection{AS entraîné avec la variable de contrôle darting (GMM-dk)}
+\code{rules_train_darting.md}, continuation de 500 époques, $\gamma\in\{1,30\}$, cellules $(8,8,8)$ et $(32,8,6)\times0{,}5$, 0,065~\$. Incident déclaré : $t=0$ exact (probabilité $10^{-7}$) donnait un $0/0$, corrigé et relancé.
+\begin{table}[h]\centering\small
+\begin{tabular}{llccc}\toprule
+cellule & bras & TV brut & TV après IS & ESS\\\midrule
+$(8,8,8)$ & AS & 0,169 & 0,009 & 0,59\\
+ & darting $\gamma=30$ & 0,105 & 0,007 & 0,61\\
+ & darting $\gamma=1$ & 0,059 & 0,008 & 0,66\\
+$(32,8,6)$ & AS & 0,047 & 0,009 & 0,67\\
+ & darting $\gamma=30$ & 0,140 & 0,014 & 0,58\\
+ & darting $\gamma=1$ & 0,034 & 0,012 & 0,67\\\bottomrule
+\end{tabular}
+\end{table}
+\begin{verdict}$R_{\rm train}$ \faux{} dans les deux cellules (à $(32,8,6)$, $\gamma=30$ est pire qu'AS) ; $R_{\rm sûreté}$ vrai. À $\gamma=30$ le terme vaut 2 à 9 fois la cible aux $\kappa<0{,}7$ et le TV oscille sans jamais approcher le plancher. $\gamma=1$ : effet partiel (TV divisé par 2 à 3 en $(8,8,8)$, nul en $(32,8,6)$). La quadrature prédisait une correction presque complète ; en entraînement la dose réelle est modeste.\end{verdict}
+
+\subsection{Benchmarks MoG / MoS de \emph{Beyond ELBOs}}
+\paragraph{Phase 0 (samplers synthétiques, \code{rules_mog_mos_phase0.md}).} Règle $G$ : le darting bat l'IS de même coût et est à au plus $2\times$ le plancher.
+\begin{itemize}
+  \item \textbf{MoS} (Student $t_2$, même forme pour tous les modes) : \textbf{$G$ vraie} à $d=2$ ($S=10$), $d=50$ et $200$ ($S\ge5$) : acceptation des sauts 1,00, alors que l'IS exact a des poids de variance infinie ($\khat$ 0,82 à 1,97, TV 0,53--0,68).
+  \item \textbf{MoG} (40 modes) : $G$ fausse : la découverte ne trouve que 30--32 modes sur 40, et même à 40/40 le darting est borné par le plancher alors que l'IS de même coût a assez d'échantillons effectifs.
+  \item \textbf{MoS-w} (poids inégaux, sampler à poids uniformes) : $G$ vraie à $d=50$ et 200 ($S=10$ seulement).
+  \item \textbf{Mode rare} ($10^{-3}$) : jamais découvert, donc jamais corrigé.
+\end{itemize}
+\paragraph{Vrais AS (MoS, MoS-w à $d=50$ ; étapes 1 et 2).} $G$ \faux{} : à $\smax=23{,}2$ et 300 époques, AS n'a pas appris la cible (distance médiane au minimum 109 contre 15 sous $\pi$, 13\,\% de sauts invalides, 40\,\% refusés) ; sur le contrôleur MoS, le darting fait 0,052 à $S=40$ contre 0,26 pour MALA seul ($H_{\rm saut}$ vrai) mais reste au-dessus de $2\times$ plancher (0,0246) ; l'IS de chemin y a $\khat=7{,}4$ (queues d'AS trop légères pour la Student). Les comparaisons portent sur un sampler raté.
+\paragraph{Étape 3 (critère de qualité $Q$, recette d'origine, 1500 époques, 12 contrôleurs MoS-w $d=10$ et $50$).} $Q$ faux pour les 12 : à $d=50$, la distance reste 8 à 10 fois celle de $\pi$ et la masse se concentre sur un bassin ; à $d=10$, les formes sont apprises (Q1 $=1{,}49$) mais 4 ou 5 bassins sur 10 seulement sont couverts. Aucune comparaison calculée (arrêt écrit d'avance).
+
+\subsection{Étapes 4 et 5 : GMM-dk et MoS-dk en grande dimension avec un vrai AS}
+\begin{itemize}
+  \item \textbf{Étape 4} ($(128,8,6)$ et $(256,8,6)$, $\times0{,}5$) : $Q$ vrai (formes 1,03--1,04, 8/8), $I$ faux (ESS 0,16--0,19), $G$ faux (IS de même coût 0,0012 contre darting 0,0098 à $d=128$). Décision écrite : \textbf{l'IS tient, piste fermée}. Les runs $\times0{,}75$ passent $Q$ avec un ESS de $10^{-4}$--$10^{-3}$ mais sont écartés par la règle de $\smax$.
+  \item \textbf{Étape 5} : GMM-dk $(128,8,6)$ et $(256,8,6)$ (supplément $S=40$) et MoS-dk $(32,8,6)$ : $G$ faux partout. \textbf{MoS-dk $d=128\times0{,}75$} : $Q$ vrai, $I$ vrai (ESS $8\cdot10^{-4}$), $G$ vrai de justesse à $S=1$ et 5 (0,0119 contre 0,0121) : la règle rouvre la piste.
+  \item \textbf{Contrôle par bassins de $H_{\rm saut}$} (5 chaînes) : à $S=40$, darting $0{,}0116\pm0{,}0036$ et MALA seul $0{,}0116\pm0{,}0020$ : \textbf{$H_{\rm saut}$ faux}, la réouverture tenait aux pas locaux. \textbf{Piste darting fermée définitivement} (21 novembre).
+\end{itemize}
+
+\begin{remark}[Synthèse du 21 novembre]
+Parmi les contrôleurs comparés par la procédure pré-enregistrée, il n'existe aucun cas avec un vrai AS où AS trouve tous les modes avec la bonne forme et où l'IS de chemin échoue : partout où l'IS échoue, AS a déjà échoué en amont (modes manquants, ou sampler diffus loin des modes). Le darting ne gagne que contre des samplers synthétiques. Cette conclusion sera nuancée à partir du 23 novembre, quand le darting sera couplé à une \emph{banque de minima trempée depuis la loi de base} (section~\ref{sec:sanspoids}).
+\end{remark}

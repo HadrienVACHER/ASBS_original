@@ -1,0 +1,37 @@
+% ===========================================================================
+\section{Variables de contrôle de symétrie : Metropolis--Hastings et Barker}
+\label{sec:barker}
+% ===========================================================================
+
+\subsection{Principe}
+On ajoute à la cible de régression d'AS un terme $\gamma\,c(x_1,x_t)$ de \emph{moyenne conditionnelle nulle sous la postérieure exacte} $\tilde\pi(x_1\mid x_t)$ : le point fixe $\pi$ est préservé pour tout $\gamma$, mais sous la loi courante $\tilde q$ le terme pousse vers la bonne répartition des masses. Le terme est construit à partir d'un noyau $\tilde\pi$-invariant entre images d'un point par un groupe de symétries de la cible (orbite) : poids de Metropolis--Hastings, puis de Barker (rapport $\pi(y)/(\pi(x)+\pi(y))$) sur toute l'orbite. Les centres des modes sont estimés \emph{sur le buffer seul} (moyenne nulle exacte préservée) : d'abord par $k$-means, puis par \emph{centres à seuil} (minima de bassin de Barzilai--Borwein, rayon $=1\times$ la largeur médiane, capacité 128, 12 pas de débruitage), après qu'une intervention à centres oracles a montré que $k$-means limitait Barker. Le dépôt contient aussi une version EMA du contrôleur et un recuit de $\gamma$ (non retenu).
+
+\subsection{GMM isotrope (simplexe régulier, $d=K$)}
+Méthode figée au commit \commit{ec12405} (orbite de Barker, $\gamma=3$, centres à seuil, contrôleur $256\times6$, 2000 époques, graines 0--2). Règle : $\gamma$ est la valeur globale unique minimisant $\overline{|\log\bar R|}$ sur $d=24$ et $36$.
+
+\begin{table}[h]\centering\small
+\begin{tabular}{lcccc}\toprule
+ & graine 0 & graine 1 & graine 2 & moyenne \\\midrule
+$d=24$, AS & 0,268 & 0,255 & 0,183 & 0,235\\
+$d=24$, Barker $\gamma=3$ & 0,032 & 0,037 & 0,034 & \textbf{0,034} ($-86\,\%$)\\
+$d=36$, AS & 0,389 & 0,345 & 0,317 & 0,351\\
+$d=36$, Barker $\gamma=3$ & 0,117 & 0,145 & 0,075 & \textbf{0,112} ($-68\,\%$)\\\bottomrule
+\end{tabular}
+\caption{Erreur de poids $\overline{|\log\bar R|}$ (30 dernières évaluations, vérifiée sur W\&B le 27 octobre). Barker est meilleur à chaque graine.}
+\end{table}
+
+\begin{verdict}
+\textbf{Marche.} Coût : environ 150 (à $d=24$) et 250 (à $d=36$) évaluations d'énergie par mise à jour de gradient, contre 5,12 gradients pour AS (recalcul du 22 novembre à partir du code ; le « 140 à 200 » des notes d'octobre concorde à $d=24$). Les énergies des images sont déjà mises en cache à l'insertion dans le buffer ; le surcoût vient des $M-1$ images par nouvel échantillon et de la fusion des centres. L'\code{energy_w2} est légèrement moins bon avec Barker (0,41--0,43 contre 0,33--0,36 à $d=24$), dominé par un excès commun de largeur des modes de 3--5\,\% qui diminue avec la capacité. Vérifications : moyenne nulle exacte par énumération de l'orbite et sous la postérieure exacte (\code{tests/test_barker_matcher.py}, \code{test_mh_matcher.py}, \code{test_threshold_centres.py}).
+\end{verdict}
+
+\subsection{GMM hétérogène}
+Rayons et covariances inégaux, orbite affine avec jacobien. Règle (AS seul, Barker jamais lu avant le choix) : une géométrie est informative si le quart léger d'AS a un rapport $<0{,}6$ \emph{et} une couverture $\ge0{,}9$. Candidats G1--G4, E1--E4, F1. Résultat : sur aucune géométrie AS ne trouve tous les modes tout en ayant un déficit de poids net (G1--G4 : AS trouve 8 à 18\,\% des modes ; E1 manque de peu la couverture, 0,838 ; F1 est trop facile, 0,785 / 1,000). La séparation normalisée explique la bascule : 3,05 dans le benchmark isotrope (tous les modes trouvés), effondrement au-dessus de $\approx3{,}45$.
+\begin{verdict}Aucun régime informatif : GMM hétérogène abandonné.\end{verdict}
+
+\subsection{ManyWell-32}
+AS ($256\times6$, \code{clip} 100, $\smax=1{,}41$) : 8 coordonnées sur 16 ne visitent jamais le puits léger ($R=0$), les 8 autres visitent les deux puits avec de mauvais poids ($R$ de 0,45 à 2,8). Variantes de la cible V1--V3 : aucune ne passe la règle. Barker sur les 8 coordonnées visitées (orbite sous-groupe produit) : erreur 3,18 ($\gamma=3$), 2,88 ($\gamma=1$), 3,57 (banque de puits + débruitage de Newton 1D) contre 0,571 pour AS : les coordonnées sur-remplies sont vidées et restent absorbantes. Seul effet positif : le puits léger apparaît sur 4 à 6 des 8 coordonnées jamais visitées par AS. Une expérience de pré-entraînement sur la cible symétrisée a échoué deux fois à sa porte d'entrée.
+\begin{verdict}Fermé : AS ne visite pas les puits légers de la moitié des coordonnées, Barker ne l'améliore pas.\end{verdict}
+
+\subsection{DW-4 : Barker par réflexions}
+Noyau : 12 réflexions par des droites et 12 par des points ($R=24$), $\gamma=3$, poids fermés. Critères pré-enregistrés (TV par bassin $<\min(\text{AS})-2$ SE, mécanisme, direction, garde-fou \code{energy_w2}) : les quatre échouent (TV 0,104 contre 0,085 / 0,080 pour AS, mesurées contre la référence DEM, dont on verra qu'elle est biaisée). Test de continuation apparié depuis le contrôleur AS (500 époques, $\gamma\in\{3,10,30\}$) : aucun effet, pas de dose-réponse ($S=0{,}217$ / $0{,}257$ / $0{,}187$ contre $0{,}225$ / $0{,}168$ pour deux graines d'AS ; bruit 0,10). Explication structurelle (conjecture) : l'information de poids se trouve aux $\kappa$ intermédiaires à grands, où une réflexion coûte $\Delta E\approx4$ et n'a qu'un flux de $\approx1\,\%$.
+\begin{verdict}Pas d'effet démontré, confirmé ensuite contre la vraie cible (section~\ref{sec:dw4}).\end{verdict}

@@ -1,0 +1,51 @@
+% ===========================================================================
+\section{Théorie : ce qu'une variable de contrôle peut corriger}
+\label{sec:theorie}
+% ===========================================================================
+
+Cette section résume \code{docs/memo_cv_failure_modes.md}, qui relit les trois modes d'échec de l'article \emph{Failure Modes of Adjoint Sampling} (instabilité, poids, découverte) du point de vue des variables de contrôle (VC). Les énoncés marqués « prouvé » le sont dans le mémo ; les vérifications numériques sont pré-enregistrées (\code{rules_cv_failure_modes.md}, \commit{eea3ce1}).
+
+\subsection{Identité de départ}
+La cible de régression d'AS s'écrit
+\[
+  Y = Y_{\rm BM}+\sigma_t\,\nabla_{x_1}\log\tilde\pi_t(x_1\mid x_t),
+\]
+c'est-à-dire un \emph{bridge matching} sur la loi courante (qui laisse toute loi $q$ fixe) plus une VC de Stein de gain 1. Le terme de Stein est la seule force qui pousse $q$ vers $\pi$ ; il équivaut à un pas de gradient de taille $\nu_{1|t}$ sur l'énergie de la postérieure. Les trois modes d'échec sont trois défauts de ce pas : mal calibré (instabilité), local (poids et découverte).
+
+\subsection{Instabilité : AS est un pas de Newton avec la mauvaise courbure}
+\begin{proposition}[prouvé]
+Pour une courbure supposée $\hat H$, la famille de mises à jour $u_q+\sigma_t\Lambda_t(\hat H)\E_{\tilde q}[c_S]$ avec $\Lambda_t=(\nu_{1|t}\hat H+\kappa_tI)^{-1}$ contient AS ($\hat H=I/\nuone$, $\Lambda_t\equiv I$). En 1D, à variances courante et cible égales, le multiplicateur de l'erreur de moyenne vaut $A=1-F(\rho)$, $F(\rho)=\rho\ln\rho/(\rho-1)$, $\rho=\hat\sigma^2/\sigma^2$. Pour AS, $\rho=\nuone/\sigma^2=1/r$ avec $r=\sigma^2/\nuone$, d'où $A=1+\ln r/(1-r)$ (éq.~27 de l'article) ; l'instabilité $|A|>1$ apparaît pour $\rho>\rho_\star=4{,}9216$, c'est-à-dire quand la variance de la base dépasse 4,92 fois celle de la cible ($s_\star=\rho_\star^{-1/2}=0{,}45076$, la valeur de l'article).
+\end{proposition}
+Ce n'est pas un problème de variance : une VC de moyenne nulle sous $\tilde q$ ne change pas $\Am$ ; seule une VC de moyenne non nulle sous $\tilde q$ change le point fixe et son jacobien.
+
+\begin{theorem}[Théorème A, Newton--Stein ; prouvé, vérifié]
+Pour $\pi=\N(\mu,\Sigma)$ et toute loi courante $q$ de second moment fini, la cible $\hat Y=Y+\sigma_t(\Lambda_t-I)c_S$ avec $\Lambda_t=(\nu_{1|t}\Sigma^{-1}+\kappa_tI)^{-1}$ garde $\pi$ point fixe et vérifie $\E_{\tilde q}[\hat Y\mid x_t]=u^*$ : une itération envoie toute $q$ sur $\pi$ (multiplicateur mesuré $-2{,}1513\to0{,}0000$). Robustesse : stable si la courbure est sous-estimée d'un facteur $<4{,}92$ ; si $\hat H\succeq I/\nuone$, c'est un amortissement pur.
+\end{theorem}
+
+\subsection{Poids : les VC de Stein sont aveugles aux poids}
+$\E_{\tilde q}[c]=\E_{\tilde q}[A\nabla\log r]$ et $\nabla\log r$ est exponentiellement petit sur le support de $q$ hors de la couche de transition : aucune VC de Stein (Newton--Stein compris) ne corrige les poids (extension du Th.~3.8 de l'article). Il faut un noyau qui saute entre bassins (darting). Dose : avec des poids de Barker, $\E_{\tilde q}[c]=\frac{M}{2(M-1)}(\E_{\tilde\pi}-\E_{\tilde q})[X_1]/\nu_{1|t}$, d'où une dose correcte $\gamma\approx1{,}75$ pour $M=8$ : notre $\gamma=30$ sur GMM-dk était $\approx17$ fois trop fort, ce qui explique le dépassement observé (section~\ref{sec:darting}). Le darting en bain thermique combiné à Newton--Stein donne exactement la dose 1 (exact en une itération sur les panneaux « mode manquant » et « mauvais poids » : 0,50004 et 0,90870 contre 0,50000 et 0,90869), mais surcorrige de 11\,\% quand $q$ a aussi des erreurs intra-mode.
+
+\subsection{Découverte : théorème de localisation}
+\begin{theorem}[Théorème C, localisation ; prouvé]
+Soit une VC $c=\Psi(x_1,x_t,\xi,(\log\pi(z),\nabla\log\pi(z))_{z\in Z})$ dont l'ensemble fini de points de requête $Z$ est \emph{local}, invariante par translation des $\log\pi$, $L$-lipschitzienne et bornée par $B$. Si $\log\pi-\log\pi'=\mathrm{const}+e$ avec $|e|+|\nabla e|\le\delta$ sur $R$, alors
+\[
+  \big|\E_{\tilde q}[c_\pi\mid x_t]-\E_{\tilde q}[c_{\pi'}\mid x_t]\big|\le L\delta+2B\,\mathbb P(Z\not\subset R).
+\]
+Corollaire : pour une cible bimodale de largeur $\varepsilon$, un mode manquant à distance $\nu$ et des requêtes à distance au plus $\rho_Z$ du point, le signal est en $e^{-(1-\rho_Z/\nu)^2/(2\varepsilon^2)}$ ; le temps de découverte est au moins $e^{c/\varepsilon^2}/\mathrm{poly}$. Cela contient le Th.~3.5 de l'article et vaut pour toute VC de Stein, MALA ou HMC à pas borné.
+\end{theorem}
+\begin{remark}[portée, précisée le 25 novembre]
+Le Th.~C porte sur les \emph{VC à requête locale}. Il n'exclut pas l'enrichissement par une recherche externe : une banque de minima trempée depuis la loi de base récupère des modes de masse nulle dans le sampler (sections~\ref{sec:sanspoids} et~\ref{sec:eccentric}). Pour les méthodes à poids, l'obstacle est la limite de support (on ne repondère pas une masse nulle).
+\end{remark}
+Le mémo conclut que la bonne architecture contre la découverte est une \emph{recherche externe} (trempe depuis la base, \emph{basin hopping}, tempering) suivie d'une pondération correcte ; il mesure déjà sur le GMM-50 excentrique de SSS qu'une trempe depuis $\N(0,I)$ trouve le mode lointain avec 0,39\,\% des tirages. Une prédiction a été réfutée : une correction partielle ne donne pas le mélange géométrique $q^{1-p}\pi^p$ (le facteur de Feynman--Kac est du même ordre que la pénalité).
+
+\subsection{Tests GPU de Newton--Stein et de l'amortissement}
+\begin{itemize}
+  \item \textbf{GMM-dk $d=32$} (\code{rules_ns_damping.md}, 0,040~\$) : à $(32,8,4)\times2$ (multiplicateur prédit $-2{,}15$), Newton--Stein donne un ESS 5,6 fois celui d'AS et 3,4 fois celui de l'amortissement $\eta=0{,}5$ ; à $\times1$ seulement 1,22 et 1,33 fois. À $(32,8,8)$ aucun bras ne retrouve les 8 modes (Th.~C). \textbf{R1, R2 faux : arrêt.}
+  \item \textbf{MoS-w, $\smax=23{,}2$} (\code{rules_mosw_ns.md}, 0,062~\$) : $S_2$ vrai tel qu'écrit (10/10 bassins à $d=10$), mais \emph{le sampler Newton--Stein est resté à la loi de base} (distance médiane 66 contre 64 pour $\N(0,23{,}2^2I)$ et 5,2 sous $\pi$) : avec $\hat H=1{,}5$ et $\nuone=538$, $\Lambda_t\approx1/800$ aux petits $t$, la mise à jour est gelée. Amendement daté « $S_2$ exige Q1 » : faux. \textbf{Piste fermée.} L'étape 0 montre aussi que $A=1-F(\rho)$ ne range pas les issues des runs.
+\end{itemize}
+
+\subsection{IS tempéré en quadrature 1D}
+La régression pondérée par $r^\alpha$ est exactement la mise à jour d'AS évaluée sur $q_\alpha\propto q^{1-\alpha}\pi^\alpha$ (\code{rules_tempered_is_quadrature.md}). Résultats : $A_\alpha=(1-\alpha)\Am$ à $2\cdot10^{-3}$ près ($P_g$ vraie) ; l'erreur de logit des poids est multipliée par $(1-\alpha)$ ($P_w$ vraie) : l'IS tempéré est un \emph{amortissement en logit}. Sur un mode absent ($P_m$), le gain n'apparaît qu'à $\alpha\ge0{,}9$, où l'ESS vaut $10^{-25}$ à $10^{-35}$ : l'IS tempéré ne découvre pas un mode absent.
+
+\subsection{Coût d'une VC à sauts}
+Barker tel qu'implémenté met déjà en cache les énergies des images à l'insertion dans le buffer ; le surcoût restant (30 à 50 fois AS en énergies, $\approx153$ énergies par mise à jour à $d=24$, 247 à $d=36$) vient des $M-1$ images par nouvel échantillon et ne se réduirait qu'en sous-échantillonnant les partenaires (non testé).

@@ -1,0 +1,77 @@
+% ===========================================================================
+\section{Corriger sans poids : banque de minima, darting et auto-entraînement}
+\label{sec:sanspoids}
+% ===========================================================================
+
+À partir du 23 novembre, la question devient : là où les méthodes à poids (IS de chemin, IS tempéré, rééchantillonnage) échouent, une correction \emph{sans poids} du buffer ou des échantillons y arrive-t-elle ? Deux régimes d'échec de l'IS sont distingués : \textbf{famille 1} (modes absents : limite de support) et \textbf{famille 2} (modes présents mais $\smax$ grand : ESS de l'IS de chemin effondré).
+
+\subsection{Darting post hoc quand l'IS de chemin s'effondre (famille 2)}
+\code{rules_darting_large_sigma.md} puis \code{rules_darting_large_sigma_snapshots.md}. Contrôleurs GMM-dk $(128,8,6)$ et $(256,8,6)$ à $\smax\times0{,}75$ (formes apprises, $Q$ vrai), 3 jeux de $10^4$ points.
+\begin{table}[h]\centering\small
+\begin{tabular}{lcc}\toprule
+ & $d=128$ & $d=256$\\\midrule
+AS brut (Voronoï / bassin) & 0,195 / 0,110 & 0,194 / 0,102\\
+IS de chemin ($3\times10^4$) : TV, ESS, $\khat$ & 0,127, $2{,}7\cdot10^{-3}$, 0,97 & 0,487, $1{,}1\cdot10^{-4}$, 3,40\\
+darting $S=10$ & \textbf{0,008} / 0,009 & \textbf{0,009} / 0,012\\
+MALA seul, même coût & 0,087 / 0,084 & 0,097 / 0,092\\\bottomrule
+\end{tabular}
+\caption{Le darting ramène la TV au plancher (0,010) là où l'IS de chemin est inutilisable ; ce sont les sauts, pas les pas locaux, qui corrigent. Résultat robuste sur 4 instantanés (750 à 1500 époques), règle A1 vraie. Réserve : la règle G y compare le darting à une borne inférieure de l'IS de même coût (calculée à partir de l'ESS mesuré, non simulable sur CPU). Témoin : à $(32,8,4)\times2$, où l'IS n'est qu'à moitié effondré, la correction vient des pas locaux ($H_{\rm saut}$ faux).}
+\end{table}
+\paragraph{Pourquoi l'IS échoue ici.} À $\times0{,}75$, la variance de $\log W$ est presque entièrement \emph{intra-bassin} (14 à 19 nats$^2$ à $d=128$, $\approx150$ à $d=256$) ; la part inter-bassins, qui porte l'information de masse, est de 0,0 à 0,2\,\%. À $\times0{,}5$ la variance est de 1,2--1,7 nat$^2$, dont 13 à 34\,\% entre bassins.
+
+\subsection{Étape B : correction à l'entraînement, darting contre IS tempéré}
+\code{rules_train_weightfree.md}, continuation de 500 époques, bras (a) AS, (t) IS tempéré $\alpha=0{,}5$ (poids $W^\alpha$ autonormalisés sur le buffer), (d) darting à la dose théorique $\gamma=1{,}75$. TV de Voronoï / bassin (époques 350--450) :
+\begin{table}[h]\centering\small
+\begin{tabular}{lccc}\toprule
+cellule & (a) & (t) & (d)\\\midrule
+$(8,8,8)\times0{,}5$ & 0,182 & \textbf{0,034} & \textbf{0,043}\\
+$(32,8,6)\times0{,}5$ & 0,041 & 0,034 & 0,042\\
+$(128,8,6)\times0{,}75$ & 0,196 / 0,106 & \textbf{0,113} / 0,080 & 0,190 / 0,100\\\bottomrule
+\end{tabular}
+\end{table}
+\begin{verdict}F1 \faux{} (vrai à $(8,8,8)$, faux à $(32,8,6)$ où AS est déjà à 0,04), F3 (sûreté de la forme) \vrai, \textbf{F2 \faux} : en famille 2, le darting comme VC à l'entraînement ne corrige presque rien (dose réelle 0,06--0,15 de la cible aux petits $\kappa$, $\approx0$ pour les 92\,\% de temps à $\kappa>0{,}7$), et fait moins bien que l'IS tempéré. La correction sans poids ne marche pas \emph{comme VC} à l'entraînement dans le régime où elle marche après coup. Fait descriptif : l'IS tempéré est le meilleur bras à $d=128$ alors que l'ESS de départ de $W^{0{,}5}$ n'est que 0,089. Étiquette C (décision de l'utilisateur).\end{verdict}
+
+\subsection{Banque de minima trempée depuis la loi de base (famille 1)}
+Idée : au lieu de découvrir les minima sur les échantillons d'AS (qui n'ont pas les modes absents), on trempe $N_q=1000$ points tirés de la \emph{loi de base} $\N(0,\nuone I)$ ; la banque obtenue sert au darting.
+\paragraph{A3 ($(32,8,8)$, AS à 3/8 modes, \code{rules_bank_darting_dk.md}).} La banque trouve les 8 minima en 18 à 29 départs, quel que soit $\smax$ ($\le10^4$ gradients). Darting $S=10$ avec la banque : TV $0{,}0080\pm0{,}0010$ (plancher 0,0099), \textbf{8/8 modes} partant de 3/8 (et même de 1/8 aux autres $\smax$). Témoins : darting avec minima découverts sur les échantillons 0,321 (3 minima), IS de chemin 0,324, MALA seul 0,419. \textbf{A3 vraie.} Limite : cas facile (bassins = cellules de Voronoï de même largeur, loi de base centrée).
+\paragraph{A4 (12 contrôleurs MoS-w de l'étape 3, \code{rules_mosw_posthoc.md}).} Banque : 10/10 minima à $d=10$ (en 107 départs) et à $d=50$ (40 départs).
+\begin{table}[h]\centering\small
+\begin{tabular}{lcccc}\toprule
+époque ($d=10$) & brut & meilleur IS & darting d'origine & \textbf{banque + darting} $S=40$\\\midrule
+250 & 0,240 (7) & 0,315 (5) & 0,090 (9) & \textbf{0,0078 (10)}\\
+750 & 0,348 (4) & 0,266 (5) & 0,222 (5) & \textbf{0,0083 (10)}\\
+1500 & 0,301 (5) & 0,257 (6) & 0,226 (5) & \textbf{0,0050 (10)}\\\bottomrule
+\end{tabular}
+\caption{TV par bassin (bassins couverts sur 10). À $d=10$ : 6 instantanés rattrapés sur 6. À $d=50$ : « en partie » (10/10 bassins mais TV 0,11--0,34 : échantillons 7 à 9 fois trop loin des minima, sampler diffus).}
+\end{table}
+\paragraph{A5 (division hors ligne sur GMM-dk, gabarits non rétrécis).} Faux tel qu'écrit (dispersion du gabarit principal $>1$ nat, $\beta=0{,}17$) ; les témoins échouent, donc $\beta$ est non fiable : \textbf{étiquette I}. Descriptif : avec une covariance commune bien estimée, les masses de Gelfand--Dey divisent l'erreur d'AS par 2 à 4,7.
+
+\subsection{Auto-entraînement sur un buffer corrigé (bras (s))}
+\code{rules_selftrain_dartbank.md}, \code{AdjointVEDartBankMatcher}. Chaque lot de nouveaux points terminaux (512 par époque, et les $10^4$ initiaux) subit $S=10$ balayages de darting avec la banque (initialisée par 1000 trempes depuis la base, enrichie par trempe des nouveaux points) ; \emph{les points déplacés remplacent les points bruts} dans le buffer et le gradient est recalculé. La régression reste celle d'AS, sans poids. Continuation de 500 époques, une graine, 0,045~\$.
+\begin{table}[h]\centering\small
+\begin{tabular}{llcccc}\toprule
+cellule & bras & TV Voronoï & TV bassin & couverture & Q1\\\midrule
+$(32,8,8)\times0{,}5$ & (a) & 0,662 & 0,662 & 1/8 & 1,014\\
+ & (t) & 0,136 & 0,136 & 5/8 & 1,014\\
+ & \textbf{(s)} & \textbf{0,063} & 0,063 & \textbf{8/8} & 1,017\\
+MoS-w $d=10$ & (a) & 0,376 & 0,406 & 4/10 & 1,96\\
+ & (t) & 0,867 & 0,520 & 6--8/10 & \textbf{84}\\
+ & \textbf{(s)} & 0,122 & \textbf{0,070} & \textbf{10/10} & 4,81\\
+$(128,8,6)\times0{,}75$ & (a) & 0,196 & 0,106 & 8/8 & 1,046\\
+ & (t) & 0,113 & 0,080 & 8/8 & 1,057\\
+ & \textbf{(s)} & 0,119 & \textbf{0,037} & 8/8 & 1,050\\\bottomrule
+\end{tabular}
+\end{table}
+\begin{verdict}\textbf{S1 vrai} (seule la correction du buffer crée les modes absents ; l'IS tempéré garde les 3 modes absents à 0). \textbf{S2 faux} (10/10 bassins mais Q1 4,8 ; étiquette C, $S$ non exploré). \textbf{S3 faux} tel qu'écrit (Voronoï 0,119 contre le seuil 0,098 ; par bassin 0,037 contre 0,080 et 0,106, lecture descriptive). \textbf{S4 faux} (Q1 de MoS-w). Lecture fixée d'avance « contribution à défendre » : \emph{non établie}. Depuis ce lot, la TV par bassin est la métrique de masse principale.\end{verdict}
+
+\paragraph{Diagnostic buffer contre sampler.}
+\begin{itemize}
+  \item \textbf{MoS-w : l'échec de forme vient du buffer.} Le buffer corrigé a lui-même Q1 $=4{,}26$ (TV par bassin 0,019) ; le sampler appris sur ce buffer est à 5,22. AS \emph{dégrade} son buffer, ce qui est cohérent avec $|\Am|\approx5>1$.
+  \item \textbf{$d=128$ : l'échec vient de l'apprentissage.} Le buffer est au plancher (Q1 1,001, TV de Voronoï 0,008), le sampler à 0,121.
+\end{itemize}
+\paragraph{Coût.} $\approx210$ fois les évaluations d'AS par mise à jour : pas MALA $\approx50\,\%$, réglage du pas MALA refait à chaque lot $\approx40\,\%$, sauts $\approx7\,\%$, trempe $\approx5\,\%$ (total recalculé égal au total journalisé à $10^{-5}$ près).
+
+\subsection{Suites (jouets et diagnostics CPU)}
+\paragraph{Banque incomplète (jouet, \code{rules_bank_incomplete.md}).} 8 modes proches de GMM-dk et un mode lointain ($R=40$, covariance diag$(4,0{,}5)$, poids 0,05) absent de la banque initiale ; sampler synthétique fixe portant une masse $\varepsilon$ sur le mode lointain. Banques initiales : exactement les 8 minima proches dans les 20 graines. Découverte par enrichissement : jamais à $\varepsilon=0$ (0/20), 16/20 à $10^{-4}$, 20/20 dès $3\cdot10^{-4}$. B1 vrai pour la translation et pour la carte affine (masse lointaine 0,046 et 0,050 pour 0,05 ; découverte à $r\le5$ dans 20/20), B2 et B4 vrais. La translation transfère aussi la bonne masse : le jouet ne discrimine pas les deux cartes. Statut déclaré : plomberie seulement (sampler fixe). \emph{La limite à $\varepsilon=0$ est celle d'un enrichissement qui ne trempe que les points du sampler, pas celle d'une banque trempée depuis la base.}
+\paragraph{Forme du buffer MoS-w post hoc (\code{rules_mosw_affine_freeze.md}, M1).} Points bruts de (a) à l'époque 250 (Q1 3,25, TV par bassin 0,241) : $S=10$ : 2,28 / 0,022 ; $S=50$ : \textbf{1,137 / 0,019} ; $S=200$ : 1,011 / 0,013. \textbf{M1 vraie à $S=50$.} Translation et affine identiques (hessiennes égales à $6\cdot10^{-10}$ près).
+\paragraph{Pas MALA figé (F1).} Fausse sur MoS-w (pas figé à 0,85 du pas réglé, hors de $\pm10\,\%$) : le réglage à chaque lot est conservé.

@@ -1,0 +1,50 @@
+% ===========================================================================
+\section{Implémentation et protocoles communs}
+\label{app:impl}
+% ===========================================================================
+
+\subsection{Boucle d'entraînement (\code{train.py}, \code{adjoint_samplers/train_loop.py})}
+À chaque époque : \code{resample_size // resample_batch_size} $=1000//512=1$ appel de \code{populate_buffer} (512 nouveaux chemins simulés avec le contrôleur \emph{courant}, buffer FIFO de $10^4$ points, renouvelé en $\approx20$ époques), puis 100 pas de régression par lots de 512 (\code{prepare_target} du matcher ; perte quadratique, éventuellement pondérée par \code{sample_weight}). Options ajoutées au code d'origine : \code{init_controller}, \code{init_buffer} (+ \code{init_buffer_key}) pour les continuations ; \code{save_controller_epochs} ; \code{dump_final}, \code{+dump_eval_samples} ; \code{ema_decay}, \code{ema_buffer} ; \code{lr_warmup_epochs} ; moniteur \code{correction_every} (diagnostic IMH sans rétroaction) ; \code{fast_sampling}, \code{buffer_on_device}, \code{fast_train}, \code{compile_mode} ; \code{set_progress} (pour le recuit de $\gamma$ et l'amortissement).
+
+\subsection{Matchers (\code{adjoint_samplers/components/matcher.py})}
+\begin{longtable}{p{5.3cm}p{9.5cm}}
+\toprule matcher & rôle (section)\\\midrule\endhead
+\code{AdjointVEMatcher} & AS d'origine (VE, sans coût d'état) ; \code{t_focus} ajouté.\\
+\code{AdjointVETargetBufferMatcher}, \code{AdjointVEFixedBufferMatcher} & buffer de tirages exacts, renouvelé ou figé (\ref{sec:debuts}).\\
+\code{AdjointVEIMHBufferMatcher}, \code{AdjointVECorrectedBufferMatcher} & buffer issu de chaînes IMH sur la cible ; buffer d'AS corrigé par IMH à proposition réajustée (\ref{sec:debuts}).\\
+\code{AdjointVEMHMatcher}, \code{AdjointVEBarkerMatcher} & VC de symétrie par translations entre centres, acceptation MH ou poids de Barker sur l'orbite ; orbites affine (GMM hétérogène) et produit (ManyWell) (\ref{sec:barker}).\\
+\code{AdjointVEDW4BarkerMatcher} & VC de Barker par 24 réflexions sur DW-4 (\ref{sec:barker}).\\
+\code{AdjointVEDivisionMatcher} & VC par division (Gelfand--Dey), paramètres versionnés, $\kappa\in[10^{-6},\kappa_{\max}]$ (\ref{sec:division}).\\
+\code{AdjointVEDW4DartingMatcher}, \code{AdjointVEGMMDartingMatcher} & VC de darting (sauts de minimum à minimum, poids de Barker) sur DW-4 et GMM-dk (\ref{sec:dw4}, \ref{sec:darting}).\\
+\code{AdjointVEDampedMatcher}, \code{AdjointVENewtonSteinMatcher} & amortissement $\eta$ ; Newton--Stein ($\Lambda_t=1/(\nu_{1|t}\hat h+\kappa_t)$) (\ref{sec:theorie}).\\
+\code{AdjointVETemperedISMatcher} & régression pondérée par $W^\alpha$ autonormalisé sur le buffer (\ref{sec:sanspoids}).\\
+\code{AdjointVEDartBankMatcher} & buffer corrigé sans poids par banque + darting (bras (s)) (\ref{sec:sanspoids}).\\
+\code{AdjointVEOracleMatcher}, \code{AdjointVEOracleDSMMatcher} & buffer de tirages exacts, AS ou DSM (\ref{sec:oracle}).\\
+\code{AdjointVEShapeASMatcher}, \code{AdjointVEShapeDSMMatcher} & buffers à masses exactes et forme déformée (V, M) (\ref{sec:oracle}).\\
+\bottomrule
+\end{longtable}
+Sur les branches non fusionnées : \code{AdjointVESteinMatcher} (\code{cv}) et \code{AdjointVEGelfandDeyMatcher} (\code{testt}).
+
+\subsection{Utilitaires et cibles}
+\begin{itemize}
+  \item \code{utils/girsanov.py} : poids de chemin exacts du schéma d'Euler discret ($\pi(X_1)B(\text{chemin}\mid X_1)/q(\text{chemin})$), ESS et $\log\hat Z$ ; testés sans biais pour tout contrôleur (\code{tests/test_girsanov.py}).
+  \item \code{components/mode_correction.py} : EM gaussien (familles pleine, liée, diagonale, sphérique), raffinement des centres, IMH, SNIS, sauts + MALA, compteur d'énergies.
+  \item \code{utils/division_cv.py}, \code{utils/gmm_darting.py}, \code{utils/dw4_darting.py} (noyau en torch float64, modèle JSON des cartes polaires), \code{utils/dw4_reflections.py}, \code{utils/dw4_quench.py} (Newton sans selle), \code{utils/dw4_states.py} (11 classes de graphes).
+  \item \code{scripts/dart_lib.py} (protocole de darting post hoc, banque externe, \code{force_translation}, \code{mala_step}, \code{jump_prob}) et \code{scripts/basin_lib.py} (trempe convergée et bassins).
+  \item Cibles (\code{utils/dist_utils.py}) : \code{GMM1D}, \code{GMM} (simplexe, poids fixés), \code{HeteroGMM}, \code{ManyWell}, \code{MoS}, \code{MoSDK}, \code{GMMDK} (\code{gmm_dk.py} : moyennes, poids, vérité de Voronoï, planchers, mesures de forme), énergies DW-4 et LJ ; évaluateurs \code{DemoEvaluator}, \code{GMMEvaluator}, \code{ManyWellEvaluator}, \code{DW4Evaluator}, \code{MoSEvaluator}.
+\end{itemize}
+
+\subsection{Tests unitaires (\code{tests/}, 27 fichiers)}
+Ils garantissent la validité des termes ajoutés à la régression : moyenne conditionnelle nulle sous la postérieure exacte (MH, Barker, orbites affine et produit, division, darting GMM et DW-4, Newton--Stein), avec contrôle positif à chaque fois ; tests de bout en bout sous la loi de $x_t$ utilisée à l'entraînement (DW-4) ; exactitude des noyaux (involution, jacobien, équilibre détaillé) ; poids de Girsanov sans biais ; IMH qui échantillonne bien la cible ; matchers récents (IS tempéré : normalisation ; banque : minima trouvés, points déplacés stockés, coût compté, pas figé ; oracle DSM : contrôleur exact retrouvé sur une gaussienne 1D ; buffers déformés : variance 1,44 et décalage mesurés, adjoint égal au vrai gradient).
+
+\subsection{Définitions communes des protocoles (règles pré-enregistrées)}
+\begin{itemize}
+  \item \textbf{Trempe convergée} (\code{basin_lib.quench}) : descente monotone de $-\log\pi$, pas initial 0,7 par échantillon, divisé par 2 si $\log\pi$ n'augmente pas ; direction préconditionnée pour les Student ; convergence $\|\nabla\log\pi\|<10^{-3}$ (3000 itérations au plus) ; bassin = minimum à moins de 0,5 du point convergé.
+  \item \textbf{Critère de qualité $Q$} : Q1 (distance médiane au minimum le plus proche $\le1{,}5\times$ celle de $\pi$) et Q2 ($\ge95\,\%$ de convergence et tous les bassins avec $\hat p\ge0{,}25\,p$). Les comparaisons ne se font que sur les contrôleurs qui passent $Q$.
+  \item \textbf{Règle G} : pour au moins un $S$, TV(darting) $\le0{,}5\times$ TV(IS de même coût, simple et meilleure variante parmi PSIS et IS tronqué) et $\le2\times$ plancher. \textbf{H\_saut} : TV(darting) $\le0{,}5\times$ TV(MALA seul de même coût) (version par bassins à partir de l'étape 5). \textbf{I} : ESS de l'IS de chemin $<5\,\%$.
+  \item \textbf{Coût égal} : évaluations d'énergie et de gradient (une énergie $=$ un gradient $=1$) ; les passages de réseau de l'IS de chemin ($\approx200$ par trajectoire) ne sont pas comptés. Quand l'IS de même coût n'est pas simulable sur CPU, borne $LB(S)=\text{plancher}\times\sqrt{10^4/(\ESS\times\text{coût}(S))}$ (déviation déclarée).
+  \item \textbf{Choix de $\smax$} : filtre $\khat<0{,}7$, argmax de $\log\hat Z$, égalité à 2 SE départagée par le plus grand ESS.
+  \item \textbf{Plancher} : médiane de la TV d'un échantillonneur exact de même taille (100 ou 200 répétitions).
+  \item \textbf{Variabilité} : depuis le 22 novembre, tout écart-type d'un seuil inclut la variabilité entre évaluations (3 dernières évaluations, ou plusieurs instantanés), et non seulement le bootstrap à modèle fixé.
+  \item \textbf{Location} : estimation, plafond dur, arrêt d'urgence daté depuis la création de l'instance, jamais de question pendant la facturation, destruction dès les résultats rapatriés.
+\end{itemize}

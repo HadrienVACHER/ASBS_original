@@ -1,0 +1,48 @@
+% ===========================================================================
+\section{Buffer oracle et correction de forme à $(128,8,6)\times0{,}75$}
+\label{sec:oracle}
+% ===========================================================================
+
+\subsection{Buffer oracle : AS et DSM sur tirages exacts}
+\code{rules_oracle_buffer.md}. Question : le seuil de S3 (TV de Voronoï $\le0{,}098$) est-il atteignable par cet entraînement avec un buffer \emph{parfait} ? Même configuration que (s), mais les points terminaux du buffer sont des tirages i.i.d.\ exacts de la cible ($10^4$ au départ, 512 neufs par époque).
+\begin{itemize}
+  \item \textbf{o-AS} : régression d'AS ($-\nabla E$ au point exact).
+  \item \textbf{o-DSM} : même pont $x_t\mid x_0,x_1$, même réseau, même SDE d'échantillonnage, mais \emph{denoising score matching} : avec $r=\int_0^tg^2/\nuone$, la dérive conditionnelle du pont est $u_{\rm cond}=(x_1-x_t)/(\nuone(1-r))$ et la perte est $\nuone r(1-r)\,\|u-u_{\rm cond}\|^2$ (pondération standard $\lambda(t)=\mathrm{Var}(x_t\mid x_1)$ ; $u_{\rm cond}$ diffère du score conditionnel par un terme en $(t,x_t)$ seulement). Aucun gradient d'énergie. Testé sur une cible gaussienne 1D (contrôleur exact retrouvé, SDE redonnant moyenne et variance).
+\end{itemize}
+\begin{table}[h]\centering\small
+\begin{tabular}{lccc}\toprule
+bras & TV bassin & TV Voronoï & Q1\\\midrule
+o-AS & 0,0470 (0,0019) & 0,1178 (0,0018) & 1,048\\
+o-DSM & 0,0434 (0,0051) & 0,1131 (0,0086) & 1,088\\
+(s), pour référence & 0,0372 (0,0061) & 0,1192 (0,0065) & 1,050\\\bottomrule
+\end{tabular}
+\caption{Époques 350--450, écart entre évaluations entre parenthèses ; couverture 8/8 partout ; pas de mémorisation (distance au plus proche voisin identique dans le buffer et dans des tirages neufs). Coût $\le0{,}021$~\$.}
+\end{table}
+\begin{verdict}O1 (o-AS, Voronoï $\le0{,}098$) \faux{} ; O1b (o-AS, bassin $\le0{,}053$) \vrai{} ; O2 (o-DSM) : même résultat. Par Voronoï, \textbf{le seuil de S3 est hors d'atteinte à ce budget quel que soit le buffer} : (s) égale l'oracle ; l'échec de S3 n'est pas un échec de la correction. AS et DSM sont indiscernables à une graine.\end{verdict}
+
+\subsection{Multiplicateur $\Am$ aux deux cellules}
+$(128,8,6)\times0{,}75$ : $\sigma_{\rm tar}^2=1$, $\nuone=2{,}566$, $s^2=0{,}390$, $\Am=-0{,}54$ ($|\Am|<1$). MoS-w $d=10$ : $\nuone=538$, composantes de variance infinie ; selon la lecture de $\sigma_{\rm tar}^2$ (variance de Laplace 2/3, échelle 1, gaussienne de même écart interquartile), $\Am=-5{,}7$, $-5{,}3$, $-4{,}9$ : $|\Am|>1$ (ordre de grandeur, le théorème suppose des gaussiennes).
+
+\subsection{AS corrige-t-il la forme d'un buffer aux bonnes masses ?}
+\code{rules_shape_correction.md}. Buffers synthétiques à \emph{masses exactes}, rafraîchis par 512 tirages neufs : \textbf{(V)} covariance $1{,}44\times$ la vraie ; \textbf{(M)} moyenne de chaque mode décalée de $\delta=0{,}3\,\sigma_{\rm tar}$ le long d'une direction aléatoire $u_k$ fixée. Mesures : $\rho_V$ = variance par mode et par coordonnée / $\sigma_{\rm tar}^2$ ; $\rho_M$ = projection du décalage moyen par mode sur $u_k$, divisée par $\delta$. Prédictions de population (1D) : $\rho_V(\text{AS})\approx0{,}90$, $\rho_V(\text{DSM})\approx1{,}44$ ; $\rho_M(\text{AS})\approx\Am=-0{,}54$, $\rho_M(\text{DSM})\approx1$. Planchers (oracle) : $\rho_V$ 1,078 (AS) et 1,162 (DSM), $\rho_M$ $-0{,}165$ et $-0{,}131$.
+\begin{table}[h]\centering\small
+\begin{tabular}{lcccc}\toprule
+buffer / apprenant & $\rho_V$ & $\rho_M$ & TV bassin & Q1\\\midrule
+(V) AS & \textbf{0,978} & $-0{,}148$ & 0,048 & 0,999\\
+(V) DSM & \textbf{1,596} & $-0{,}058$ & 0,057 & 1,271\\
+(M) AS & 1,081 & \textbf{$-0{,}106$} & 0,042 & 1,049\\
+(M) DSM & 1,163 & \textbf{0,298} & 0,046 & 1,089\\\bottomrule
+\end{tabular}
+\end{table}
+\begin{verdict}\textbf{P1 vraie} : par rapport aux planchers, AS fait $-0{,}100$ et DSM $+0{,}434$, soit exactement la prédiction de population ($-0{,}10$ et $+0{,}44$) : \textbf{AS corrige la largeur du buffer, DSM la recopie}. \textbf{P2 fausse} par la partie DSM ($\rho_M=0{,}298<0{,}8$) : témoin non convergé, \textbf{étiqueté I}. P3 fausse (DSM sur V : 0,057). AS reste au plancher en position ($-0{,}11$), la prédiction $-0{,}54$ n'est pas retrouvée.\end{verdict}
+
+\paragraph{Complément : décalage $\delta=1{,}0$, départ réinitialisé} (\code{rules_shape_correction_2.md} amendé : départ (ii) seul). $\rho_M(\text{DSM})=0{,}363$ : \textbf{T (témoin $\ge0{,}8$) faux, test non concluant}, aucune lecture sur AS ($\rho_M(\text{AS})=-0{,}02$, descriptif). Vérifications CPU : la mesure est correcte (buffers (M$'$) et (M) mesurés à 0,974 et 0,995, cible exacte à $-0{,}016$ ; directions garanties par construction, contre-épreuve avec une autre graine à 0,011) et le code DSM est correct sur un analogue $d=8$ ($\rho_M=0{,}856$ à 60 époques, 0,894 à 200). Cause probable (hypothèse) : DSM non convergé en 500 époques à $d=128$. Une location a échoué (instance jamais utilisable, détruite, $\le0{,}020$~\$) ; coût total du complément $\le0{,}039$~\$.
+
+\subsection{Découplage masses / forme des deux côtés de $|\Am|=1$}
+\begin{itemize}
+  \item $|\Am|<1$ ($(128,8,6)\times0{,}75$) : AS \emph{corrige} la largeur de son buffer (une graine ; confirmation sur 3 graines en attente).
+  \item $|\Am|>1$ (MoS-w) : AS \emph{dégrade} son buffer (Q1 4,26 $\to$ 5,22).
+\end{itemize}
+
+\subsection{Dernier lot, en attente (\code{rules_shape_final.md})}
+Largeur sur les graines 0, 1, 2 (buffer V, AS et DSM, oracles pour les planchers ; règle W : écart au plancher $\le0$ pour AS et $\ge+0{,}30$ pour DSM à chaque graine) ; position avec décalage 1,0 et 2000 époques (T : $\rho_M(\text{DSM})\ge0{,}8$ à la fin ; si vrai, P2$'$ : $\rho_M(\text{AS})\le0{,}3$). Estimation 45--55 min de GPU, au-delà de la limite de 30 min : job PBS préparé (\code{scripts/pbs_shape_final.pbs}), à soumettre sur le cluster.

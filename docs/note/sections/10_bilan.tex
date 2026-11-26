@@ -1,0 +1,62 @@
+% ===========================================================================
+\section{Bilan}
+\label{sec:bilan}
+% ===========================================================================
+
+\subsection{Grille méthodes $\times$ régimes (extrait)}
+La grille complète (\code{grille_pistes.md}, 15 méthodes $\times$ 9 régimes, 135 cases) suit chaque case : T (testé, avec étiquette R/C/I), X (exclu par un théorème), N (non testé), -- (sans objet). Extrait pour les quatre régimes centraux : \textbf{A} modes trouvés, formes justes, IS qui marche ; \textbf{B} IS de chemin effondré à grand $\smax$ ; \textbf{D} modes manquants dans les échantillons d'AS ; \textbf{I} perte de modes au fil de l'entraînement (MoS-w).
+\begin{table}[h]\centering\footnotesize
+\begin{tabularx}{\linewidth}{>{\raggedright\arraybackslash}p{3.0cm}*{4}{>{\raggedright\arraybackslash}X}}\toprule
+méthode & A & B & D & I\\\midrule
+IS de chemin post hoc & marche (au plancher) & s'effondre & X (support) & ne rattrape rien\\
+AS + IS tempéré & marche ($(8,8,8)$) & meilleur bras à l'entraînement & X : 5/8, absents à 0 & s'effondre (Q1 $\times84$)\\
+Barker / orbites & simplexe (régime F de la grille) : $-86\,\%$ / $-68\,\%$ ; ManyWell et DW-4 : sans effet & -- & N & N\\
+Darting post hoc (minima découverts) & au plancher, comme l'IS & \textbf{au plancher}, IS inutilisable & X (crée pas de mode) & partiel\\
+Darting comme VC à l'entraînement & $\gamma=30$ trop fort, $\gamma=1$ partiel & ne corrige rien (F2) & X & N\\
+Newton--Stein, amortissement & sans effet pratique & -- & X (Th.~C) & gel / perte de modes\\
+\textbf{Banque + darting} & -- & entraînement : S3 faux en Voronoï, 0,037 par bassin & \textbf{8/8} (post hoc A3 et entraînement S1) ; Eccentric GMM & post hoc \textbf{10/10}, entraînement : masses oui, forme non\\
+Division (Gelfand--Dey) & égale Barker ; robuste aux masses & N & X & N\\\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsection{Ce qui est établi}
+\begin{enumerate}
+  \item \textbf{Variables de contrôle de symétrie} : Barker corrige les poids sur le GMM simplexe (3 graines, 2 dimensions) ; la division l'égale (une graine, paramètres exacts sur cette cible) et sa direction est robuste à des masses fausses de $\pm0{,}5$ nat. Barker ne fait rien sur ManyWell (puits jamais visités) ni sur DW-4 (réflexions de flux trop faible) ; la division échoue sur DW-4 (bassins anharmoniques, contrainte de domination).
+  \item \textbf{DW-4} : la référence de DEM est biaisée ($\pm0{,}15$ en log sur les deux bassins dominants) ; l'IS d'endpoint à proposition englobante et l'IS de chemin corrigent les masses d'AS ; le darting à l'entraînement améliore les masses (15 comparaisons sur 15) mais n'est « pas confirmé » par la règle (garde-fou géométrique).
+  \item \textbf{$\smax$ domine} le comportement d'AS sur GMM-dk ; un critère de choix par $\log\hat Z$ + ESS (+ $\khat$) est validé sur deux graines.
+  \item \textbf{Théorie} : AS est un pas de Newton à la courbure de la base (multiplicateur $\Am$) ; Newton--Stein est exact pour une cible gaussienne mais sans effet pratique ; les VC de Stein sont aveugles aux poids ; les VC à requête locale ne découvrent pas de mode (Th.~C) ; l'IS tempéré est un amortissement en logit.
+  \item \textbf{L'IS suffit quand AS a trouvé tous les modes avec la bonne forme} et un $\smax$ raisonnable.
+  \item \textbf{La banque de minima trempée depuis la loi de base, suivie de darting, récupère les modes de masse nulle} dans le sampler (A3, A4, S1, Eccentric GMM), là où toute méthode à poids échoue ; elle ramène aussi les masses au plancher quand l'IS de chemin s'effondre à grand $\smax$.
+  \item \textbf{Dans le régime $|\Am|<1$, AS corrige la largeur} d'un buffer mal formé (prédiction de population retrouvée à 0,01 près), là où DSM la recopie ; dans le régime $|\Am|>1$ (MoS-w), AS dégrade son buffer.
+  \item \textbf{Aucun avantage mesuré de la correction à l'entraînement sur le post hoc} ; seuil de rentabilité $\approx10^6$ échantillons.
+\end{enumerate}
+
+\subsection{Nouveauté}
+Le bras (s) correspond à l'Algorithme 1 de Gabrié et al.\ (2022) (entraînement d'un sampler sur des échantillons améliorés par MCMC) avec le darting généralisé de Sminchisescu \& Welling (2007) ; le darting lui-même est publié (Andricioaei et al.\ 2001 ; Tjelmeland \& Hegstad 2001). La contribution éventuelle tient donc moins à la méthode qu'aux constats : découplage masses/forme selon $|\Am|$, rôle de la trempe depuis la base pour la découverte, et comparaison au post hoc. (Références à revérifier ; le document \code{nouveaute_autoentrainement.md} n'est pas dans le dépôt.)
+
+\subsection{Ce qui reste ouvert}
+\begin{itemize}
+  \item Les runs d'octobre (section~\ref{sec:debuts}, une évaluation, sans règle) suggèrent deux leviers jamais repris en novembre : l'\textbf{EMA du contrôleur} (avec un buffer exact, elle ramène le modèle de 0,054 à 0,033, et 0,025 avec nfe 400, à $d=36$), et une \textbf{correction du buffer par IMH}, bien moins coûteuse que le darting à $S=10$. À tester sous règle avant toute affirmation, en particulier sur l'écart oracle/plancher à $(128,8,6)\times0{,}75$.
+  \item Confirmation de la correction de largeur sur 3 graines et test de la position avec un entraînement de 2000 époques (\code{rules_shape_final.md}, job PBS prêt).
+  \item La position : le témoin DSM n'a jamais convergé à $d=128$ (I).
+  \item Cases non testées de la grille : ManyWell (minima connus par la structure) pour l'IS, le darting et la banque ; le simplexe à poids différents (régime F) pour les méthodes post hoc ; la VC de rapport avec témoin de Rayleigh (définition dans les notes de Hai-Dang, non encore dans le dépôt).
+  \item Banque sur des énergies à bassins petits, inégaux ou loin de la loi de base (LJ, molécules) : non testé ; tous les succès de la banque sont sur des mélanges où la trempe depuis la base couvre les bassins.
+\end{itemize}
+
+\subsection{Audit des fermetures (22 novembre)}
+\code{docs/audit_fermetures.md} passe en revue les 20 pistes fermées ou abandonnées (type R, C ou I, ce qui n'a pas été exploré, erreurs de spécification). Erreurs de spécification qui ont \emph{changé une conclusion} :
+\begin{enumerate}
+  \item le garde-fou \code{eq_w2} de la confirmation du darting sur DW-4 (deux évaluations isolées, sans marge calibrée) : « confirmé » est devenu « non confirmé » ; la réanalyse avec puissance (G3$'$) reste fausse à cause de la graine 3 (dégradation réelle d'\code{eq_w2} à environ 4 écarts-types), étiquette I sur la géométrie ;
+  \item « S2 sans Q1 » pour Newton--Stein sur MoS-w : rouvrait la piste à tort, corrigé par amendement ;
+  \item R1 de Newton--Stein exigeait un gain à $\smax\times1$, où la théorie n'en prédisait pas (le volet $\times2$ était vrai) ;
+  \item le seuil de $H_{\rm AS}$ en quadrature 1D (la loi exponentielle elle-même est vérifiée) ;
+  \item la référence DW-4 biaisée traitée comme $\pi$ (T1 corrigé par T1$'$ ; les règles (c) et (d) de la division sur DW-4 n'ont pas été réévaluées, sans effet sur la fermeture) ;
+  \item la dose $\gamma=30$ reprise de DW-4 sur GMM-dk, environ 17 fois trop forte selon la théorie écrite ensuite (la dose 1,75 a été testée à l'étape B : effet net à $(8,8,8)$, aucun en famille 2, F2 faux).
+\end{enumerate}
+L'audit proposait trois réouvertures (garde-fou DW-4 avec puissance ; GMM-dk $\times0{,}75$ « Q vrai, I vrai » jamais comparé ; darting à la dose 1,75), toutes exécutées ensuite (Phase 0 tâche 1, sections~\ref{sec:sanspoids} et~\ref{sec:darting}). Lacune d'hyperparamètres la plus grande selon l'audit : $\smax$ du MoS-w à 1500 époques (une seule valeur testée, 23,2).
+
+\subsection{Références}
+Vérifiées dans les PDF lus pour le mémo : Havens et al.\ (2025), \emph{Adjoint Sampling} (arXiv 2504.11713) ; \emph{Failure Modes of Adjoint Sampling} (soumission anonyme, ICLR 2027) ; Nguyen, Dau, Thiéry (2026), \emph{Amortizing Tempered Sampling with Corrected Self-Training} (SSS, arXiv 2611.23072) ; Blessing et al.\ (2026), \emph{Bridge matching sampler} (amortissement de la vitesse) ; Wenliang \& Kanagawa (2021), aveuglement des méthodes de score aux proportions ; Akhound-Sadegh et al.\ (2024), iDEM ; Midgley et al.\ (2023), FAB ; \emph{Beyond ELBOs} (cibles MoG/MoS) ; DEM (Akhound-Sadegh et al.\ 2024) et EFM (Klein et al.\ 2023) pour DW-4. À vérifier avant toute citation : Andricioaei, Straub \& Voter (2001) et Tjelmeland \& Hegstad (2001) (darting) ; Sminchisescu \& Welling (2007/2011) ; Gabrié, Rotskoff \& Vanden-Eijnden (2022) (auto-entraînement avec MCMC) ; Barker (1965) ; Wales \& Doye (1997) (basin hopping) ; références sur les VC de Stein et les \emph{control functionals}.
+
+\subsection{Limites générales}
+Une seule graine d'entraînement pour presque tous les résultats (exceptions : Barker 3 graines, darting DW-4 4 graines, choix de $\smax$ 2 graines) ; reprises courtes (500 époques) ; cibles surtout synthétiques (mélanges) ; comparaisons rarement à coût égal ; plusieurs règles se sont révélées mal spécifiées (nombre de tirages, témoins, garde-fous sans variabilité entre évaluations) : leurs verdicts sont conservés tels qu'écrits et les erreurs de conception sont déclarées dans le journal.

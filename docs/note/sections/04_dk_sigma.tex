@@ -1,0 +1,50 @@
+% ===========================================================================
+\section{Démos 1D et comportement d'AS en fonction de $(d,K,\Delta)$ et de $\smax$}
+\label{sec:dk}
+% ===========================================================================
+
+\subsection{Démos 1D à deux modes}
+Cible \code{GMM1D}, poids 0,1 (gauche) / 0,9 (droite), échelle 0,5, 1000 époques, graine 0, CPU. Masse du mode gauche (vérité 0,1), moyenne des évaluations aux époques 500--900 :
+\begin{table}[h]\centering\small
+\begin{tabular}{lccc}\toprule
+modes en & AS & AS + Barker & AS + division\\\midrule
+$\pm1$ (distance 2) & 0,125 $\pm$ 0,004 & -- & --\\
+$\pm3$ (distance 6) & 0,483 $\pm$ 0,056 & 0,090 $\pm$ 0,007 & 0,108 $\pm$ 0,011\\
+$\pm5$ (distance 10) & 0,627 $\pm$ 0,053 & 0,092 $\pm$ 0,008 & 0,120 $\pm$ 0,017\\\bottomrule
+\end{tabular}
+\caption{AS seul devient « aveugle aux poids » quand les modes s'écartent (jusqu'à 50/50) ; Barker et la division ramènent la masse à la cible dès l'époque 100 (MH : 0,122). Sur ces cibles, les paramètres de la division sont exacts (meilleur cas).}
+\end{table}
+
+\subsection{GMM 2D à 3 modes : aplatissement des poids (descriptif)}
+\code{rules_gmm2d_radius.md} (19 novembre, règle exploratoire sans seuil) : AS seul, triangle équilatéral de rayon $r\in\{2,4,6\}$ (distance entre modes 3,5 / 6,9 / 10,4), variance 1, 1000 époques, graine 0. Poids mesurés (10 dernières évaluations) :
+\begin{table}[h]\centering\footnotesize
+\begin{tabular}{lccc}\toprule
+poids vrais & $r=2$ & $r=4$ & $r=6$\\\midrule
+0,479 / 0,309 / 0,212 (log-uniformes) & 0,481 / 0,308 / 0,211 & 0,404 / 0,343 / 0,251 & 0,352 / 0,371 / 0,275\\
+0,80 / 0,15 / 0,05 (fixés, amendement 1) & 0,80 / 0,15 / 0,047 & 0,64 / 0,25 / 0,11 & 0,43 / 0,28 / 0,29\\\bottomrule
+\end{tabular}
+\caption{Les poids appris se rapprochent de $1/3$ quand les modes s'écartent, sans perte de mode (TV 0,009 / 0,156 / 0,371 pour les poids fixés). La seconde ligne a été extraite par moi des journaux des runs (\code{results/gmm2dw/}), elle n'était pas dans \code{RESULTS.md}. Une graine : cohérent avec l'hypothèse d'aplatissement, non démontré.}
+\end{table}
+C'est le comportement « aveugle aux poids » de la démo 1D, en 2D : avec tous les modes trouvés, AS aplatit les poids vers l'égalité. En dimension $\ge8$ (ci-dessous), AS perd plutôt des modes.
+
+\subsection{Pilote et balayage en $\Delta$ (GMM-dk, AS seul, graine 0)}
+Prédictions écrites avant (\code{docs/predictions_dk.md}). Règle par défaut $\smax=2\sqrt{1+\Delta^2/(2d)}$, 1500 époques.
+\begin{table}[h]\centering\small
+\begin{tabular}{cllll}\toprule
+$\Delta$ & $(8,2)$ & $(8,8)$ & $(32,2)$ & $(32,8)$\\\midrule
+4 & 2/2, 0,010 & 8/8, 0,022 & 2/2, 0,009 & 8/8, 0,028\\
+6 & 2/2, 0,012 & 8/8, 0,046 & 2/2, 0,034 & 7/8, 0,161\\
+7 & 2/2, 0,112 & 8/8, 0,077 & 2/2, 0,048 & 3/8, 0,323\\
+8 & 1/2, 0,091 & 6/8, 0,160 & 1/2, 0,075 & 3/8, 0,433\\\bottomrule
+\end{tabular}
+\caption{Couverture et TV de Voronoï (planchers 0,002--0,003 pour $K=2$, 0,014 pour $K=8$).}
+\end{table}
+AS trouve tous les modes avec des poids justes quand les modes sont proches, et perd des modes à $\Delta$ grand, avec concentration sur les modes lourds à $d=32$ ($\beta=+3{,}04$).
+
+\subsection{$\smax$ domine}
+L'ablation $\times0{,}5$ / $\times2$ a un effet de signe \emph{contraire} à la prédiction et plus grand que celui de $\Delta$ : à $(32,8,6)$, $\times0{,}5$ donne 8/8 (TV 0,082) et $\times2$ donne 1/8 (TV 0,694, 99,4\,\% sur le mode le plus lourd). La lecture « deux régimes selon $\Delta$ » est donc confondue avec la règle de $\smax$ (qui croît avec $\Delta$). L'hypothèse $H_\rho$ d'un seuil commun en $\rho=\sqrt{d\nuone}/\|\mu\|$ n'est pas soutenue (meilleur seuil : 6 runs mal classés sur 24, pour un critère d'au plus 2) ; le seuil dépend de $\Delta$ et décroît quand $\Delta$ croît : à $\rho$ égal, $(8,\cdot,4)$ trouve tous ses modes et $(32,\cdot,8)$ en perd.
+
+\paragraph{Fenêtre de $\smax$} (16 runs, $m\in\{0{,}25;0{,}5;0{,}75;1;1{,}5;2\}\times$ règle) : large à $(32,8,4)$ ($m$ de 0,5 à 2), étroite à $(32,8,6)$ ($m=0{,}5$ seulement), absente à $(32,8,8)$ (aucun $m$ ne donne 8/8). Toutes les cellules s'effondrent à $m=0{,}25$. Dans la fenêtre, l'IS de chemin ramène la TV au plancher (0,007 / 0,007 / 0,012), mais l'ESS n'est pas un indicateur fiable de perte de mode, et l'IS ne corrige pas un mode absent des trajectoires ($(32,8,8)$ : 0,433 $\to$ 0,324).
+
+\subsection{Choix de $\smax$ par $\log\hat Z$}
+Règle : filtre $\khat<0{,}7$, argmax de $\log\hat Z$ de l'IS de chemin, égalité à 2 SE départagée par le plus grand ESS. \textbf{Validée 3 cellules sur 3} en graine 0 puis en graine 1 (\code{rules_sigma_select.md}, TV après IS 0,006--0,009). Réserve essentielle : le succès vient du départage par l'ESS (ou du filtre $\khat$), pas de $\log\hat Z$ seul, qui choisirait les runs effondrés à $m=0{,}25$ (sans biais mais de variance énorme). La règle choisit surtout le plus petit $\smax$ de la fenêtre. $\log\hat Z$ suit le log de la masse couverte à $\pm0{,}05$ pour 17 runs sur 24. (Incident de coût déclaré : 0,189~\$ pour un plafond de 0,12~\$, instance laissée tourner pendant une question.)

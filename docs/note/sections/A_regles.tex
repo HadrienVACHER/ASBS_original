@@ -1,0 +1,37 @@
+% ===========================================================================
+\section{Règles pré-enregistrées, coûts et fichiers}
+\label{app:regles}
+% ===========================================================================
+
+\subsection{Règles pré-enregistrées (\code{rules/})}
+Chaque fichier a été commité avant le calcul qu'il régit ; date du premier commit. Les règles plus anciennes (Barker, division, DW-4 jusqu'à mi-novembre) sont dans les en-têtes des scripts (\code{scripts/*_rule.py}).
+{\footnotesize
+\input{sections/_rules_table}
+}
+
+\subsection{Locations GPU (Vast.ai, RTX 3070 ou 3080), avec accord explicite à chaque fois}
+\begin{table}[h]\centering\small
+\begin{tabular}{lr}\toprule
+lot & coût (\$)\\\midrule
+DW-4 : continuation darting $\gamma=3$ (+ instance remplacée) & $\approx0{,}15$\\
+DW-4 : graines 1--2, dose $\gamma$ 10/30, confirmation, exploration & 0,094 + 0,090 + 0,149 + 0,147\\
+GMM-dk : balayage $\Delta$ / ablation, fenêtre $\smax$, $\log\hat Z$, graine 1 & 0,154 + 0,113 + 0,023 + 0,189\\
+GMM-dk : darting à l'entraînement & 0,065\\
+MoS pilote ; étapes 2, 3, 4, 5 & $\le0{,}028$ ; 0,029 ; 0,048 ; 0,047 ; 0,063\\
+Pilote $(d,K,\Delta)$, GMM 2D, runs d'octobre (cluster) & non relevé dans le journal\\
+Newton--Stein (GMM-dk, MoS-w) & 0,040 + 0,062\\
+Étape B (darting contre IS tempéré) & 0,063\\
+Auto-entraînement (7 runs) & $\le0{,}045$\\
+Oracle AS / DSM & $\le0{,}021$\\
+Correction de forme ; complément (location ratée comprise) & $\le0{,}018$ ; $\le0{,}039$\\\bottomrule
+\end{tabular}
+\end{table}
+Deux dépassements de plafond sont déclarés dans le journal (0,154~\$ pour 0,15~\$ ; 0,189~\$ pour 0,12~\$, instance laissée tourner pendant une question).
+
+\subsection{Où trouver quoi}
+\begin{itemize}
+  \item \code{RESULTS.md} : journal complet (chiffres, verdicts, amendements datés) ; \code{grille_pistes.md} : grille méthodes $\times$ régimes ; \code{INDEX.md} : carte.
+  \item \code{docs/} : mémo théorique, audit des fermetures, prédictions $(d,K,\Delta)$.
+  \item Code : \code{adjoint_samplers/components/matcher.py} (tous les matchers : Barker, MH, division, darting, IS tempéré, banque, oracle, DSM, buffers déformés), \code{scripts/dart_lib.py}, \code{scripts/basin_lib.py}, \code{gmm_dk.py} ; tests dans \code{tests/}.
+  \item Résultats versionnés : \code{figures/} ; gros fichiers (échantillons, contrôleurs) : \code{results/}, hors dépôt.
+\end{itemize}

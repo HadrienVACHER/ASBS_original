@@ -1,0 +1,85 @@
+\documentclass[11pt,a4paper]{article}
+
+% ---------------------------------------------------------------------------
+% Note de synthèse du dépôt ASBS_original (branche div), 12 oct. -- 26 nov. 2026
+% Compiler avec pdfLaTeX (Overleaf : compilateur par défaut).
+% Fichiers : main.tex + sections/*.tex
+% ---------------------------------------------------------------------------
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[french]{babel}
+\usepackage{lmodern}
+\usepackage[margin=2.3cm]{geometry}
+\usepackage{amsmath,amssymb,amsthm,mathtools}
+\usepackage{booktabs,array,tabularx,longtable,multirow}
+\usepackage{enumitem}
+\usepackage{xcolor}
+\usepackage[hidelinks]{hyperref}
+\usepackage{caption}
+\usepackage{microtype}
+
+\setlist{itemsep=2pt,topsep=3pt}
+\renewcommand{\arraystretch}{1.15}
+\captionsetup{font=small,labelfont=bf}
+
+% --- notations -------------------------------------------------------------
+\newcommand{\E}{\mathbb{E}}
+\newcommand{\R}{\mathbb{R}}
+\newcommand{\N}{\mathcal{N}}
+\newcommand{\TV}{\mathrm{TV}}
+\newcommand{\ESS}{\mathrm{ESS}}
+\newcommand{\khat}{\hat{k}}
+\newcommand{\smax}{\sigma_{\max}}
+\newcommand{\smin}{\sigma_{\min}}
+\newcommand{\nuone}{\nu_{1}}
+\newcommand{\Am}{A_{m}}
+\newcommand{\code}[1]{\texttt{\detokenize{#1}}}
+\newcommand{\commit}[1]{\texttt{#1}}
+\newcommand{\vrai}{\textsc{vrai}}
+\newcommand{\faux}{\textsc{faux}}
+
+% --- encadrés de verdict ---------------------------------------------------
+\newenvironment{verdict}{\par\smallskip\noindent\begin{minipage}{\linewidth}\color{black!85}\hrule\smallskip\noindent\textbf{Verdict.}~}{\smallskip\hrule\end{minipage}\par\smallskip}
+
+\newtheorem{theorem}{Théorème}
+\newtheorem{proposition}{Proposition}
+\newtheorem{corollary}{Corollaire}
+\theoremstyle{remark}
+\newtheorem*{remark}{Remarque}
+
+\title{Corriger les masses et les formes d'Adjoint Sampling :\\
+variables de contrôle, darting, banque de minima et auto-entraînement\\[4pt]
+\large Note de synthèse de tout le travail du dépôt (12 octobre -- 26 novembre 2026)}
+\author{Hadrien Vacher}
+\date{26 novembre 2026}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+Cette note rassemble, dans l'ordre logique plutôt que chronologique, depuis la note de départ sur le Bridge Matching Sampler et les variables de contrôle de Stein jusqu'aux derniers tests, l'ensemble des expériences, résultats et éléments théoriques produits dans le dépôt \code{ASBS_original} (branche \code{div}, environ 340 commits). La question de fond est la suivante : Adjoint Sampling (AS) apprend souvent des modes à la bonne forme mais aux mauvaises masses, ou perd des modes ; peut-on corriger ces masses (et les formes), pendant l'entraînement ou après coup ? Nous testons successivement des variables de contrôle de symétrie (Metropolis--Hastings, Barker), une variable de contrôle par division (Gelfand--Dey), le noyau de darting (sauts de minimum à minimum), l'importance sampling (IS) de chemin et tempéré, Newton--Stein, une banque de minima trouvée par trempe depuis la loi de base, et un auto-entraînement sur un buffer corrigé sans poids. Chaque test suit une règle pré-enregistrée, commitée avant le calcul ; les verdicts sont rapportés tels qu'écrits, avec leurs amendements datés. Les principaux acquis : (i) Barker corrige les masses sur un GMM isotrope ($-86\,\%$ et $-68\,\%$ d'erreur à $d=24$ et $36$) ; (ii) l'IS de chemin suffit dès qu'AS a trouvé tous les modes avec la bonne forme et un $\smax$ modéré, mais s'effondre à grand $\smax$ (ESS $10^{-4}$ à $10^{-3}$), où le darting post hoc ramène encore les masses au plancher ; (iii) une banque de minima trempée depuis la loi de base, suivie de darting, récupère des modes de masse nulle dans le sampler (là où toute méthode à poids échoue), y compris sur l'exemple \emph{Eccentric GMM} de la littérature ; (iv) dans le régime $|\Am|<1$, AS corrige la largeur d'un buffer mal formé, ce que le denoising score matching ne fait pas ; (v) aucun résultat ne montre que la correction pendant l'entraînement bat la correction post hoc, ni en qualité ni en coût (seuil de rentabilité $\approx 10^{6}$ échantillons).
+\end{abstract}
+
+\tableofcontents
+\newpage
+
+\input{sections/00_cadre}
+\input{sections/00a_bms}
+\input{sections/00b_debuts}
+\input{sections/01_barker}
+\input{sections/02_division}
+\input{sections/03_dw4}
+\input{sections/04_dk_sigma}
+\input{sections/05_darting}
+\input{sections/06_theorie}
+\input{sections/07_sans_poids}
+\input{sections/08_oracle_forme}
+\input{sections/09_eccentric_cout}
+\input{sections/10_bilan}
+
+\appendix
+\input{sections/A_regles}
+\input{sections/B_implementation}
+
+\end{document}

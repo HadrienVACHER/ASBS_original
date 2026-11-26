@@ -1,0 +1,40 @@
+% ===========================================================================
+\section{Un exemple de la littérature et le coût}
+\label{sec:eccentric}
+% ===========================================================================
+
+\subsection{Eccentric GMM ($d=50$) : banque depuis $\rho$ + darting contre SMC et IS}
+\code{rules_eccentric_gmm.md} (règles commitées avant exécution, 100 graines, CPU). Cible $\pi=\tfrac12\N(0,\tfrac1{16}I_{50})+\tfrac12\N(\tfrac34\mathbf 1,\tfrac1{16}I_{50})$, loi initiale $\rho=\N(0,I_{50})$. Le mode excentré est décalé sur toutes les coordonnées ; d'après la source (non vérifié par nous), sa masse sur le chemin de tempering tombe à $\approx1{,}2\cdot10^{-4}$ vers $\beta\approx0{,}2$ et un SMC à 1000 particules le perd dans 97\,\% des exécutions.
+\begin{itemize}
+  \item \textbf{SMC} : $N=1000$ particules, tempering adaptatif (ESS conditionnel 0,5), rééchantillonnage systématique à chaque pas (c'est sa correction par IS), 5 pas MALA adaptés.
+  \item \textbf{Banque} : 1000 départs de $\rho$, trempe convergée, indépendante du SMC.
+  \item \textbf{Darting} : $S=10$ sur les particules finales. Deux écarts déclarés à \code{dart_lib} : pas de polissage mis à l'échelle de $\mathrm{std}^2$ (sans effet pour std $=1$) et \emph{saut paresseux} (probabilité 1/2), car avec 2 minima de même poids le saut est accepté avec probabilité 1 et le noyau est de période 2 (TV 0,5 après $S=10$).
+\end{itemize}
+\begin{table}[h]\centering\small
+\begin{tabularx}{\linewidth}{>{\raggedright\arraybackslash}p{6.3cm}>{\raggedright\arraybackslash}X}\toprule
+règle & résultat\\\midrule
+E1 : banque avec les 2 minima dans $\ge95/100$ graines & \textbf{vraie}, 100/100 (3,94 départs sur 1000 dans le bassin excentré)\\
+E2 : runs de SMC effondrés (descriptif) & 98/100 (TV médiane 0,50)\\
+E3 : SMC + darting sur les runs effondrés & \textbf{vraie} : TV médiane \textbf{0,0105}, 96/98 $\le0{,}10$\\
+E4 : proxy effondré, IS contre darting & \textbf{vraie} : IS 0,50, darting 0,012\\
+E5 : sûreté sur runs sains & non évaluable (2 runs)\\
+E7 : SMC à coût égal reste effondré & \textbf{vraie} : 94\,\% ($N=3250$), 96\,\% ($N=2300$)\\\bottomrule
+\end{tabularx}
+\caption{Banque + darting coûtent $\approx2{,}3$ fois le SMC ; à coût total égal ($N=3250$), le SMC reste effondré.}
+\end{table}
+\begin{verdict}Un exemple de la littérature où le darting (avec banque) marche et pas l'IS. L'échec de la méthode à poids relève de la limite de support (avec la portée corrigée du Th.~C, voir section~\ref{sec:theorie}) ; \emph{la comparaison porte sur le mécanisme de découverte (trempe depuis $\rho$ contre tempering), pas sur la correction de masse}. Conditions : 2 modes de même forme (translation, acceptation 1), saut paresseux, ce SMC et non celui de la source. Modes de formes différentes : non poursuivi.\end{verdict}
+
+\subsection{Seuil de rentabilité de l'entraînement corrigé contre le post hoc}
+Descriptif. $N^*$ = [surcoût total de (s) par rapport à (a), banque comprise] / [coût par échantillon du post hoc banque + darting au plus petit $S$ qui atteint le niveau de (s) en TV par bassin \emph{et} en Q1]. Surcoût de (s) : $5{,}6\cdot10^7$ évaluations par run.
+\begin{table}[h]\centering\small
+\begin{tabular}{lcccccc}\toprule
+cellule & (a) brut & (s) brut & $S^*$ & post hoc à $S^*$ & coût / éch. & $N^*$\\\midrule
+$(32,8,8)\times0{,}5$ & 0,662 / 1,01 & 0,063 / 1,017 & 4 & 0,052 / 1,000 & 56 & $9{,}9\cdot10^5$\\
+MoS-w $d=10$ & 0,406 / 1,96 & 0,070 / 4,81 & 2 & 0,051 / 1,59 & 33 & $1{,}7\cdot10^6$\\
+$(128,8,6)\times0{,}75$ & 0,106 / 1,05 & 0,037 / 1,050 & 2 & 0,028 / 1,006 & 34 & $1{,}7\cdot10^6$\\\bottomrule
+\end{tabular}
+\caption{TV par bassin / Q1. L'entraînement corrigé ne devient moins coûteux qu'au-delà de $\approx10^6$ échantillons corrigés (hors coût réseau). À MoS-w, la comparaison n'est pas à qualité égale : le post hoc est meilleur en forme (Q1 1,05 à $S=50$).}
+\end{table}
+
+\subsection{Correction à l'entraînement ou post hoc ?}
+Sur tout ce qui a été mesuré, aucun résultat ne montre un avantage de la correction pendant l'entraînement : (i) à $(128,8,6)\times0{,}75$ le post hoc atteint 0,008 alors que le sampler appris plafonne à 0,12 même avec un buffer parfait ; (ii) à $(32,8,8)$ les deux donnent 8/8 ; (iii) sur MoS-w ($|\Am|\approx5$), le post hoc est meilleur en masse (0,005--0,015 contre 0,070) et en forme ; Newton--Stein et l'amortissement ne rétablissent pas l'itération. L'intérêt restant est le critère A (échantillons bruts déjà corrects, échantillonnage ultérieur bon marché), ni établi ni réfuté. Fermeture (décision du 25 novembre) : (s) à $S=50$ sur MoS-w n'est pas lancé (« $|\Am|\approx5$ : AS amplifie les erreurs de forme du buffer, le post hoc est meilleur et moins cher, le résultat ne changerait aucune décision »).

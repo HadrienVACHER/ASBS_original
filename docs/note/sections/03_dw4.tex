@@ -1,0 +1,46 @@
+% ===========================================================================
+\section{DW-4 : référence biaisée, correction a posteriori et darting}
+\label{sec:dw4}
+% ===========================================================================
+
+\subsection{Une référence biaisée}
+Les erreurs de poids d'AS sur DW-4 sont lues par état de graphe des paires courtes ($d<4$, 11 classes à isomorphisme près) ou par bassin trempé (5 bassins : triangle + pendant, chemin de 2, deux paires disjointes, $K_4$ moins une arête, étoile). La référence officielle est l'échantillon MCMC de DEM (\code{test_split_DW4.npy}, 10\,000 points).
+
+\paragraph{Indices.} L'IS d'endpoint (proposition englobante ajustée sur AS) et l'IS de chemin (poids de Girsanov exacts du contrôleur, sans densité ajustée) donnent deux estimations indépendantes qui s'accordent entre elles (triangle + pendant $\approx0{,}41$, chemin de 2 $\approx0{,}47$--$0{,}49$) et s'écartent de la référence ($0{,}476$ / $0{,}410$) de 0,15 en log, soit 7 écarts-types. Le test d'équilibre détaillé T1 du noyau de darting échoue sur la référence (déséquilibre $+0{,}31$, 7 SE) mais réussit sur des échantillons de $e^{-E}/Z$ pondérés par IS.
+
+\paragraph{Parallel tempering indépendant} (\code{rules_reference_check.md}, \commit{3d5b062}) : 64 chaînes $\times$ 8 températures, $2\cdot10^5$ pas, $\hat R=1{,}000$--$1{,}001$, 34\,508 transitions entre les deux bassins dominants.
+\begin{table}[h]\centering\small
+\begin{tabular}{lccccc}\toprule
+ & tri.+pend. & chemin de 2 & 2 paires & $K_4^-$ & étoile\\\midrule
+$p_{\rm PT}$ (SE) & 0,4127 (0,0021) & 0,4792 (0,0021) & 0,0644 & 0,0374 & 0,0063\\
+référence DEM & 0,4762 & 0,4099 & 0,0592 & 0,0490 & 0,0057\\
+$z$(PT -- réf.) & $-12{,}2$ & $+12{,}3$ & & $\approx-5$ & \\\bottomrule
+\end{tabular}
+\caption{Proportions par bassin. Les trois jeux de DEM (train, val, test) partagent le même biais.}
+\end{table}
+Point non résolu : l'énergie du dépôt est $E=\sum_{i<j}[0{,}9(d_{ij}-4)^4-4(d_{ij}-4)^2]$ ($\tau=1$) ; les articles DEM écrivent un préfacteur $1/(2\tau)$ absent du code, et la méthode de génération des données DEM n'est pas documentée (provenance : dépôt DEM, échantillons MCMC de Klein et al.\ 2023). L'énergie par bassin au-dessus du minimum ne montre pas d'écart de température entre la référence et le PT.
+\begin{verdict}\textbf{Référence biaisée} sur les deux bassins dominants ($\approx\pm0{,}15$ en log). $p_{\rm PT}$ est désormais la vérité. La réévaluation de toutes les règles DW-4 contre $p_{\rm PT}$ (\code{rules_reeval_pt.md}) ne change aucun verdict (Barker : toujours aucun effet) ; elle redistribue les erreurs d'AS entre bassins (AS est juste sur triangle + pendant, trop bas de $0{,}23$ en log sur le chemin de 2, trop haut de $+0{,}5$ à $+1{,}0$ sur les petits bassins). \code{energy_w2} ne voit pas le biais ; \code{eq_w2} le voit, mais son plancher à $n=2000$ (0,31) est du même ordre que les valeurs officielles d'AS.\end{verdict}
+
+\subsection{Correction a posteriori}
+\begin{itemize}
+  \item \textbf{IS d'endpoint à proposition englobante} (mélange de composantes de bassin moyennées sur le groupe, gaussiennes ou $t_5$) : utilisable par la règle (ESS 61\,\%, $\khat<0{,}13$) ; somme des $|\log(p/p_{\rm PT})|$ : 0,09--0,12 contre 2,36 pour AS brut.
+  \item \textbf{IS de chemin} : 0,59 ; \textbf{MH de chemin} : 0,89 (ESS 34\,\%, non « utilisable » par la règle mais informatif).
+  \item Dans la métrique $S=\sum|\bar p-p_{\rm PT}|$ des continuations : plancher d'un sampler parfait 0,003--0,007 ; IS 0,011--0,015 ; AS brut 0,20--0,37.
+\end{itemize}
+
+\subsection{Noyau de darting (sauts de minimum à minimum)}
+Un saut envoie $x$, dans le bassin du minimum $m_a$, vers l'image correspondante près d'un minimum $m_b$ (carte polaire avec facteur de volume), accepté par un poids de Barker ; utilisé comme variable de contrôle de moyenne nulle. Tests : aller-retour $2\cdot10^{-15}$, moyenne nulle sous des états PT exacts ($\max|z|=1{,}6$--$2{,}7$ contre 13--15 pour le contrôle positif), flux sortant 15\,\% et 13\,\% sur les bassins dominants à $\kappa=0$ (contre $\approx1\,\%$ pour les réflexions), équilibre détaillé sur PT (T1$'$, tout $|z|<3$).
+
+\paragraph{Entraînement en continuation} (500 époques depuis le contrôleur AS 94252, graines 1 à 4, Vast.ai) :
+\begin{table}[h]\centering\small
+\begin{tabular}{lcccccc}\toprule
+$\gamma$ (graine 1) & 0 (AS) & 3 & 10 & 30 & 100 & 100 + focus\\\midrule
+$S_Q$ & 0,363 & 0,179 & 0,083 & 0,048 & 0,090 & 0,050\\\bottomrule
+\end{tabular}
+\caption{Dose-réponse en $\gamma$ ($S$ contre $p_{\rm PT}$, 20 dernières évaluations). Bruit d'exécution du darting $\approx0{,}05$.}
+\end{table}
+
+\paragraph{Test de confirmation à $\gamma=30$} (\code{rules_darting_confirm.md}, graines 2--4, 6 runs, 0,149~\$) : (i) $S_Q(\text{D30})<S_Q(\text{C})-0{,}05$ \vrai{} sur les trois graines ($\Delta=-0{,}14,-0{,}16,-0{,}17$) ; (ii) médiane \vrai{} ; (iii) garde-fou \code{eq_w2}$\le1{,}1\times$ max des témoins \faux{} sur la graine 2 ($0{,}655>0{,}631$). D30 bat son témoin sur les 5 bassins à chaque graine (15/15).
+\begin{verdict}\textbf{« Non confirmé »} tel qu'écrit. Erreur de conception déclarée : (iii) reposait sur la moyenne de deux évaluations isolées d'\code{eq_w2}, très bruité ; en moyenne temporelle (contre la référence DEM), D30 n'est pas plus haut que les témoins en \code{eq_w2} et il est plus bas en \code{energy_w2} ($-0{,}109\pm0{,}028$). Réanalyse avec puissance contre $p_{\rm PT}$ (\code{rules_dw4_guard_power.md}, 22 novembre, bootstrap à $n=2000$, contrôle positif détecté) : la garde G3$'$ est \faux{} à cause de la graine 3 (\code{eq_w2} $+0{,}20$, environ 4 écarts-types), alors que D30 est meilleur sur les graines 2 et 4 et en \code{energy_w2} sur les trois ; le verdict reste « non confirmé », mais sa raison change : une dégradation géométrique réelle sur une graine. Comme la garde n'utilise qu'un instantané par run, l'utilisateur l'étiquette I (inconclusif sur la géométrie) ; d'où la règle générale : tout écart-type d'un seuil doit inclure la variabilité entre évaluations. Les D30 restent à 15--27 fois le plancher de $S$ et 4--8 fois l'IS : la correction post hoc par IS reste nettement meilleure. Exploration (graine 1, sans verdict) : focus des temps sur $\kappa<0{,}53$ et $\gamma=100$ ne font pas mieux que $\gamma=30$ au-delà du bruit.\end{verdict}
+
+\paragraph{Pourquoi le terme agit peu.} $\kappa_t>0{,}7$ pour 92\,\% des temps de régression ; le flux du noyau est éteint à $\kappa\ge0{,}5$ (sauf l'étoile) et le rapport $\|\text{terme}\|/\|\text{gradient}\|$ y vaut 0,004 à $\gamma=3$. Tout l'effet vient des 8\,\% de temps à $\kappa<0{,}7$.

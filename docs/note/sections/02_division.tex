@@ -1,0 +1,39 @@
+% ===========================================================================
+\section{Variable de contrôle par division (Gelfand--Dey)}
+\label{sec:division}
+% ===========================================================================
+
+\subsection{Construction}
+Pour chaque mode $k$, on dispose d'un gabarit gaussien rétréci $N_k$ et non rétréci $q_k$, de leurs marginales lissées $C_k$, $Q_k$, de la moyenne postérieure $m_k$ de $x_1$ sous $q_k$, et d'une log-masse $L_k$. Le terme
+\[
+  c=\sum_k \exp\!\big(-L_k+\log Q_k-\log C_k+\log N_k(x_1)+E(x_1)/\tau\big)\,\frac{\hat M-m_k}{\nu_{1|t}},\qquad \hat M=\sum_k\hat\pi_k m_k,\ \hat\pi=\mathrm{softmax}(-L+\log Q),
+\]
+a une moyenne nulle sous $\pi(\cdot\mid x_t)$ \emph{pour tous paramètres figés} ; pour des modes disjoints de forme exacte et $e^{-L_k}=Zw_k$, $\E_q[c\mid x_t]$ est exactement la correction de Tweedie $(M^*-M^q)/\nu_{1|t}$ à tout $\kappa$. Les paramètres (centres à seuil, covariances de Laplace, $L_k$ par régression en log) sont ajustés à chaque rafraîchissement du buffer et versionnés (\code{adjoint_samplers/utils/division_cv.py}).
+
+\subsection{Tests unitaires}
+Moyenne nulle : quadrature $\sim10^{-27}$, Monte Carlo $\max|z|=2{,}1$ (contrôle positif 144). Oracle avec buffer à mauvais poids : cosinus 0,995--0,997, échelle 0,99--1,01 pour une séparation de 6 écarts-types. À $d=24,36$, échec littéral à 1500 tirages postérieurs par $x_t$, réussite à 24\,000 (cos 0,990--0,998) : la spécification des seuils manquait d'un nombre de tirages (amendement déclaré et accepté).
+
+\subsection{Entraînement sur le GMM $d=K=36$}
+\begin{itemize}
+  \item \textbf{Premier lancement} : perte NaN à l'époque 86, sans cause identifiée. \textbf{Relance} (commit \commit{a8e0c53}) : échec numérique au sens de la règle de validité (\code{div/nonfinite_frac} $=1{,}95\cdot10^{-5}$ aux époques 86 et 1479).
+  \item \textbf{Cause trouvée hors ligne} : \code{torch.rand} en float32 renvoie exactement $0$ avec probabilité $2^{-24}$ ; à $t=0$, $\kappa=0$, $v=0$ et le terme vaut $0/0$. Correctif : terme calculé seulement pour $\kappa\in[10^{-6},\kappa_{\max}]$ (moyenne nulle intacte). L'hypothèse initiale (modes trop larges, $N_k/p$ non borné) est réfutée sur le buffer réel.
+  \item \textbf{Relance valide} (\commit{fec80d1}) : $\overline{|\log\bar R|}=0{,}106$, entre $0{,}5\times$ et $1\times$ Barker ($0{,}117$), sous AS ($0{,}389$). Verdict pré-enregistré : \textbf{« égale Barker »}, pas « succès » ($\le0{,}058$).
+\end{itemize}
+
+\subsection{Robustesse aux masses et coefficient appris (GMM $d=K=12$, hors ligne)}
+\begin{itemize}
+  \item \textbf{Masses perturbées de $\pm0{,}5$ nat} : après amendement du nombre de tirages (600 par $x_t$), le cosinus débiaisé entre $\E_q[c\mid x_t]$ et la correction exacte reste à 0,90--0,97 (contrôle $\ge0{,}94$), échelle $-25\,\%$ / $+16\,\%$ : \textbf{la direction de la correction ne demande pas des masses exactes}.
+  \item \textbf{Coefficient appris} (scalaire $\beta(\kappa)$ ou matrice $M(\kappa)$ minimisant la variance) : aucun gain de variance ($\ge0{,}99$ du coefficient 1), et la minimisation de variance \emph{rétrécit} la correction ($\beta\approx0{,}5$--$0{,}74$). Le coefficient dérivé 1 est conservé.
+\end{itemize}
+
+\subsection{DW-4}
+Modèles de bassin gaussiens moyennés sur le groupe $O(2)\times S_4\times\mathbb Z_2$ (5 bassins trempés). Quatre variantes, toutes en échec de leur règle :
+\begin{itemize}
+  \item \textbf{alignée} (étape 0) : même avec des paramètres ajustés sur la référence, les trois plus grands bassins sont faux de 0,16 à 0,26 en log ; ajustée sur AS, l'estimateur est pire que les poids d'AS eux-mêmes (NO-GO) ;
+  \item \textbf{correction de fuite} (variante B) : la fuite est nulle ($f_a=1{,}000$), l'échec vient du modèle ;
+  \item \textbf{EM} : la vraisemblance s'améliore nettement, mais $\khat\gg0{,}5$ dans les trois petits bassins (4,4 / 1,2 / 1,2) ;
+  \item \textbf{tronquée} (boîte, poids bornés par construction) : $\khat$ toujours $2{,}4$ / $3{,}4$ / $6{,}5$.
+\end{itemize}
+Un dernier test (\code{rules_dw4_template_variance.md}, 22 novembre) enrichit les gabarits (mélanges de $J=1,3,5,10$ gaussiennes par bassin, ajustés localement contre le PT) : à $J=5$ l'écart-type de $\log u$ reste à 5,3--6,0 nats dans les petits bassins (V1 faux, seuil 2) et $\khat$ dépasse 0,5 (V2 faux) : lecture écrite d'avance, \textbf{division fermée (R) quel que soit $J$}. Sans rétrécissement, les gabarits suivent $\pi$ à moins d'un nat près : la dispersion vient du rétrécissement imposé pour que le gabarit reste dominé par $\pi$ et confiné à son bassin (covariances $\times0{,}2$), donc de la contrainte de domination elle-même.
+Diagnostic du top-10 : le poids est porté par quelques dizaines d'échantillons ordinaires \emph{du bassin}, avec un écart-type intra-bassin de $\log u$ de 5 à 8 nats ; l'hypothèse de la queue lointaine (quartique contre gaussienne) est réfutée.
+\begin{verdict}DW-4 fermé : la division demande des modèles de mode traçables par convolution qui dominent $\pi$ ponctuellement, ce qui échoue pour des bassins anharmoniques. Sur GMM, résultat positif de robustesse aux masses.\end{verdict}
