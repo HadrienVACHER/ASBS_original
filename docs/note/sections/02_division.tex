@@ -6,7 +6,10 @@
 \subsection{Construction}
 Pour chaque mode $k$, on dispose d'un gabarit gaussien rétréci $N_k$ et non rétréci $q_k$, de leurs marginales lissées $C_k$, $Q_k$, de la moyenne postérieure $m_k$ de $x_1$ sous $q_k$, et d'une log-masse $L_k$. Le terme
 \[
-  c=\sum_k \exp\!\big(-L_k+\log Q_k-\log C_k+\log N_k(x_1)+E(x_1)/\tau\big)\,\frac{\hat M-m_k}{\nu_{1|t}},\qquad \hat M=\sum_k\hat\pi_k m_k,\ \hat\pi=\mathrm{softmax}(-L+\log Q),
+\begin{aligned}
+  c&=\sum_k \exp\!\big(-L_k+\log Q_k-\log C_k+\log N_k(x_1)+E(x_1)/\tau\big)\,\frac{\hat M-m_k}{\nu_{1|t}},\\
+  \hat M&=\sum_k\hat\pi_k m_k,\qquad \hat\pi=\mathrm{softmax}(-L+\log Q),
+\end{aligned}
 \]
 a une moyenne nulle sous $\pi(\cdot\mid x_t)$ \emph{pour tous paramètres figés} ; pour des modes disjoints de forme exacte et $e^{-L_k}=Zw_k$, $\E_q[c\mid x_t]$ est exactement la correction de Tweedie $(M^*-M^q)/\nu_{1|t}$ à tout $\kappa$. Les paramètres (centres à seuil, covariances de Laplace, $L_k$ par régression en log) sont ajustés à chaque rafraîchissement du buffer et versionnés (\code{adjoint_samplers/utils/division_cv.py}).
 

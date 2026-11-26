@@ -18,6 +18,8 @@
 \usepackage[hidelinks]{hyperref}
 \usepackage{caption}
 \usepackage{microtype}
+\usepackage{xurl}
+\setlength{\emergencystretch}{3em}
 
 \setlist{itemsep=2pt,topsep=3pt}
 \renewcommand{\arraystretch}{1.15}
@@ -34,10 +36,11 @@
 \newcommand{\smin}{\sigma_{\min}}
 \newcommand{\nuone}{\nu_{1}}
 \newcommand{\Am}{A_{m}}
-\newcommand{\code}[1]{\texttt{\detokenize{#1}}}
+\urlstyle{tt}
+\DeclareRobustCommand{\code}[1]{\nolinkurl{#1}}% chemins et noms : coupure possible partout (xurl), robuste dans les titres
 \newcommand{\commit}[1]{\texttt{#1}}
-\newcommand{\vrai}{\textsc{vrai}}
-\newcommand{\faux}{\textsc{faux}}
+\newcommand{\vrai}{\textsc{\mdseries vrai}}
+\newcommand{\faux}{\textsc{\mdseries faux}}
 
 % --- encadrés de verdict ---------------------------------------------------
 \newenvironment{verdict}{\par\smallskip\noindent\begin{minipage}{\linewidth}\color{black!85}\hrule\smallskip\noindent\textbf{Verdict.}~}{\smallskip\hrule\end{minipage}\par\smallskip}
@@ -54,6 +57,7 @@ variables de contrôle, darting, banque de minima et auto-entraînement\\[4pt]
 \author{Hadrien Vacher}
 \date{26 novembre 2026}
 
+\pdfstringdefDisableCommands{\def\code#1{#1}\def\smax{sigma_max}\def\Am{A_m}\def\times{x}\def\Delta{Delta}\def\rho{rho}\def\log{log }\def\hat#1{#1}}
 \begin{document}
 \maketitle
 
