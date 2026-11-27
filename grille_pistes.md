@@ -275,4 +275,5 @@ Détails dans RESULTS.md.
 ### 16. IMH dans l'espace des trajectoires (`rules/rules_imh_path.md`, 2192e9c)
 - **A, B, I : T (I)** : I2 et I3 vraies, I1 et I4 fausses ; lecture « fermée en R » non atteinte telle qu'écrite. Examen post hoc : le gain apparent de I1 (MoS-w) est un artefact de l'estimateur d'ESS sur une chaîne bloquée ; sur 200 rejeux, l'IMH n'est meilleur que l'IS sur aucune cellule. Références : Liu (1996), Mengersen & Tweedie (1996) (non revérifiées). Étiquette I proposée ; à décider.
 - **D : X** (le rejeu ne contient pas les modes absents).
+- **Diagnostic descriptif, B** : ESS de l'IS terminal (gaussienne isotrope par bassin) 0,045 contre 0,0020 pour le chemin sur les mêmes points (≈ 22 fois) ; environ la moitié de la dispersion en log est terminale (surtout l'erreur de moyenne par mode, ‖δ‖² ≈ 2,3), le reste dans les trajectoires, à l'approximation q̂ près (RESULTS.md).
 - **Non exploré** : MH local dans l'espace des bruits (pCN), préparé (`rules/rules_pcn_path.md`).

@@ -1964,3 +1964,24 @@ Dégénérescence de (B) presque entièrement **intra-bassin** (forme), comme à
 - **Mes prédictions** : I1 vraie 80 % (fausse) ; I2 85 % (vraie) ; I3 100 % (vraie) ; I4 55 % (fausse) ; rapport 0,3 à 1 : (D) oui, (A) 1,08, (B) 1,36, (C) 7,97 non ; part des masses faible en (B) (oui), plus grande en (C) (non) et (D) (oui).
 - **Limites** : (A) en Voronoï seulement ; (C) et (D) : les 3 « pools » sont des blocs d'un même contrôleur ((D) réunit deux simulations indépendantes) ; une chaîne par pool ; graine d'entraînement unique.
 - **Phase 2 (pCN dans l'espace des bruits)** : préparée, non lancée (`rules/rules_pcn_path.md`).
+
+## Diagnostic : la dégénérescence de l'IS de chemin vient-elle de la forme terminale ou des trajectoires ? (2026-11-27, descriptif, CPU, aucune règle, aucune simulation nouvelle)
+Écrit pour : Hadrien. Scripts `scripts/terminal_is.py`, `scripts/terminal_is_breakdown.py` ; résultats `figures/imh_path/terminal_*.json`. Mêmes 3 pools que la phase 1 en (B), (128, 8, 6) × 0,75 (instantanés 1000, 1250, 1500, 30 000 points chacun) ; moitié d'ajustement / moitié d'évaluation (graine 4242).
+- **(A) non calculable** : à × 0,5, seuls les log w et les cellules ont été rapatriés, pas les points terminaux X_T.
+- **Point 3 non calculable** : les termes de Girsanov par pas n'ont pas été sauvegardés (seuls les log w totaux) ; rien n'est relancé.
+- **Méthode** : q̂ = Σ_k ŵ_k N(m̂_k, Σ̂_k) ajustée par bassin (916 à 3 700 points par bassin sur la moitié d'ajustement, au moins 2d = 256, donc les 3 variantes sont calculables), log w_T = −E(X_T) − log q̂(X_T) sur la moitié d'évaluation. L'IS de chemin est recalculé sur **les mêmes points**.
+
+Moyennes des 3 pools (écart-type) ; ESS relatif par point.
+
+| poids | ESS | k̂ | E[w²] | part des masses | ESS analytique (point 2) |
+|---|---|---|---|---|---|
+| chemin (mêmes points) | **0,0020** (0,0011) | 1,01 | 660 (490) | 3,2 % | |
+| terminal, isotrope | **0,045** (0,007) | 0,54 | 22,5 (3,7) | 3,8 % | 0,075 (0,007) |
+| terminal, diagonale | 0,011 (0,001) | 0,83 | 93 (6) | 3,0 % | 0,022 (0,003) |
+| terminal, pleine | 0,0007 (0,0005) | 1,38 | 1900 (1070) | 6,6 % | non fini (3 à 4 bassins) |
+
+- **Point 2 (forme close entre gaussiennes)** : cohérent avec le point 1 en ordre de grandeur : E[w²] analytique ≈ 12 à 15 (isotrope) contre 19 à 26 mesurés, ≈ 42 à 54 (diagonale) contre 86 à 96 ; l'écart (facteur 1,5 à 2) vient de ce que les points sont tirés de q_T et non de q̂, et de queues lourdes (k̂ ≥ 0,5). Pleine : χ² infini dans 3 à 4 bassins, des valeurs propres de Σ̂ descendant sous 1/2 (bruit d'estimation à environ 1 800 points en d = 128) : la variante pleine n'est pas informative.
+- **Décomposition de log(χ² + 1) isotrope par bassin** (moyenne) : terme de variance d log(r/√(2r−1)) = 0,26 à 0,43 (r = 1,07 à 1,09, cohérent avec l'estimation de l'utilisateur, E[w²] ≈ 1,4 à 1,7) ; **terme de moyenne ‖m̂_k − μ_k‖²/(2r−1) ≈ 2,0**, avec ‖m̂ − μ‖² ≈ 2,3 contre 0,09 de bruit d'échantillonnage. **L'erreur de moyenne des modes d'AS domine, pas l'erreur de variance** (cohérent avec Q1 : √(128 × 1,08 + 2,35) / √128 = 1,048).
+- **Lecture (descriptive)** : le rapport ESS terminal isotrope / ESS de chemin vaut **environ 22** (0,045 / 0,0020). En ordre de grandeur, log E[w²] vaut ≈ 3,1 en terminal contre 5,9 à 7,1 en chemin : environ **la moitié de la dispersion (en log) est déjà dans la marginale terminale, le reste dans les trajectoires conditionnellement au point d'arrivée**, si q̂ est une bonne approximation de q_T. Les masses restent une part faible dans les deux cas.
+- **Prédiction de l'utilisateur** (ESS terminal entre 0,1 et 0,7, 30 à 200 fois le chemin) : **non vérifiée** (0,045, facteur 22) ; l'estimation d'ordre de grandeur ne comptait que la variance.
+- **Limites** : q̂ est une approximation (gaussienne par bassin) : l'ESS terminal mesure l'écart entre π et q̂, pas exactement entre π et q_T, et les points d'évaluation viennent de q_T ; les variantes diagonale et pleine ajoutent du bruit d'estimation (ESS plus bas ne signifie pas que q_T est plus loin) ; un seul contrôleur par instantané, une graine ; aucune affirmation de méthode, mesure seulement.
