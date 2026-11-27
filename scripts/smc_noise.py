@@ -288,8 +288,9 @@ if __name__ == "__main__":
             """ per snapshot (amendment of 2026-11-27 for cell C): S1, S2 on the 3 repetitions; basin counts at beta = 0 of pass 2 and the true mass of the basins empty at the start (Th. C) """
             md = lambda g: float(np.median([g(j) for j in rs]))
             e = md(lambda j: abs(j["pass2"]["logz"])); ei = md(lambda j: abs(j["is_equal_cost"]["logz"])); tv = md(lambda j: j["pass2"]["tv"]); tvi = md(lambda j: j["is_equal_cost"]["tv"])
+            q1 = md(lambda j: j["pass2"]["q1"])
             counts = [j["pass2"]["levels"][0]["counts"] for j in rs]; empty = [[k for k, n in enumerate(c_) if n == 0] for c_ in counts]
-            return dict(n_runs=len(rs), logz_err_smc=e, logz_err_is=ei, tv_smc=tv, tv_is=tvi, S1=bool(e <= 0.1 and e <= 0.5 * ei), S2=bool(tv <= 0.5 * tvi and tv <= 2 * floor), counts_beta0=counts, empty_basins_beta0=empty, true_mass_empty=[float(sum(pt[k] for k in em)) for em in empty])
+            return dict(n_runs=len(rs), q1=q1, logz_err_smc=e, logz_err_is=ei, tv_smc=tv, tv_is=tvi, S1=bool(e <= 0.1 and e <= 0.5 * ei), S2=bool(tv <= 0.5 * tvi and tv <= 2 * floor), counts_beta0=counts, empty_basins_beta0=empty, true_mass_empty=[float(sum(pt[k] for k in em)) for em in empty])
         for cell, rs in sorted(R.items()):
             if cell == "d8": continue
             rng = np.random.default_rng(5); pt = np.array(rs[0]["p_true"]); M = rs[0]["M"]
@@ -300,8 +301,9 @@ if __name__ == "__main__":
             for j in rs:
                 q0 = np.array(j["pass2"]["levels"][0]["p"]); thr = 0.25 * np.minimum(q0, pt); s4.append(all(bool(np.all(np.array(lv["p"]) >= thr - 1e-12)) for lv in j["pass2"]["levels"]))
             V[cell] = dict(per_snapshot={str(e): snap([j for j in rs if j["epoch"] == e], floor, pt) for e in sorted({j["epoch"] for j in rs})}, n_runs=len(rs), floor=floor, all_done=all(j["pass2"]["done"] for j in rs), logz_err_smc=q(e2), logz_err_is=q(eis), logz_err_pass1=q(lambda j: abs(j["pass1"]["logz"])), tv_smc=q(lambda j: j["pass2"]["tv"]), tv_is=q(lambda j: j["is_equal_cost"]["tv"]), tv_pass1=q(lambda j: j["pass1"]["tv"]),
-                           q1=q(lambda j: j["pass2"]["q1"]), J=[j["pass2"]["J"] for j in rs], n_s4_ok=int(sum(s4)), S1=bool(med(e2) <= 0.1 and med(e2) <= 0.5 * med(eis)), S2=bool(med(lambda j: j["pass2"]["tv"]) <= 0.5 * med(lambda j: j["is_equal_cost"]["tv"]) and med(lambda j: j["pass2"]["tv"]) <= 2 * floor), S3=bool(med(lambda j: j["pass2"]["q1"]) <= {"B": 1.02, "C": 1.2}.get(cell, np.inf)),
+                           q1=q(lambda j: j["pass2"]["q1"]), J=[j["pass2"]["J"] for j in rs], n_s4_ok=int(sum(s4)), S1=bool(med(e2) <= 0.1 and med(e2) <= 0.5 * med(eis)), S2=bool(med(lambda j: j["pass2"]["tv"]) <= 0.5 * med(lambda j: j["is_equal_cost"]["tv"]) and med(lambda j: j["pass2"]["tv"]) <= 2 * floor), S3_all_runs=bool(med(lambda j: j["pass2"]["q1"]) <= {"B": 1.02, "C": 1.2}.get(cell, np.inf)),
+                           S3=bool((float(np.median([j["pass2"]["q1"] for j in rs if cell != "C" or j["epoch"] == 250])) if any(cell != "C" or j["epoch"] == 250 for j in rs) else np.inf) <= {"B": 1.02, "C": 1.2}.get(cell, np.inf)),
                            safe_A=bool(med(e2) <= 1.5 * med(eis) and med(lambda j: j["pass2"]["tv"]) <= 1.5 * med(lambda j: j["is_equal_cost"]["tv"])), complete=len(rs) == 9)
         if all(k in V for k in "ABC"):
-            c250 = V["C"]["per_snapshot"].get("250"); V["S1"] = bool(V["B"]["S1"] and c250 and c250["S1"]); V["S2"] = bool(V["B"]["S2"] and c250 and c250["S2"]); V["C_degraded_snapshots_descriptive"] = {k: v for k, v in V["C"]["per_snapshot"].items() if k != "250"}; V["S4"] = all(V[k]["n_s4_ok"] == V[k]["n_runs"] for k in "ABC") and V["A"]["safe_A"]
+            c250 = V["C"]["per_snapshot"].get("250"); V["S1"] = bool(V["B"]["S1"] and c250 and c250["S1"]); V["S2"] = bool(V["B"]["S2"] and c250 and c250["S2"]); V["S3"] = bool(V["B"]["S3"] and c250 and c250["q1"] <= 1.2); V["C_degraded_snapshots_descriptive"] = {k: v for k, v in V["C"]["per_snapshot"].items() if k != "250"}; V["S4"] = all(V[k]["n_s4_ok"] == V[k]["n_runs"] for k in "ABC") and V["A"]["safe_A"]
         json.dump(V, open(OUT / "verdict.json", "w"), indent=1, default=float); print(json.dumps(V, indent=1, default=float))

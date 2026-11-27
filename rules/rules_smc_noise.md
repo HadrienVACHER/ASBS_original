@@ -49,3 +49,7 @@ RTX 3070, fiabilité > 0,99 de préférence (≥ 0,975 accepté), plafond dur **
 - Pour chaque instantané de chaque cellule, le **nombre de particules par bassin à β = 0** (passe 2) est rapporté ; un échec de masse sur un bassin vide au départ est lu comme le Th. C.
 - **Inchangés** : les autres cellules et règles ; en particulier S3 (médiane sur les 9 runs de (C), rapportée aussi par instantané) et S4 (tous les runs).
 - Ajouté au job : un test de fumée (`SMOKE=1`, commande `smoke` : environnement, GPU, chargement des 9 contrôleurs, 1 niveau et 1 pas de pCN avec M = 64, en moins de 5 min ; écrit `logs/smc_smoke.OK` et `figures/smc_noise/smoke.json` ; aucun résultat d'étape 1 n'est produit ni lu).
+
+## Amendement daté 2026-11-27 (bis, demande de l'utilisateur, avant tout résultat de l'étape 1) : S3 en (C)
+- **En (C), S3 est jugée instantané par instantané ; l'instantané 250 compte seul** (médiane de Q1 sur ses 3 répétitions, seuil 1,2) ; **500 et 750 sont descriptifs**. La médiane sur les 9 runs de (C), prévue à l'amendement précédent, est rapportée à titre d'information (`S3_all_runs`) et ne compte plus. (B) inchangée (médiane des 9 runs, seuil 1,02).
+- **S4 est inchangée et s'applique à tous les instantanés de toutes les cellules** (garde de sûreté).
