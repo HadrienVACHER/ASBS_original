@@ -53,9 +53,9 @@ Théorèmes cités :
 | 14. Banque de minima + darting | — | T (C) ✗ à l'entraînement (S3 faux ; TV par bassin 0,037) | T (C) partiel (A4, d = 50) | T (C) ✓ (A3 ; S1 vrai à l'entraînement) | N | — | N | — | T (C) ✓ post hoc (A4, d = 10) ; à l'entraînement masses ✓, Q1 ✗ (S2, S4 faux) |
 | 15. MALA seul post hoc (témoin) | T (C) | T (C) | T (C) | X (Th. C) | N | N | N | — | T (C) ✗ (A4) |
 | 16. IMH dans l'espace des trajectoires (proposition AS) | T (I) (I4 faux marginal) | T (I) (aucun gain) | N | X (Th. C ; I3, par construction) | N | N | N | N | T (I) (I1 faux : artefact d'ESS, examen post hoc ; aucun gain) |
-| 17. SMC dans l'espace des bruits (tempering du poids de chemin) | N (préparé) | N (préparé) | N | N | N | N | N | N | N (préparé, MoS-w) |
+| 17. SMC dans l'espace des bruits (tempering du poids de chemin) | T (C) ✗ (sûreté : log Ẑ moins bon que l'IS) | T (C) ✗ (S1, S2 faux) | N | N | N | N | N | N | T (C) ✗ (MoS-w ép. 250 : S1, S2, S4 faux) |
 
-**Décompte (153 cases depuis le 2026-11-27 avec la ligne 17 : 57 testées, 12 exclues, 68 non testées, 16 sans objet ; avec la ligne 16 (144 cases) : 57 / 12 / 59 / 16 ; décompte précédent sur 135 cases ; mis à jour le 2026-11-23 après le lot d'auto-entraînement)** : **54 testées** (dont 4 en quadrature 1D seulement), **11 exclues par un théorème** (en comptant comme exclue la case D de Newton-Stein, aussi testée), **54 non testées**, **16 sans objet**. Après A3, A4 et A5 : 52 / 11 / 55 / 17. Après les étapes A et B : 45 / 11 / 62 / 17. Version initiale : 43 / 11 / 64 / 17 (6c1b8b3).
+**Décompte (153 cases ; après les résultats de la ligne 17 le 2026-11-27 : 60 testées, 12 exclues, 65 non testées, 16 sans objet ; avant eux : 57 / 12 / 68 / 16 ; avec la ligne 16 (144 cases) : 57 / 12 / 59 / 16 ; décompte précédent sur 135 cases ; mis à jour le 2026-11-23 après le lot d'auto-entraînement)** : **54 testées** (dont 4 en quadrature 1D seulement), **11 exclues par un théorème** (en comptant comme exclue la case D de Newton-Stein, aussi testée), **54 non testées**, **16 sans objet**. Après A3, A4 et A5 : 52 / 11 / 55 / 17. Après les étapes A et B : 45 / 11 / 62 / 17. Version initiale : 43 / 11 / 64 / 17 (6c1b8b3).
 
 *Mise à jour A3–A5 (2026-11-23)* :
 - 14-D (`rules_bank_darting_dk.md`) : A3 vraie ;
@@ -277,7 +277,9 @@ Détails dans RESULTS.md.
 - **A, B, I : T (I)** : I2 et I3 vraies, I1 et I4 fausses ; lecture « fermée en R » non atteinte telle qu'écrite. Examen post hoc : le gain apparent de I1 (MoS-w) est un artefact de l'estimateur d'ESS sur une chaîne bloquée ; sur 200 rejeux, l'IMH n'est meilleur que l'IS sur aucune cellule. Références : Liu (1996), Mengersen & Tweedie (1996) (non revérifiées). Étiquette I proposée ; à décider.
 - **D : X** (le rejeu ne contient pas les modes absents).
 - **Diagnostic descriptif, B** : ESS de l'IS terminal (gaussienne isotrope par bassin) 0,045 contre 0,0020 pour le chemin sur les mêmes points (≈ 22 fois) ; environ la moitié de la dispersion en log est terminale (surtout l'erreur de moyenne par mode, ‖δ‖² ≈ 2,3), le reste dans les trajectoires, à l'approximation q̂ près (RESULTS.md).
-- **Non exploré** : MH local dans l'espace des bruits (pCN), préparé (`rules/rules_pcn_path.md`).
+- **pCN dans l'espace des bruits** (`rules/rules_pcn_path.md`, exécuté le 2026-11-27) : (B) J1 et J2 vraies à ρ = 0,9 (TV 0,039 contre 0,086 pour l'IS), marge faible et dépendante d'un instantané, témoin ρ = 0 à 0,045 : étiquette I proposée ; MoS-w ép. 250 : J1 fausse.
 
 ### 17. SMC dans l'espace des bruits (`rules/rules_smc_noise.md`, 16e1655)
-- Étape 0 réussie (contrôle nul, trempe torch) ; étape 1 (cellules A, B, C, 3 instantanés × 3 répétitions) et pCN seul à soumettre sur le cluster (`scripts/pbs_smc_noise.pbs`) ; **aucun résultat de méthode**.
+- Étape 0 réussie. Étape 1 exécutée sur Vast.ai (≈ 0,048 $) : (A), (B) 3 instantanés, (C) instantané 250, 3 répétitions.
+- **S1, S2, S4 fausses, S3 vraie : pas de gain à coût égal** ; goulot : mélange du pCN (acceptation 0,06 à 0,11 en (B), 0,03 en (C) au dernier niveau). Banque + darting : TV 0,034 en (B), 0,027 en (C) (coûts en unités différentes). Étiquette C proposée (M = 2048, K = 5, τ = 0,5).
+- **Non exploré** : plus de pas pCN par niveau, M plus grand, (C) aux instantanés 500 et 750.

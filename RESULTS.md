@@ -1992,3 +1992,39 @@ Moyennes des 3 pools (écart-type) ; ESS relatif par point.
 - **Trempe en torch** contre `basin_lib` (2000 points) : accord **100 %** en (B) et (C).
 - **Essai** sur (8, 8, 8) × 0,5, M = 256, CPU : J = 1 niveau, 0,45 s (ce cas est trop facile, Δβ = 1 d'emblée) ; chemin `run` / `darting` / `pcn` vérifié en plomberie (aucun résultat lu).
 - **Estimation GPU** (amendement daté) : M = 2048 ; J estimé 2 (A), 5 à 15 (B), 8 à 20 ou plus (C) ; ≈ 20 à 55 min de calcul, central ≈ 40 min : **au-delà de 30 min, pas de location** ; job cluster `scripts/pbs_smc_noise.pbs` (39 exécutions, SMC et pCN seul), à soumettre par l'utilisateur. Les règles S1 à S4 et J1, J2 ne sont **pas encore évaluées**.
+
+## SMC dans l'espace des bruits, étape 1 et pCN seul : résultats (2026-11-27, `rules/rules_smc_noise.md` avec amendement ter 1c3dac8, `rules/rules_pcn_path.md`)
+Écrit pour : Hadrien. Vast.ai RTX 3070 (Québec, fiabilité 0,9967), 0,1189 $/h disque compris, instance 62796161, 1437 s, **≈ 0,048 $** (plafond 0,15 $) ; détruite après rapatriement vérifié (sha256), 0 instance ensuite. Toutes les étapes prévues exécutées, aucun code de retour non nul (`figures/smc_noise/vast_progress.txt`) ; débit 15,5·10³ trajectoires/s (fumée), 7,2·10³ (premier run de (B), chargement compris) : l'estimation GPU de 20 à 55 min était trop haute. Témoin darting et verdicts en local. Particules : `results/smc_noise/` (hors dépôt).
+
+### SMC (passe 2, M = 2048 ; médianes ; IS de chemin au même nombre de trajectoires)
+| cellule | J | \|log Ẑ\| SMC / IS | TV par bassin SMC / IS | plancher | darting (TV) | Q1 SMC | S4 par run |
+|---|---|---|---|---|---|---|---|
+| (A) témoin, 9 runs | 2 | 0,030 / 0,006 | 0,022 / 0,016 | 0,021 | non prévu | 0,999 | 9/9 |
+| (B), 9 runs | 4 | 0,134 / 0,141 | 0,117 / 0,098 | 0,021 | 0,034 (0,020 à 0,043) | 0,998 | 9/9 |
+| (C) 250, 3 runs | 5 à 6 | 1,17 / 1,43 | 0,379 / 0,330 | 0,023 | 0,027 (0,019 à 0,032) | 0,998 | 0/3 |
+
+- Passe 1 (calendrier adaptatif), (B) : \|log Ẑ\| 0,111, TV 0,128.
+- (B) par instantané (1000 / 1250 / 1500), TV SMC contre IS : 0,154 / 0,098 ; 0,076 / 0,145 ; 0,146 / 0,064. S1 ne passe qu'à l'instantané 1000 (descriptif).
+- Darting : banque + darting + MALA sur les M trajectoires initiales ; coût médian (B), S = 2 : 9,5·10⁴ évaluations + 1,3·10⁴ pour la banque (8 minima) ; (C), S = 50 : 1,22·10⁶ + 1,4·10⁴ (10 minima), Q1 = 1,15. Le SMC utilise 4,3·10⁴ trajectoires (8,6·10⁶ passes de réseau) par passe en (B) : les unités de coût ne sont pas comparables telles quelles.
+
+### Verdicts
+- **S1 fausse** ((B) : 0,134 > 0,1 et > 0,5 × 0,141 ; (C) : 1,17).
+- **S2 fausse** (le SMC n'est meilleur que l'IS en médiane dans aucune des deux cellules).
+- **S3 vraie** (Q1 0,998 en (B) et en (C) 250).
+- **S4 fausse**, pour deux raisons : en (C), les 3 runs perdent des bassins (par exemple trois bassins de masse vraie 0,014 à 0,065 tombés à une masse presque nulle, aucun vide à β = 0) ; en (A), \|log Ẑ\| du SMC vaut 4,7 fois celui de l'IS (les deux petits, 0,030 et 0,006 ; la TV passe, rapport 1,43).
+- **Lecture fixée d'avance (S1 et S2 fausses) : pas de gain à coût égal.** Goulot : le mélange du pCN. L'acceptation moyenne tombe de 0,75 au premier niveau à 0,06 à 0,11 au dernier en (B), à 0,03 en (C), malgré l'adaptation de ρ ; il reste 360 à 495 ancêtres sur 2048 en (B), 150 à 175 en (C). En (B), la TV finale (0,117) reste proche de celle à β = 0 (0,126).
+
+### pCN seul (512 chaînes, 500 pas ; TV par bassin des états après chauffe ; IS au même budget)
+| ρ | (B) TV (moyenne de 3) | par instantané | acceptation | (C) 250 TV | acceptation |
+|---|---|---|---|---|---|
+| 0 (IMH) | 0,045 | 0,044 / 0,048 / 0,042 | 0,05 | 0,258 | 0,02 |
+| 0,9 | **0,039** | 0,046 / 0,053 / 0,018 | 0,27 | 0,254 | 0,05 |
+| 0,99 | 0,091 | 0,105 / 0,102 / 0,065 | 0,72 | 0,265 | 0,25 |
+| 0,999 | 0,124 | 0,136 / 0,128 / 0,108 | 0,90 | 0,232 | 0,63 |
+| IS | 0,086 | 0,153 / 0,042 / 0,063 | | 0,222 | |
+
+- **(B) : J1 vraie, J2 vraie** (ρ = 0,9). **(C) : J1 fausse** (aucun ρ).
+- **Fragilité de J1 en (B)** (lecture post hoc, le verdict reste) : marge faible (0,0390 pour un seuil de 0,0430) ; elle tient à la moyenne de l'IS, tirée par l'instantané 1000 (0,153) ; à l'instantané 1250, ρ = 0,9 est moins bon que l'IS (0,053 contre 0,042) ; avec la médiane de l'IS (0,063) la règle échouerait. Le témoin ρ = 0 (0,045) est proche de ρ = 0,9 : l'écart entre les deux est plus petit que la dispersion entre instantanés. Étiquette I proposée.
+
+### Prédictions
+S1 35 % et S2 25 % : fausses. S3 : vraie. S4 60 % : fausse. J1 15 % : vraie en (B), fragile.

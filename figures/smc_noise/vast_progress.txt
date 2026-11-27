@@ -1,0 +1,97 @@
+1795751509 start smoke
+1795751520 end smoke rc=0
+1795751520 smoke_rate 15486.847063065661
+1795751520 start run_B_1000_0
+1795751538 end run_B_1000_0 rc=0
+1795751539 rate_first_B traj=129024 J=4 seconds=18 traj_per_s=7168.0
+1795751539 stage SMC_B projected_s=165 left_s=3599
+1795751539 start run_B_1000_1
+1795751542 start run_B_1000_2
+1795751558 end run_B_1000_1 rc=0
+1795751560 start run_B_1250_0
+1795751561 end run_B_1000_2 rc=0
+1795751563 start run_B_1250_1
+1795751581 end run_B_1250_0 rc=0
+1795751583 end run_B_1250_1 rc=0
+1795751586 start run_B_1250_2
+1795751589 start run_B_1500_0
+1795751607 end run_B_1250_2 rc=0
+1795751607 start run_B_1500_1
+1795751609 end run_B_1500_0 rc=0
+1795751610 start run_B_1500_2
+1795751627 end run_B_1500_1 rc=0
+1795751630 end run_B_1500_2 rc=0
+1795751630 stage_done SMC_B
+1795751630 stage SMC_C projected_s=298 left_s=3508
+1795751630 start run_C_250_0
+1795751633 start run_C_250_1
+1795751656 end run_C_250_1 rc=0
+1795751656 end run_C_250_0 rc=0
+1795751656 start run_C_250_2
+1795751681 end run_C_250_2 rc=0
+1795751681 stage_done SMC_C
+1795751681 stage SMC_A projected_s=97 left_s=3457
+1795751681 start run_A_1000_0
+1795751684 start run_A_1000_1
+1795751694 end run_A_1000_0 rc=0
+1795751697 start run_A_1000_2
+1795751698 end run_A_1000_1 rc=0
+1795751700 start run_A_1250_0
+1795751710 end run_A_1000_2 rc=0
+1795751713 start run_A_1250_1
+1795751713 end run_A_1250_0 rc=0
+1795751716 start run_A_1250_2
+1795751726 end run_A_1250_1 rc=0
+1795751729 end run_A_1250_2 rc=0
+1795751729 start run_A_1500_0
+1795751732 start run_A_1500_1
+1795751742 end run_A_1500_0 rc=0
+1795751745 start run_A_1500_2
+1795751745 end run_A_1500_1 rc=0
+1795751758 end run_A_1500_2 rc=0
+1795751758 stage_done SMC_A
+1795751758 stage PCN_B projected_s=617 left_s=3380
+1795751758 start pcnis_B_1000
+1795751761 start pcn_B_1000_--rho_0.0
+1795751764 start pcn_B_1000_--rho_0.9
+1795751784 end pcnis_B_1000 rc=0
+1795751787 start pcn_B_1000_--rho_0.99
+1795751929 end pcn_B_1000_--rho_0.0 rc=0
+1795751930 start pcn_B_1000_--rho_0.999
+1795751931 end pcn_B_1000_--rho_0.9 rc=0
+1795751933 start pcnis_B_1250
+1795751957 end pcn_B_1000_--rho_0.99 rc=0
+1795751961 end pcnis_B_1250 rc=0
+1795751961 start pcn_B_1250_--rho_0.0
+1795751964 start pcn_B_1250_--rho_0.9
+1795752100 end pcn_B_1000_--rho_0.999 rc=0
+1795752102 start pcn_B_1250_--rho_0.99
+1795752127 end pcn_B_1250_--rho_0.0 rc=0
+1795752129 end pcn_B_1250_--rho_0.9 rc=0
+1795752130 start pcn_B_1250_--rho_0.999
+1795752133 start pcnis_B_1500
+1795752161 end pcnis_B_1500 rc=0
+1795752161 start pcn_B_1500_--rho_0.0
+1795752268 end pcn_B_1250_--rho_0.99 rc=0
+1795752269 start pcn_B_1500_--rho_0.9
+1795752299 end pcn_B_1250_--rho_0.999 rc=0
+1795752302 start pcn_B_1500_--rho_0.99
+1795752328 end pcn_B_1500_--rho_0.0 rc=0
+1795752330 start pcn_B_1500_--rho_0.999
+1795752436 end pcn_B_1500_--rho_0.9 rc=0
+1795752467 end pcn_B_1500_--rho_0.99 rc=0
+1795752493 end pcn_B_1500_--rho_0.999 rc=0
+1795752493 stage_done PCN_B
+1795752493 stage PCN_C projected_s=206 left_s=2645
+1795752493 start pcnis_C_250
+1795752496 start pcn_C_250_--rho_0.0
+1795752499 start pcn_C_250_--rho_0.9
+1795752518 end pcnis_C_250 rc=0
+1795752522 start pcn_C_250_--rho_0.99
+1795752660 end pcn_C_250_--rho_0.0 rc=0
+1795752660 end pcn_C_250_--rho_0.9 rc=0
+1795752660 start pcn_C_250_--rho_0.999
+1795752680 end pcn_C_250_--rho_0.99 rc=0
+1795752789 end pcn_C_250_--rho_0.999 rc=0
+1795752789 stage_done PCN_C
+1795752789 finished
