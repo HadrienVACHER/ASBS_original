@@ -36,3 +36,9 @@ RTX 3070, fiabilité > 0,99 de préférence (≥ 0,975 accepté), plafond dur **
 
 ## Exécution
 `scripts/smc_noise.py` (`unit`, `quenchtest`, `trial`, `run`, `darting`, `verdict`). Résultats `figures/smc_noise/` (résumés) et `results/smc_noise/` (particules). Section dans RESULTS.md, ligne 17 de la grille.
+
+## Amendement daté 2026-11-27 (après l'étape 0, avant tout calcul de l'étape 1 ; aucune règle modifiée)
+- **Étape 0** : test unitaire réussi (mean Ẑ = 0,9952 ± 0,0099 adaptatif, 1,0122 ± 0,0149 figé) ; trempe en torch : accord 100 % avec `basin_lib` sur 2000 points en (B) et (C) ; essai sur (8, 8, 8) × 0,5, M = 256 : J = 1 niveau, 0,45 s ; chemin complet `run` / `darting` / `pcn` vérifié en plomberie sur (8, 8, 8) à M = 128 et pCN (8 chaînes, 5 pas) sans lecture de résultats.
+- **M = 2048** (valeur minimale demandée) pour toutes les cellules.
+- **Estimation du temps GPU** : J estimé à partir des premiers Δβ sur les pools existants (écart-type de ℓ : (A) 1,1, (B) 3,8 à 4,3, (C) 6,4 à 9,9 ; Δβ₁ ≈ 0,66 / 0,23 / 0,16) : J ≈ 2 (A), 5 à 15 (B), 8 à 20 ou plus (C). Trajectoires : SMC et IS à coût égal ≈ 9·10⁶ (J = 2 / 10 / 20), pCN et son IS ≈ 3,9·10⁶ ; au débit mesuré (6 à 11·10³ trajectoires/s en d = 128 sur RTX 3070, plus faible pour des lots de 2048), **≈ 20 à 55 min de calcul**, central ≈ 40 min, hors installation : **au-delà de 30 min, pas de location ; job cluster** (`scripts/pbs_smc_noise.pbs`).
+- **Précision sur le pCN** (`rules_pcn_path.md`) : le comparateur IS, de 512 × 501 trajectoires, est calculé **une fois par instantané** (même taille pour les 4 valeurs de ρ), au lieu d'une fois par configuration. Le code pCN est la commande `pcn` de `scripts/smc_noise.py` (`scripts/pcn_path.py` et son PBS, jamais exécutés, sont supprimés).

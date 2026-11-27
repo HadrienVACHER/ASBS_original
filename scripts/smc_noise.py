@@ -179,7 +179,7 @@ def exact_draws(cell, n, rng):
     return mu[comp] + rng.standard_normal((n, cell.D))
 
 
-def path_is(cell, n, chunk=20000):
+def path_is(cell, n, chunk=4096):
     lws, bs = [], []
     for a in range(0, n, chunk):
         lw, X = cell.forward(cell.noise(min(chunk, n - a))); lws.append(lw.cpu()); bs.append(basins(cell, X).cpu())
@@ -188,7 +188,7 @@ def path_is(cell, n, chunk=20000):
 
 
 if __name__ == "__main__":
-    ap = argparse.ArgumentParser(); ap.add_argument("cmd"); ap.add_argument("cell", nargs="?"); ap.add_argument("epoch", type=int, nargs="?"); ap.add_argument("rep", type=int, nargs="?"); ap.add_argument("--M", type=int, default=2048); ap.add_argument("--device", default="cuda")
+    ap = argparse.ArgumentParser(); ap.add_argument("cmd"); ap.add_argument("cell", nargs="?"); ap.add_argument("epoch", type=int, nargs="?"); ap.add_argument("rep", type=int, nargs="?"); ap.add_argument("--M", type=int, default=2048); ap.add_argument("--rho", type=float, default=0.9); ap.add_argument("--chains", type=int, default=512); ap.add_argument("--steps", type=int, default=500); ap.add_argument("--device", default="cuda")
     a = ap.parse_args(); OUT.mkdir(parents=True, exist_ok=True)
     if a.cmd == "unit":
         from adjoint_samplers.components.sde import VESDE, ControlledSDE
@@ -233,7 +233,7 @@ if __name__ == "__main__":
         out = dict(cell=a.cell, epoch=a.epoch, rep=a.rep, M=a.M, p_true=c.pt.tolist(), n_energy_pass1=r1["nsim"], n_energy_pass2=r2["nsim"])
         for n, r, X, s in (("pass1", r1, X1, s1), ("pass2", r2, X2, s2)):
             b = basins(c, X); p = props(b, c.K); out[n] = dict(r, tv=L.tv(p, c.pt), p=p.tolist(), frac_assigned=float((b >= 0).double().mean()), **metrics(c, X, b))
-            torch.save(dict(X=X.float().cpu(), basin=b.cpu(), **s), RES / f"{name}_{n}.pt")
+            torch.save(dict(X=X.float().cpu(), basin_final=b.cpu(), **s), RES / f"{name}_{n}.pt")
         t = time.time(); out["is_equal_cost"] = path_is(c, a.M * (1 + r1["J"] * KP)); out["is_equal_cost"]["time_s"] = time.time() - t
         w0 = torch.softmax(s2["lw"][0].double(), 0); b0 = s2["basin"][0].long(); p0 = props(b0, c.K, w0)
         out["is_basic"] = dict(n=a.M, logz=float(torch.logsumexp(s2["lw"][0].double(), 0) - math.log(a.M)), tv=L.tv(p0, c.pt))
@@ -248,6 +248,25 @@ if __name__ == "__main__":
         r = L.darting(pi, x, mu, c.pt, seed=7 + a.rep, SW=(S,), minima=np.array(bank), keep_final=True); z = r["by_S"][S]; Xf = z.pop("X_final"); b, _, _ = B.basins(pi, Xf, M); p = B.basin_props(b, c.K)
         dex = B.dist_to_nearest_minimum(B.sample_exact(pi, 10000, np.random.default_rng(2026)), M); out = dict(S=S, tv=L.tv(p, c.pt), q1=float(np.median(B.dist_to_nearest_minimum(Xf, M)) / np.median(dex)), cost_dart=z["cost"], cost_bank=1000 * (it + 1), n_bank=len(bank))
         json.dump(out, open(OUT / f"dart_{a.cell}_ep{a.epoch}_r{a.rep}.json", "w"), indent=1, default=float); print(out)
+    elif a.cmd == "pcn":                                                                      # rules_pcn_path.md (frozen by the amendment of 2026-11-27): cell B, rho in {0, 0.9, 0.99, 0.999}, 512 chains, 500 steps, burn-in 20 %
+        rho = a.rho; nch, steps = a.chains, a.steps; torch.manual_seed(a.epoch); c = Cell(a.cell, a.epoch, a.device); f = OUT / f"pcn_ep{a.epoch}_rho{rho}.json"
+        t0 = time.time(); xi = c.noise(nch); lw, X = c.forward(xi); acc, ps, q1s = 0.0, [], []
+        for st in range(steps):
+            prop = rho * xi + math.sqrt(1 - rho ** 2) * torch.randn_like(xi); lwp, Xp = c.forward(prop); ok = torch.log(torch.rand(nch, device=c.dev).double()) < lwp - lw
+            xi = torch.where(ok[None, :, None], prop, xi); lw = torch.where(ok, lwp, lw); X = torch.where(ok[:, None], Xp, X); acc += float(ok.double().mean()) / steps
+            if st >= steps // 5: ps.append(basins(c, X).cpu())
+        b = torch.cat(ps); p = props(b, c.K); out = dict(epoch=a.epoch, rho=rho, chains=nch, steps=steps, accept=acc, tv=L.tv(p, c.pt), p=p.tolist(), time_s=time.time() - t0, **{"final_" + k: v for k, v in metrics(c, X, basins(c, X)).items()})
+        isf = OUT / f"pcn_is_ep{a.epoch}.json"
+        if not isf.exists(): torch.manual_seed(5000 + a.epoch); json.dump(path_is(c, nch * (steps + 1)), open(isf, "w"), indent=1)
+        json.dump(out, open(f, "w"), indent=1, default=float); print(out)
+    elif a.cmd == "pcnverdict":
+        eps = (1000, 1250, 1500); V = {}
+        isv = float(np.mean([json.load(open(OUT / f"pcn_is_ep{e}.json"))["tv"] for e in eps]))
+        for rho in (0.0, 0.9, 0.99, 0.999):
+            r = [json.load(open(OUT / f"pcn_ep{e}_rho{rho}.json")) for e in eps]; tv = float(np.mean([x["tv"] for x in r])); ac = float(np.mean([x["accept"] for x in r]))
+            V[str(rho)] = dict(tv=tv, tv_per_epoch=[x["tv"] for x in r], accept=ac, J1_part=bool(rho > 0 and tv <= 0.5 * isv), J2=bool(0.1 <= ac <= 0.6))
+        V["tv_is_same_budget"] = isv; V["J1"] = any(V[str(r)]["J1_part"] for r in (0.9, 0.99, 0.999)); V["J1_and_J2"] = any(V[str(r)]["J1_part"] and V[str(r)]["J2"] for r in (0.9, 0.99, 0.999))
+        json.dump(V, open(OUT / "pcn_verdict.json", "w"), indent=1); print(json.dumps(V, indent=1))
     elif a.cmd == "verdict":
         import glob
         R = {}
