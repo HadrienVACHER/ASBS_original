@@ -3,6 +3,7 @@
     python scripts/smc_noise.py quenchtest                            torch quench against basin_lib
     python scripts/smc_noise.py trial CELL EPOCH [--M 256] [--device cpu]     one adaptive pass, timing per level
     python scripts/smc_noise.py run CELL EPOCH REP [--M 2048] [--device cuda]  adaptive pass, frozen-calendar pass, equal-cost path IS
+    python scripts/smc_noise.py smoke [--device cuda]                            environment / GPU / paths check, < 5 min
     python scripts/smc_noise.py darting CELL EPOCH REP                local CPU: bank + darting on the initial particles
     python scripts/smc_noise.py verdict
     CELL in {A, B, C, d8} """
@@ -129,12 +130,12 @@ def systematic(lw):
     return torch.searchsorted(torch.cumsum(w, 0), u).clamp(max=n - 1)
 
 
-def smc(cell, M, calendar=None, save=True, log=False):
+def smc(cell, M, calendar=None, save=True, log=False, kp=KP):
     """ calendar None = adaptive pass; otherwise the frozen list [(beta, rho), ...] of an adaptive pass """
     t0 = time.time(); xi = cell.noise(M); lw, X = cell.forward(xi); nsim = M; beta, logz, rho = 0.0, 0.0, 0.9
     root = torch.arange(M, device=cell.dev); levels = []
     b0 = basins(cell, X); saved = dict(lw=[lw.float().cpu()], basin=[b0.cpu().to(torch.int8)], parent=[], X0=X.float().cpu())
-    levels.append(dict(beta=0.0, p=props(b0, cell.K).tolist(), logz=0.0))
+    levels.append(dict(beta=0.0, p=props(b0, cell.K).tolist(), logz=0.0, counts=torch.bincount(b0[b0 >= 0], minlength=cell.K).cpu().tolist(), unassigned=int((b0 < 0).sum())))
     for lev in range(MAXLEV):
         if beta >= 1.0: break
         if calendar is None:
@@ -143,10 +144,10 @@ def smc(cell, M, calendar=None, save=True, log=False):
             new_beta, rho = calendar[lev]; db = new_beta - beta
         inc = db * lw; step_logz = float(torch.logsumexp(inc, 0) - math.log(M)); logz += step_logz; ess = ess_rel(inc)
         idx = systematic(inc); xi = xi[:, idx]; lw, X, root = lw[idx], X[idx], root[idx]; beta = new_beta; acc = 0.0
-        for _ in range(KP):
+        for _ in range(kp):
             prop = rho * xi + math.sqrt(1 - rho ** 2) * torch.randn_like(xi); lwp, Xp = cell.forward(prop); nsim += M
             ok = torch.log(torch.rand(M, device=cell.dev).double()) < beta * (lwp - lw)
-            xi = torch.where(ok[None, :, None], prop, xi); lw = torch.where(ok, lwp, lw); X = torch.where(ok[:, None], Xp, X); acc += float(ok.double().mean()) / KP
+            xi = torch.where(ok[None, :, None], prop, xi); lw = torch.where(ok, lwp, lw); X = torch.where(ok[:, None], Xp, X); acc += float(ok.double().mean()) / kp
         b = basins(cell, X)
         if save: saved["lw"].append(lw.float().cpu()); saved["basin"].append(b.cpu().to(torch.int8)); saved["parent"].append(idx.cpu().to(torch.int32))
         levels.append(dict(beta=beta, dbeta=db, rho=rho, accept=acc, ess_inc=ess, logz=logz, ancestors=int(len(torch.unique(root))), p=props(b, cell.K).tolist(), t=time.time() - t0))
@@ -238,6 +239,15 @@ if __name__ == "__main__":
         w0 = torch.softmax(s2["lw"][0].double(), 0); b0 = s2["basin"][0].long(); p0 = props(b0, c.K, w0)
         out["is_basic"] = dict(n=a.M, logz=float(torch.logsumexp(s2["lw"][0].double(), 0) - math.log(a.M)), tv=L.tv(p0, c.pt))
         json.dump(out, open(OUT / f"run_{name}.json", "w"), indent=1, default=float); print(name, "IS equal cost logZ %+.4f tv %.4f | pass2 tv %.4f q1 %.3f" % (out["is_equal_cost"]["logz"], out["is_equal_cost"]["tv"], out["pass2"]["tv"], out["pass2"]["q1"]), flush=True)
+    elif a.cmd == "smoke":                                                                 # environment / GPU / paths check (PBS: qsub -v SMOKE=1); writes figures/smc_noise/smoke.json only
+        t0 = time.time()
+        if a.device == "cuda": assert torch.cuda.is_available(), "no CUDA device"
+        cells = {(nm, e): Cell(nm, e, a.device) for nm, ep in (("A", (1000, 1250, 1500)), ("B", (1000, 1250, 1500)), ("C", (250, 500, 750))) for e in ep}
+        torch.manual_seed(1); c = cells[("B", 1000)]; RES.mkdir(parents=True, exist_ok=True)
+        r, X, s = smc(c, 64, calendar=[(1.0, 0.9)], kp=1, log=True); b = basins(c, X); p = props(b, c.K); is_ = path_is(c, 128); cm = cells[("C", 250)]; rc, Xc, _ = smc(cm, 64, calendar=[(1.0, 0.9)], kp=1, save=False)
+        torch.save(dict(X=X.cpu(), **s), RES / "smoke.pt")
+        out = dict(ok=True, device=a.device, gpu=(torch.cuda.get_device_name(0) if a.device == "cuda" else None), torch=torch.__version__, cells_loaded=len(cells), B_levels=r["J"], B_tv=L.tv(p, c.pt), B_metrics=metrics(c, X, b), is_n=is_["n"], C_logz=rc["logz"], time_s=time.time() - t0)
+        json.dump(out, open(OUT / "smoke.json", "w"), indent=1, default=float); print("SMOKE OK", out)
     elif a.cmd == "darting":
         import basin_lib as B
         d = torch.load(RES / f"{a.cell}_ep{a.epoch}_r{a.rep}_pass2.pt", map_location="cpu", weights_only=False); x = d["X0"].double().numpy(); c = Cell(a.cell, a.epoch, "cpu")
@@ -273,6 +283,13 @@ if __name__ == "__main__":
         for f in glob.glob(str(OUT / "run_*.json")):
             j = json.load(open(f)); R.setdefault(j["cell"], []).append(j)
         V = {}
+
+        def snap(rs, floor, pt):
+            """ per snapshot (amendment of 2026-11-27 for cell C): S1, S2 on the 3 repetitions; basin counts at beta = 0 of pass 2 and the true mass of the basins empty at the start (Th. C) """
+            md = lambda g: float(np.median([g(j) for j in rs]))
+            e = md(lambda j: abs(j["pass2"]["logz"])); ei = md(lambda j: abs(j["is_equal_cost"]["logz"])); tv = md(lambda j: j["pass2"]["tv"]); tvi = md(lambda j: j["is_equal_cost"]["tv"])
+            counts = [j["pass2"]["levels"][0]["counts"] for j in rs]; empty = [[k for k, n in enumerate(c_) if n == 0] for c_ in counts]
+            return dict(n_runs=len(rs), logz_err_smc=e, logz_err_is=ei, tv_smc=tv, tv_is=tvi, S1=bool(e <= 0.1 and e <= 0.5 * ei), S2=bool(tv <= 0.5 * tvi and tv <= 2 * floor), counts_beta0=counts, empty_basins_beta0=empty, true_mass_empty=[float(sum(pt[k] for k in em)) for em in empty])
         for cell, rs in sorted(R.items()):
             if cell == "d8": continue
             rng = np.random.default_rng(5); pt = np.array(rs[0]["p_true"]); M = rs[0]["M"]
@@ -282,9 +299,9 @@ if __name__ == "__main__":
             s4 = []
             for j in rs:
                 q0 = np.array(j["pass2"]["levels"][0]["p"]); thr = 0.25 * np.minimum(q0, pt); s4.append(all(bool(np.all(np.array(lv["p"]) >= thr - 1e-12)) for lv in j["pass2"]["levels"]))
-            V[cell] = dict(n_runs=len(rs), floor=floor, all_done=all(j["pass2"]["done"] for j in rs), logz_err_smc=q(e2), logz_err_is=q(eis), logz_err_pass1=q(lambda j: abs(j["pass1"]["logz"])), tv_smc=q(lambda j: j["pass2"]["tv"]), tv_is=q(lambda j: j["is_equal_cost"]["tv"]), tv_pass1=q(lambda j: j["pass1"]["tv"]),
+            V[cell] = dict(per_snapshot={str(e): snap([j for j in rs if j["epoch"] == e], floor, pt) for e in sorted({j["epoch"] for j in rs})}, n_runs=len(rs), floor=floor, all_done=all(j["pass2"]["done"] for j in rs), logz_err_smc=q(e2), logz_err_is=q(eis), logz_err_pass1=q(lambda j: abs(j["pass1"]["logz"])), tv_smc=q(lambda j: j["pass2"]["tv"]), tv_is=q(lambda j: j["is_equal_cost"]["tv"]), tv_pass1=q(lambda j: j["pass1"]["tv"]),
                            q1=q(lambda j: j["pass2"]["q1"]), J=[j["pass2"]["J"] for j in rs], n_s4_ok=int(sum(s4)), S1=bool(med(e2) <= 0.1 and med(e2) <= 0.5 * med(eis)), S2=bool(med(lambda j: j["pass2"]["tv"]) <= 0.5 * med(lambda j: j["is_equal_cost"]["tv"]) and med(lambda j: j["pass2"]["tv"]) <= 2 * floor), S3=bool(med(lambda j: j["pass2"]["q1"]) <= {"B": 1.02, "C": 1.2}.get(cell, np.inf)),
                            safe_A=bool(med(e2) <= 1.5 * med(eis) and med(lambda j: j["pass2"]["tv"]) <= 1.5 * med(lambda j: j["is_equal_cost"]["tv"])), complete=len(rs) == 9)
         if all(k in V for k in "ABC"):
-            V["S1"] = V["B"]["S1"] and V["C"]["S1"]; V["S2"] = V["B"]["S2"] and V["C"]["S2"]; V["S4"] = all(V[k]["n_s4_ok"] == V[k]["n_runs"] for k in "ABC") and V["A"]["safe_A"]
+            c250 = V["C"]["per_snapshot"].get("250"); V["S1"] = bool(V["B"]["S1"] and c250 and c250["S1"]); V["S2"] = bool(V["B"]["S2"] and c250 and c250["S2"]); V["C_degraded_snapshots_descriptive"] = {k: v for k, v in V["C"]["per_snapshot"].items() if k != "250"}; V["S4"] = all(V[k]["n_s4_ok"] == V[k]["n_runs"] for k in "ABC") and V["A"]["safe_A"]
         json.dump(V, open(OUT / "verdict.json", "w"), indent=1, default=float); print(json.dumps(V, indent=1, default=float))
