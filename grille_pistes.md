@@ -54,8 +54,9 @@ Théorèmes cités :
 | 15. MALA seul post hoc (témoin) | T (C) | T (C) | T (C) | X (Th. C) | N | N | N | — | T (C) ✗ (A4) |
 | 16. IMH dans l'espace des trajectoires (proposition AS) | T (I) (I4 faux marginal) | T (I) (aucun gain) | N | X (Th. C ; I3, par construction) | N | N | N | N | T (I) (I1 faux : artefact d'ESS, examen post hoc ; aucun gain) |
 | 17. SMC dans l'espace des bruits (tempering du poids de chemin) | T (C) ✗ (sûreté : log Ẑ moins bon que l'IS) | T (C) ✗ (S1, S2 faux) | N | N | N | N | N | N | T (C) ✗ (MoS-w ép. 250 : S1, S2, S4 faux) |
+| 18. Correction de dynamique par poids de chemin (PICE / entropie croisée ; note NTU_25) | N (arrêt étape 0) | N (arrêt étape 0) | N | N | N | N | N | N | N (arrêt étape 0, MoS-w) |
 
-**Décompte (153 cases ; après les résultats de la ligne 17 le 2026-11-27 : 60 testées, 12 exclues, 65 non testées, 16 sans objet ; avant eux : 57 / 12 / 68 / 16 ; avec la ligne 16 (144 cases) : 57 / 12 / 59 / 16 ; décompte précédent sur 135 cases ; mis à jour le 2026-11-23 après le lot d'auto-entraînement)** : **54 testées** (dont 4 en quadrature 1D seulement), **11 exclues par un théorème** (en comptant comme exclue la case D de Newton-Stein, aussi testée), **54 non testées**, **16 sans objet**. Après A3, A4 et A5 : 52 / 11 / 55 / 17. Après les étapes A et B : 45 / 11 / 62 / 17. Version initiale : 43 / 11 / 64 / 17 (6c1b8b3).
+**Décompte (162 cases avec la ligne 18 : 60 testées, 12 exclues, 74 non testées, 16 sans objet ; avant elle, 153 cases ; après les résultats de la ligne 17 le 2026-11-27 : 60 testées, 12 exclues, 65 non testées, 16 sans objet ; avant eux : 57 / 12 / 68 / 16 ; avec la ligne 16 (144 cases) : 57 / 12 / 59 / 16 ; décompte précédent sur 135 cases ; mis à jour le 2026-11-23 après le lot d'auto-entraînement)** : **54 testées** (dont 4 en quadrature 1D seulement), **11 exclues par un théorème** (en comptant comme exclue la case D de Newton-Stein, aussi testée), **54 non testées**, **16 sans objet**. Après A3, A4 et A5 : 52 / 11 / 55 / 17. Après les étapes A et B : 45 / 11 / 62 / 17. Version initiale : 43 / 11 / 64 / 17 (6c1b8b3).
 
 *Mise à jour A3–A5 (2026-11-23)* :
 - 14-D (`rules_bank_darting_dk.md`) : A3 vraie ;
@@ -283,3 +284,6 @@ Détails dans RESULTS.md.
 - Étape 0 réussie. Étape 1 exécutée sur Vast.ai (≈ 0,048 $) : (A), (B) 3 instantanés, (C) instantané 250, 3 répétitions.
 - **S1, S2, S4 fausses, S3 vraie : pas de gain à coût égal** ; goulot : mélange du pCN (acceptation 0,06 à 0,11 en (B), 0,03 en (C) au dernier niveau). Banque + darting : TV 0,034 en (B), 0,027 en (C) (coûts en unités différentes). Étiquette C proposée (M = 2048, K = 5, τ = 0,5).
 - **Non exploré** : plus de pas pCN par niveau, M plus grand, (C) aux instantanés 500 et 750.
+
+### 18. Correction de dynamique par poids de chemin (PICE ; `rules/rules_doob_ce.md`, 247234c)
+- Arrêt à l'étape 0 : test unitaire échoué tel qu'écrit (erreur relative 0,326 sous Q_θ pour un seuil de 0,25 ; 0,089 sous P* ; diagnostic dans RESULTS.md). **Aucun résultat de méthode.**

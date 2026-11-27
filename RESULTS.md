@@ -2028,3 +2028,10 @@ Moyennes des 3 pools (écart-type) ; ESS relatif par point.
 
 ### Prédictions
 S1 35 % et S2 25 % : fausses. S3 : vraie. S4 60 % : fausse. J1 15 % : vraie en (B), fragile.
+
+## Correction de dynamique par poids de chemin (note NTU_25 ; PICE / entropie croisée sur trajectoires) : arrêt à l'étape 0 (2026-11-27, `rules/rules_doob_ce.md`, 247234c avant tout calcul)
+Écrit pour : Hadrien. CPU, aucune location. Code : `scripts/doob_ce.py`, `scripts/doob_ce_unit_diag.py` ; résultats : `figures/doob_ce/unit.json`, `unit_diag.json`. PICE : Kappen & Ruiz (2016), Nüsken & Richter (2021), références non revérifiées. Convention du dépôt : u_new = u_θ + v_φ / g_k.
+- **Test unitaire ÉCHOUÉ tel qu'écrit** : erreur relative L² de v_φ sous Q_θ = **0,326 > 0,25** (M = 10⁵, 5000 étapes, lot 1024). Règle : arrêt et diagnostic. Aucune plomberie, aucune location, H1 à H4 non évaluées.
+- Mêmes poids, autres lectures : erreur sous P* **0,089** ; sous u_new, moyenne (1,006 ; 0,005) pour (1 ; 0), écart-type 0,719 pour 0,7 ; ESS de l'IS de chemin 0,195 → 0,893 ; log Ẑ −0,0002.
+- **Diagnostic (post hoc, descriptif ; mêmes graines, réseau réentraîné à l'identique)** : le contrôleur **exact** v* donne ESS 0,911 et écart-type 0,715 (l'écart à 0,7 vient de la discrétisation). Sous Q_θ, **99 % de l'erreur au carré** vient des points à plus de 3 écarts-types (distance de Mahalanobis) de la marginale P* (54 % des points de Q_θ), où il n'y a presque aucune donnée pondérée ; à moins de 3 écarts-types, erreur 0,07. L'erreur sous Q_θ croît avec le temps (0,09 sur les pas 0–49, 15 sur les pas 150–198), là où P* est beaucoup plus étroite que Q_θ.
+- Lecture proposée : l'implémentation et la convention sont correctes ; le critère « sous Q_θ » que j'avais fixé mesure l'extrapolation hors du support d'apprentissage. **Le verdict « échoué » reste** ; la poursuite demande un amendement daté, à décider par l'utilisateur.
