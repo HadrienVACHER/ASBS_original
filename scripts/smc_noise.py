@@ -246,7 +246,8 @@ if __name__ == "__main__":
         torch.manual_seed(1); c = cells[("B", 1000)]; RES.mkdir(parents=True, exist_ok=True)
         r, X, s = smc(c, 64, calendar=[(1.0, 0.9)], kp=1, log=True); b = basins(c, X); p = props(b, c.K); is_ = path_is(c, 128); cm = cells[("C", 250)]; rc, Xc, _ = smc(cm, 64, calendar=[(1.0, 0.9)], kp=1, save=False)
         torch.save(dict(X=X.cpu(), **s), RES / "smoke.pt")
-        out = dict(ok=True, device=a.device, gpu=(torch.cuda.get_device_name(0) if a.device == "cuda" else None), torch=torch.__version__, cells_loaded=len(cells), B_levels=r["J"], B_tv=L.tv(p, c.pt), B_metrics=metrics(c, X, b), is_n=is_["n"], C_logz=rc["logz"], time_s=time.time() - t0)
+        t1 = time.time(); c.forward(c.noise(4096)); torch.cuda.synchronize() if a.device == "cuda" else None; rate = 4096 / (time.time() - t1)
+        out = dict(ok=True, traj_per_s_B_batch4096=rate, device=a.device, gpu=(torch.cuda.get_device_name(0) if a.device == "cuda" else None), torch=torch.__version__, cells_loaded=len(cells), B_levels=r["J"], B_tv=L.tv(p, c.pt), B_metrics=metrics(c, X, b), is_n=is_["n"], C_logz=rc["logz"], time_s=time.time() - t0)
         json.dump(out, open(OUT / "smoke.json", "w"), indent=1, default=float); print("SMOKE OK", out)
     elif a.cmd == "darting":
         import basin_lib as B
@@ -259,24 +260,27 @@ if __name__ == "__main__":
         dex = B.dist_to_nearest_minimum(B.sample_exact(pi, 10000, np.random.default_rng(2026)), M); out = dict(S=S, tv=L.tv(p, c.pt), q1=float(np.median(B.dist_to_nearest_minimum(Xf, M)) / np.median(dex)), cost_dart=z["cost"], cost_bank=1000 * (it + 1), n_bank=len(bank))
         json.dump(out, open(OUT / f"dart_{a.cell}_ep{a.epoch}_r{a.rep}.json", "w"), indent=1, default=float); print(out)
     elif a.cmd == "pcn":                                                                      # rules_pcn_path.md (frozen by the amendment of 2026-11-27): cell B, rho in {0, 0.9, 0.99, 0.999}, 512 chains, 500 steps, burn-in 20 %
-        rho = a.rho; nch, steps = a.chains, a.steps; torch.manual_seed(a.epoch); c = Cell(a.cell, a.epoch, a.device); f = OUT / f"pcn_ep{a.epoch}_rho{rho}.json"
+        rho = a.rho; nch, steps = a.chains, a.steps; torch.manual_seed(a.epoch); c = Cell(a.cell, a.epoch, a.device); f = OUT / f"pcn_{a.cell}_ep{a.epoch}_rho{rho}.json"
         t0 = time.time(); xi = c.noise(nch); lw, X = c.forward(xi); acc, ps, q1s = 0.0, [], []
         for st in range(steps):
             prop = rho * xi + math.sqrt(1 - rho ** 2) * torch.randn_like(xi); lwp, Xp = c.forward(prop); ok = torch.log(torch.rand(nch, device=c.dev).double()) < lwp - lw
             xi = torch.where(ok[None, :, None], prop, xi); lw = torch.where(ok, lwp, lw); X = torch.where(ok[:, None], Xp, X); acc += float(ok.double().mean()) / steps
             if st >= steps // 5: ps.append(basins(c, X).cpu())
         b = torch.cat(ps); p = props(b, c.K); out = dict(epoch=a.epoch, rho=rho, chains=nch, steps=steps, accept=acc, tv=L.tv(p, c.pt), p=p.tolist(), time_s=time.time() - t0, **{"final_" + k: v for k, v in metrics(c, X, basins(c, X)).items()})
-        isf = OUT / f"pcn_is_ep{a.epoch}.json"
-        if not isf.exists(): torch.manual_seed(5000 + a.epoch); json.dump(path_is(c, nch * (steps + 1)), open(isf, "w"), indent=1)
         json.dump(out, open(f, "w"), indent=1, default=float); print(out)
+    elif a.cmd == "pcnis":                                                                    # equal-budget path IS comparator of the pCN test, one per (cell, snapshot)
+        torch.manual_seed(5000 + a.epoch); c = Cell(a.cell, a.epoch, a.device); r = path_is(c, a.chains * (a.steps + 1)); json.dump(r, open(OUT / f"pcn_is_{a.cell}_ep{a.epoch}.json", "w"), indent=1); print(r)
     elif a.cmd == "pcnverdict":
-        eps = (1000, 1250, 1500); V = {}
-        isv = float(np.mean([json.load(open(OUT / f"pcn_is_ep{e}.json"))["tv"] for e in eps]))
-        for rho in (0.0, 0.9, 0.99, 0.999):
-            r = [json.load(open(OUT / f"pcn_ep{e}_rho{rho}.json")) for e in eps]; tv = float(np.mean([x["tv"] for x in r])); ac = float(np.mean([x["accept"] for x in r]))
+        ALL = {}
+        for cell, eps in (("B", (1000, 1250, 1500)), ("C", (250,))):
+          have = [e for e in eps if (OUT / f"pcn_is_{cell}_ep{e}.json").exists() and all((OUT / f"pcn_{cell}_ep{e}_rho{r_}.json").exists() for r_ in (0.0, 0.9, 0.99, 0.999))]
+          if len(have) < len(eps): ALL[cell] = f"incomplet : instantanés finis {have} sur {list(eps)}"; continue
+          V = {}; isv = float(np.mean([json.load(open(OUT / f"pcn_is_{cell}_ep{e}.json"))["tv"] for e in eps]))
+          for rho in (0.0, 0.9, 0.99, 0.999):
+            r = [json.load(open(OUT / f"pcn_{cell}_ep{e}_rho{rho}.json")) for e in eps]; tv = float(np.mean([x["tv"] for x in r])); ac = float(np.mean([x["accept"] for x in r]))
             V[str(rho)] = dict(tv=tv, tv_per_epoch=[x["tv"] for x in r], accept=ac, J1_part=bool(rho > 0 and tv <= 0.5 * isv), J2=bool(0.1 <= ac <= 0.6))
-        V["tv_is_same_budget"] = isv; V["J1"] = any(V[str(r)]["J1_part"] for r in (0.9, 0.99, 0.999)); V["J1_and_J2"] = any(V[str(r)]["J1_part"] and V[str(r)]["J2"] for r in (0.9, 0.99, 0.999))
-        json.dump(V, open(OUT / "pcn_verdict.json", "w"), indent=1); print(json.dumps(V, indent=1))
+          V["tv_is_same_budget"] = isv; V["J1"] = any(V[str(r)]["J1_part"] for r in (0.9, 0.99, 0.999)); V["J1_and_J2"] = any(V[str(r)]["J1_part"] and V[str(r)]["J2"] for r in (0.9, 0.99, 0.999)); ALL[cell] = V
+        json.dump(ALL, open(OUT / "pcn_verdict.json", "w"), indent=1); print(json.dumps(ALL, indent=1, ensure_ascii=False))
     elif a.cmd == "verdict":
         import glob
         R = {}
@@ -304,6 +308,6 @@ if __name__ == "__main__":
                            q1=q(lambda j: j["pass2"]["q1"]), J=[j["pass2"]["J"] for j in rs], n_s4_ok=int(sum(s4)), S1=bool(med(e2) <= 0.1 and med(e2) <= 0.5 * med(eis)), S2=bool(med(lambda j: j["pass2"]["tv"]) <= 0.5 * med(lambda j: j["is_equal_cost"]["tv"]) and med(lambda j: j["pass2"]["tv"]) <= 2 * floor), S3_all_runs=bool(med(lambda j: j["pass2"]["q1"]) <= {"B": 1.02, "C": 1.2}.get(cell, np.inf)),
                            S3=bool((float(np.median([j["pass2"]["q1"] for j in rs if cell != "C" or j["epoch"] == 250])) if any(cell != "C" or j["epoch"] == 250 for j in rs) else np.inf) <= {"B": 1.02, "C": 1.2}.get(cell, np.inf)),
                            safe_A=bool(med(e2) <= 1.5 * med(eis) and med(lambda j: j["pass2"]["tv"]) <= 1.5 * med(lambda j: j["is_equal_cost"]["tv"])), complete=len(rs) == 9)
-        if all(k in V for k in "ABC"):
-            c250 = V["C"]["per_snapshot"].get("250"); V["S1"] = bool(V["B"]["S1"] and c250 and c250["S1"]); V["S2"] = bool(V["B"]["S2"] and c250 and c250["S2"]); V["S3"] = bool(V["B"]["S3"] and c250 and c250["q1"] <= 1.2); V["C_degraded_snapshots_descriptive"] = {k: v for k, v in V["C"]["per_snapshot"].items() if k != "250"}; V["S4"] = all(V[k]["n_s4_ok"] == V[k]["n_runs"] for k in "ABC") and V["A"]["safe_A"]
+        if all(k in V for k in "BC"):
+            c250 = V["C"]["per_snapshot"].get("250"); V["S1"] = bool(V["B"]["S1"] and c250 and c250["S1"]); V["S2"] = bool(V["B"]["S2"] and c250 and c250["S2"]); V["S3"] = bool(V["B"]["S3"] and c250 and c250["q1"] <= 1.2); V["C_degraded_snapshots_descriptive"] = {k: v for k, v in V["C"]["per_snapshot"].items() if k != "250"}; V["cells_executed"] = [k for k in "ABC" if k in V]; V["S4"] = all(V[k]["n_s4_ok"] == V[k]["n_runs"] for k in V["cells_executed"]) and (V["A"]["safe_A"] if "A" in V else True)
         json.dump(V, open(OUT / "verdict.json", "w"), indent=1, default=float); print(json.dumps(V, indent=1, default=float))
