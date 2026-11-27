@@ -4,6 +4,7 @@ Un fichier par lot, commité avant tout calcul. Classés du plus récent au plus
 
 | date | fichier | titre |
 |---|---|---|
+| 2026-11-27 | [rules_doob_ce.md](rules_doob_ce.md) | Correction de dynamique par poids de chemin (note NTU_25 ; PICE / entropie croisée sur trajectoires) |
 | 2026-11-27 | [rules_smc_noise.md](rules_smc_noise.md) | SMC dans l'espace des bruits avec tempering du poids de chemin |
 | 2026-11-27 | [rules_imh_path.md](rules_imh_path.md) | IMH dans l'espace des trajectoires avec AS comme proposition, phase 1 (CPU, hors ligne) |
 | 2026-11-27 | [rules_pcn_path.md](rules_pcn_path.md) | Phase 2 (préparée, non lancée) : pCN dans l'espace des bruits |
