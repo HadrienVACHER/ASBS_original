@@ -52,8 +52,9 @@ Théorèmes cités :
 | 13. Amortissement η fixé | T (C) | T (C) | T (C) | T (C) | N | X (Th. 3.8 FM) | N | T (R) | T (C) |
 | 14. Banque de minima + darting | — | T (C) ✗ à l'entraînement (S3 faux ; TV par bassin 0,037) | T (C) partiel (A4, d = 50) | T (C) ✓ (A3 ; S1 vrai à l'entraînement) | N | — | N | — | T (C) ✓ post hoc (A4, d = 10) ; à l'entraînement masses ✓, Q1 ✗ (S2, S4 faux) |
 | 15. MALA seul post hoc (témoin) | T (C) | T (C) | T (C) | X (Th. C) | N | N | N | — | T (C) ✗ (A4) |
+| 16. IMH dans l'espace des trajectoires (proposition AS) | T (I) (I4 faux marginal) | T (I) (aucun gain) | N | X (Th. C ; I3, par construction) | N | N | N | N | T (I) (I1 faux : artefact d'ESS, examen post hoc ; aucun gain) |
 
-**Décompte (135 cases ; mis à jour le 2026-11-23 après le lot d'auto-entraînement)** : **54 testées** (dont 4 en quadrature 1D seulement), **11 exclues par un théorème** (en comptant comme exclue la case D de Newton-Stein, aussi testée), **54 non testées**, **16 sans objet**. Après A3, A4 et A5 : 52 / 11 / 55 / 17. Après les étapes A et B : 45 / 11 / 62 / 17. Version initiale : 43 / 11 / 64 / 17 (6c1b8b3).
+**Décompte (144 cases depuis le 2026-11-27 avec la ligne 16 : 57 testées, 12 exclues, 59 non testées, 16 sans objet ; décompte précédent sur 135 cases ; mis à jour le 2026-11-23 après le lot d'auto-entraînement)** : **54 testées** (dont 4 en quadrature 1D seulement), **11 exclues par un théorème** (en comptant comme exclue la case D de Newton-Stein, aussi testée), **54 non testées**, **16 sans objet**. Après A3, A4 et A5 : 52 / 11 / 55 / 17. Après les étapes A et B : 45 / 11 / 62 / 17. Version initiale : 43 / 11 / 64 / 17 (6c1b8b3).
 
 *Mise à jour A3–A5 (2026-11-23)* :
 - 14-D (`rules_bank_darting_dk.md`) : A3 vraie ;
@@ -269,3 +270,9 @@ Détails dans RESULTS.md.
 
 **Définition manquante (lire la note de Hai-Dang d'abord ; coût : lecture)**
 17. Lignes **10** (hors variante boîte) et **11** : les 17 cases N.
+
+
+### 16. IMH dans l'espace des trajectoires (`rules/rules_imh_path.md`, 2192e9c)
+- **A, B, I : T (I)** : I2 et I3 vraies, I1 et I4 fausses ; lecture « fermée en R » non atteinte telle qu'écrite. Examen post hoc : le gain apparent de I1 (MoS-w) est un artefact de l'estimateur d'ESS sur une chaîne bloquée ; sur 200 rejeux, l'IMH n'est meilleur que l'IS sur aucune cellule. Références : Liu (1996), Mengersen & Tweedie (1996) (non revérifiées). Étiquette I proposée ; à décider.
+- **D : X** (le rejeu ne contient pas les modes absents).
+- **Non exploré** : MH local dans l'espace des bruits (pCN), préparé (`rules/rules_pcn_path.md`).

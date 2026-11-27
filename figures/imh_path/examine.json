@@ -1,0 +1,154 @@
+{
+ "A": [
+  {
+   "pool": "ep1000",
+   "accepted": 6984,
+   "distinct_states": 6985,
+   "ess_imh_states": 1490.558435450227,
+   "ess_ratio_same_functional_median": 0.8497166952233339,
+   "tv_replays_median": 0.032402749999999994,
+   "tv_replays_q10": 0.018363500000000026,
+   "tv_replays_q90": 0.07596002777777774,
+   "tv_is": 0.024786261271721823,
+   "accepted_replays_median": 6549.5
+  },
+  {
+   "pool": "ep1250",
+   "accepted": 7078,
+   "distinct_states": 7078,
+   "ess_imh_states": 1898.861462582241,
+   "ess_ratio_same_functional_median": 0.48574353950745375,
+   "tv_replays_median": 0.02371016666666667,
+   "tv_replays_q10": 0.01640242222222225,
+   "tv_replays_q90": 0.0320199277777778,
+   "tv_is": 0.014298739083888722,
+   "accepted_replays_median": 7112.5
+  },
+  {
+   "pool": "ep1500",
+   "accepted": 6767,
+   "distinct_states": 6768,
+   "ess_imh_states": 1608.268226856101,
+   "ess_ratio_same_functional_median": 0.5081818146199442,
+   "tv_replays_median": 0.02243422222222222,
+   "tv_replays_q10": 0.015387405555555565,
+   "tv_replays_q90": 0.03062168888888889,
+   "tv_is": 0.010015569863062637,
+   "accepted_replays_median": 6792.5
+  }
+ ],
+ "B": [
+  {
+   "pool": "ep1000",
+   "accepted": 358,
+   "distinct_states": 359,
+   "ess_imh_states": 51.100367900239334,
+   "ess_ratio_same_functional_median": 0.9426125159276711,
+   "tv_replays_median": 0.18382433333333334,
+   "tv_replays_q10": 0.12806210925925923,
+   "tv_replays_q90": 0.2983306074074074,
+   "tv_is": 0.10435107270293192,
+   "accepted_replays_median": 388.0
+  },
+  {
+   "pool": "ep1250",
+   "accepted": 686,
+   "distinct_states": 687,
+   "ess_imh_states": 86.17803792286081,
+   "ess_ratio_same_functional_median": 0.8007012938857669,
+   "tv_replays_median": 0.15518184259259257,
+   "tv_replays_q10": 0.11268895370370369,
+   "tv_replays_q90": 0.20677546296296295,
+   "tv_is": 0.10957467963729149,
+   "accepted_replays_median": 720.0
+  },
+  {
+   "pool": "ep1500",
+   "accepted": 780,
+   "distinct_states": 781,
+   "ess_imh_states": 99.59062065348951,
+   "ess_ratio_same_functional_median": 0.6712778708321783,
+   "tv_replays_median": 0.12028744444444442,
+   "tv_replays_q10": 0.07380952777777776,
+   "tv_replays_q90": 0.23250341666666663,
+   "tv_is": 0.1250026994207459,
+   "accepted_replays_median": 776.0
+  }
+ ],
+ "C": [
+  {
+   "pool": "bloc1",
+   "accepted": 16,
+   "distinct_states": 17,
+   "ess_imh_states": 24.436835830729557,
+   "ess_ratio_same_functional_median": 0.910328712674243,
+   "tv_replays_median": 0.4157998305282453,
+   "tv_replays_q10": 0.3849383074487585,
+   "tv_replays_q90": 0.4157998305282453,
+   "tv_is": 0.4441859923514742,
+   "accepted_replays_median": 9.0
+  },
+  {
+   "pool": "bloc2",
+   "accepted": 1,
+   "distinct_states": 2,
+   "ess_imh_states": 10.953219058029669,
+   "ess_ratio_same_functional_median": 1.5809882297699067,
+   "tv_replays_median": 0.7978046918846858,
+   "tv_replays_q10": 0.7324822456257292,
+   "tv_replays_q90": 0.7978046918846858,
+   "tv_is": 0.7117789407483273,
+   "accepted_replays_median": 1.0
+  },
+  {
+   "pool": "bloc3",
+   "accepted": 17,
+   "distinct_states": 18,
+   "ess_imh_states": 40.488336649879,
+   "ess_ratio_same_functional_median": 1.1120047056848497,
+   "tv_replays_median": 0.5417893333333335,
+   "tv_replays_q10": 0.436256,
+   "tv_replays_q90": 0.5873726666666668,
+   "tv_is": 0.441843404408698,
+   "accepted_replays_median": 18.0
+  }
+ ],
+ "D": [
+  {
+   "pool": "bloc1",
+   "accepted": 1865,
+   "distinct_states": 1865,
+   "ess_imh_states": 75.78186808230599,
+   "ess_ratio_same_functional_median": 0.6249088365901858,
+   "tv_replays_median": 0.17476099100149978,
+   "tv_replays_q10": 0.13486719144309278,
+   "tv_replays_q90": 0.2251510771538077,
+   "tv_is": 0.13042150000000002,
+   "accepted_replays_median": 1629.0
+  },
+  {
+   "pool": "bloc2",
+   "accepted": 1486,
+   "distinct_states": 1486,
+   "ess_imh_states": 74.77596602964026,
+   "ess_ratio_same_functional_median": 0.513369485449834,
+   "tv_replays_median": 0.16781446604732542,
+   "tv_replays_q10": 0.13446695773204465,
+   "tv_replays_q90": 0.20870381836360605,
+   "tv_is": 0.13042150000000044,
+   "accepted_replays_median": 1503.5
+  },
+  {
+   "pool": "bloc3",
+   "accepted": 1407,
+   "distinct_states": 1408,
+   "ess_imh_states": 57.24323241958558,
+   "ess_ratio_same_functional_median": 0.268297770438046,
+   "tv_replays_median": 0.17180816666666665,
+   "tv_replays_q10": 0.14072038333333337,
+   "tv_replays_q90": 0.21549971666666665,
+   "tv_is": 0.13290188880121462,
+   "accepted_replays_median": 1756.5
+  }
+ ]
+}

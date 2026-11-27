@@ -1927,3 +1927,40 @@ Moyennes des évaluations des époques 350, 400, 450 (écart entre évaluations)
 **4. Fermetures sans calcul (décision de l'utilisateur).**
 - **(s) à S = 50 sur MoS-w : non exécuté ; S2 reste étiqueté C.** Justification : « |A_m| ≈ 5 : AS amplifie les erreurs de forme du buffer, le post hoc est meilleur et moins cher, le résultat ne changerait aucune décision ».
 - **Eccentric GMM à modes de formes différentes : non poursuivi, hors question.**
+
+## IMH dans l'espace des trajectoires, AS comme proposition : phase 1 hors ligne (2026-11-27, `rules/rules_imh_path.md`, règles commitées en 2192e9c avant tout calcul)
+Écrit pour : Hadrien. CPU, aucune location, chaque exécution < 10 s, aucune simulation nouvelle hors contrôle. Scripts `scripts/imh_path.py`, `scripts/imh_path_examine.py` ; résultats `figures/imh_path/`.
+**Contrôle préalable** : log w̃ recalculé depuis les transitions discrètes enregistrées égal à `girsanov.log_path_weights` (500 trajectoires, float64) : écart maximal 4,9·10⁻¹¹ (MoS-w) et 3,4·10⁻¹¹ (32, 8, 8) ; **réussi**.
+Moyennes des 3 pools (écart-type entre pools) ; ESS **par proposition**.
+
+| cellule | acceptation (3 pools) | plus longue suite de rejets | ESS IMH (médiane des indicatrices) | ESS IS (Kish) | rapport (règle) | TV bassin IMH | TV bassin IS |
+|---|---|---|---|---|---|---|---|
+| (A) (128,8,6) × 0,5 (Voronoï) | 0,39 / 0,39 / 0,38 | 112 / 85 / 118 | 0,083 / 0,105 / 0,089 | 0,035 / 0,240 / 0,193 | **1,08** (1,10) | 0,026 (0,015) | 0,016 |
+| (B) (128,8,6) × 0,75 | 0,013 / 0,025 / 0,029 | 4705 / 2827 / 2637 | 1,9·10⁻³ à 3,7·10⁻³ | 1,1·10⁻³ à 3,2·10⁻³ | **1,36** (0,36) | 0,157 (0,048) | 0,113 (0,011) |
+| (C) MoS-w d = 10, ép. 250 | 0,0027 / 0,0002 / 0,0028 | 3302 / 5447 / 3803 | 1,8·10⁻³ à 6,8·10⁻³ | 2,5·10⁻⁴ à 7,1·10⁻⁴ | **7,97** (2,54) | 0,621 (0,176) | 0,533 (0,155) |
+| (D) (32,8,8) × 0,5 | 0,31 / 0,25 / 0,23 | 198 / 257 / 372 | 9,5·10⁻³ à 1,3·10⁻² | 1,8·10⁻² à 2,7·10⁻² | **0,52** (0,16) | 0,173 (0,042) | 0,131 (0,002) |
+
+### Verdicts tels qu'écrits
+- **I1 FAUSSE** : rapport ≤ 2 en (A), (B), (D) ; **(C) 7,97 > 2**, dans le sens d'un gain (en (A), marginal : 1,08 ± 1,10).
+- **I2 VRAIE** : (B) 0,157 ≥ 0,5 × 0,113 ; (C) 0,621 ≥ 0,5 × 0,533.
+- **I3 VRAIE, par construction** : les modes 5, 6, 7 (aucune proposition, 3 pools sur 3) restent à 0.
+- **I4 FAUSSE** : (A) TV 0,026 > 0,020 (marginal : écart-type 0,015) ; fausse aussi au plancher à n = 18 000 (0,014).
+- **Lecture fixée d'avance (fermeture en R si I1 à I4 vraies) : non atteinte.** La piste n'est pas fermée en R par la règle.
+
+### Examen du résultat « surprenant » de (C), prévu par la lecture (post hoc, mêmes pools, aucune règle)
+- La chaîne de (C) est bloquée : **16, 1 et 17 mouvements acceptés** sur environ 6000 états (17, 2 et 18 états distincts). L'« ESS » estimé par la règle vaut 24, 11 et 40 états effectifs, **plus que le nombre d'états distincts** : c'est impossible, l'estimateur d'autocorrélation (Geyer) est biaisé sur une chaîne bloquée. Le rapport de la règle compare en plus un ESS par indicatrice (IMH) à l'ESS de Kish (IS), deux fonctionnelles différentes.
+- **À fonctionnelle égale** (ESS de la même indicatrice, IMH contre IS auto-normalisé), le rapport médian est de **0,91 / 1,58 / 1,11** en (C) (0,49 à 0,85 en (A), 0,67 à 0,94 en (B), 0,27 à 0,62 en (D)) : **aucun rapport > 2**.
+- **Sur 200 rejeux de la chaîne** (nouveaux tirages d'acceptation), la TV par bassin médiane de l'IMH vaut 0,42 / 0,80 / 0,54 contre 0,44 / 0,71 / 0,44 pour l'IS en (C) ; **0,032 / 0,024 / 0,022** contre 0,025 / 0,014 / 0,010 en (A) ; 0,18 / 0,16 / 0,12 contre 0,10 / 0,11 / 0,13 en (B) ; 0,17 contre 0,13 en (D). Aucun gain de précision, l'IMH est égal ou moins bon.
+- Lecture, **post hoc, sans changer les verdicts** : le « gain » de I1 en (C) est un artefact de mesure de la règle (estimateur d'ESS et fonctionnelle différente), pas un gain de l'IMH. L'erreur de spécification est la mienne (estimateur d'ESS non borné par le nombre d'états distincts).
+
+### Décomposition de l'identité (15) (descriptif ; w normalisés ; π̂ estimés sur le pool)
+| cellule | E_q[w²] | terme de proportions T | part des masses log T / log E_q[w²] | T avec π exact |
+|---|---|---|---|---|
+| (A) | 28 / 4,2 / 5,2 | 2,15 / 1,68 / 1,80 | 0,23 / 0,36 / 0,36 | 1,70 à 1,85 |
+| (B) | 903 / 312 / 369 | 1,13 / 1,04 / 1,17 | **0,018 / 0,007 / 0,027** | 1,06 à 1,08 |
+| (C) | 1410 / 4070 / 1590 | 1,6 / 3,8 / 1,8 | 0,07 / 0,16 / 0,08 | 3,3 à 4,0 |
+| (D) | 54 / 40 / 38 | 22,7 / 19,8 / 20,2 | **0,78 / 0,81 / 0,83** | infini (3 modes sans proposition) |
+Dégénérescence de (B) presque entièrement **intra-bassin** (forme), comme à l'étape A ; (C) aussi surtout intra-bassin ; (D) surtout de masse (modes rares ou absents du pool). Estimations héritant de la dégénérescence des poids (surtout (B) et (C)).
+- **Mes prédictions** : I1 vraie 80 % (fausse) ; I2 85 % (vraie) ; I3 100 % (vraie) ; I4 55 % (fausse) ; rapport 0,3 à 1 : (D) oui, (A) 1,08, (B) 1,36, (C) 7,97 non ; part des masses faible en (B) (oui), plus grande en (C) (non) et (D) (oui).
+- **Limites** : (A) en Voronoï seulement ; (C) et (D) : les 3 « pools » sont des blocs d'un même contrôleur ((D) réunit deux simulations indépendantes) ; une chaîne par pool ; graine d'entraînement unique.
+- **Phase 2 (pCN dans l'espace des bruits)** : préparée, non lancée (`rules/rules_pcn_path.md`).
